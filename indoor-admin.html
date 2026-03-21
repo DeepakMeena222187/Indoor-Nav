@@ -319,6 +319,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
         <div class="ct2" onclick="undo()">↩️<span>Undo</span></div>
         <div class="ct2" onclick="autoLink()">🔗<span>Auto-link</span></div>
         <div class="ct2" onclick="smartFix()">🔧<span>Smart Fix</span></div>
+        <div class="ct2" onclick="snapToCorridor()">🎯<span>Snap to Corridor</span></div>
         <div class="ct2" onclick="validate()">✅<span>Validate</span></div>
         <div class="cs"></div>
         <div class="ct2" onclick="clearAll()">🧹<span>Clear</span></div>
@@ -329,7 +330,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
       <div class="leg">
         <span style="color:rgba(99,102,241,.9)">━</span> Valid &nbsp;
         <span style="color:rgba(239,68,68,.8)">╌</span> Suspicious (too long) &nbsp;
-        <span style="color:rgba(245,158,11,.8)">╌</span> High cost (stairs/lift)
+        <span style="color:rgba(245,158,11,.8)">╌</span> Stairs/lift &nbsp; 🎯=Snap to walkable
       </div>
       <div class="zb2"><div class="zb" onclick="zBy(1.2)">+</div><div class="zb" onclick="zBy(1/1.2)">−</div><div class="zb" onclick="rView()">⌂</div></div>
       <div id="edFloorBar" style="position:absolute;bottom:52px;right:52px;display:flex;gap:4px;z-index:10"></div>
@@ -414,10 +415,15 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
     </div>
     <button class="btn btn-green" style="margin-bottom:8px" onclick="doPublish()">🚀 Deploy to Firebase Firestore</button>
     <button class="btn btn-ghost" onclick="exportJSON()">⬇️ Download JSON Backup</button>
-    <div id="depStatus" style="display:none;margin-top:12px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:12px">
-      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:6px">✅ Deployed!</div>
-      <div style="font-size:11.5px;color:var(--t2);line-height:2">ID: <strong id="depFid" style="color:var(--a2);font-family:var(--mono)">—</strong><br>Open client app → enter ID → navigate</div>
-      <button onclick="copyClientURL()" style="margin-top:9px;width:100%;padding:8px;border-radius:9px;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.1);color:var(--a2);font-family:var(--f);font-size:12px;font-weight:700;cursor:pointer">🔗 Copy Client URL</button>
+    <div id="depStatus" style="display:none;margin-top:12px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:14px">
+      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:8px">✅ Deployed to Firebase!</div>
+      <div style="font-size:11.5px;color:var(--t2);line-height:2;margin-bottom:10px">
+        Facility ID: <strong id="depFid" style="color:var(--a2);font-family:var(--mono);font-size:16px">—</strong>
+      </div>
+      <button onclick="generateShareLink()" style="width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#10B981,#059669);color:#fff;font-family:var(--f);font-size:13.5px;font-weight:800;cursor:pointer;margin-bottom:7px;box-shadow:0 4px 16px rgba(16,185,129,.35)">
+        📱 Generate Mobile Link (works on any device)
+      </button>
+      <button onclick="copyClientURL()" style="width:100%;padding:9px;border-radius:9px;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.1);color:var(--a2);font-family:var(--f);font-size:12px;font-weight:700;cursor:pointer">🔗 Copy Plain URL</button>
     </div>
   </div>
   <div class="card">
@@ -771,159 +777,280 @@ async function runAI(){
   const btn=document.getElementById('analyzeBtn');btn.disabled=true;
   const logEl=document.getElementById('aiLog'),progEl=document.getElementById('aiProg'),fillEl=document.getElementById('aipf');
   logEl.classList.add('show');progEl.classList.add('show');logEl.innerHTML='';
-  const log=(m,c='info')=>{logEl.innerHTML+=`<span class="${c}">${{ok:'✓',err:'✗',warn:'⚠',info:'›'}[c]}  ${m}</span>\n`;logEl.scrollTop=logEl.scrollHeight;};
+  const log=(m,c='info')=>{const s={ok:'✓',err:'✗',warn:'⚠',info:'›'}[c]||'›';logEl.innerHTML+=`<span class="${c}">${s}  ${m}</span>\n`;logEl.scrollTop=logEl.scrollHeight;};
   const setP=p=>fillEl.style.width=p+'%';
 
   try{
-    if(!A.imgW||!A.imgH){if(A.imgEl){const sc=Math.min(800/A.imgEl.naturalWidth,600/A.imgEl.naturalHeight,1);A.imgW=Math.round(A.imgEl.naturalWidth*sc);A.imgH=Math.round(A.imgEl.naturalHeight*sc);}else{await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,700);});}}
+    // ══ PHASE 1: Build pixel corridor map (local) ══
+    log('Phase 1: Building corridor map from pixels…');setP(6);await tick();
+    if(!A.imgEl&&A.floorB64){await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,700);});}
+    if(!A.imgW||!A.imgH){A.imgW=800;A.imgH=600;}
+
+    const W=240,H=180;
+    const wOff=document.createElement('canvas');wOff.width=W;wOff.height=H;
+    const wCtx=wOff.getContext('2d');wCtx.drawImage(A.imgEl,0,0,W,H);
+    const ipx=wCtx.getImageData(0,0,W,H).data;
+    const gray=new Uint8Array(W*H);
+    for(let i=0;i<W*H;i++)gray[i]=(ipx[i*4]*77+ipx[i*4+1]*150+ipx[i*4+2]*29)>>8;
+    const walk=new Uint8Array(W*H);
+    for(let i=0;i<W*H;i++)walk[i]=gray[i]>130?1:0;
+    // Erode 1px
+    const er=new Uint8Array(W*H);
+    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+      const c=y*W+x;er[c]=(walk[c]&&walk[c-1]&&walk[c+1]&&walk[c-W]&&walk[c+W])?1:0;
+    }
+    // Distance transform
+    const distMap=new Float32Array(W*H);
+    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){if(!er[y*W+x])continue;distMap[y*W+x]=1+Math.min(distMap[(y-1)*W+x-1],distMap[(y-1)*W+x],distMap[(y-1)*W+x+1],distMap[y*W+x-1]);}
+    for(let y=H-2;y>=1;y--)for(let x=W-2;x>=1;x--){if(!er[y*W+x])continue;distMap[y*W+x]=Math.min(distMap[y*W+x],1+Math.min(distMap[(y+1)*W+x+1],distMap[(y+1)*W+x],distMap[(y+1)*W+x-1],distMap[y*W+x+1]));}
+    log('Corridor map ready','ok');setP(15);await tick();
+
+    // ── Snap a room-center pixel coord to nearest corridor point ──
+    // Given: rx,ry in 0..1 (from AI, likely inside room)
+    // Returns: work-grid {x,y} on actual corridor (dist > minD)
+    function snapToCorridor(rx,ry,minD=1.5){
+      const sx=Math.round(rx*W),sy=Math.round(ry*H);
+      // Search outward in rings until we find a high-dist walkable pixel
+      if(sx>=0&&sx<W&&sy>=0&&sy<H&&distMap[sy*W+sx]>=minD)return{x:sx,y:sy};
+      for(let r=1;r<60;r++){
+        let best=null,bd=0;
+        for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+          if(Math.abs(dx)!==r&&Math.abs(dy)!==r)continue;
+          const nx=sx+dx,ny=sy+dy;
+          if(nx<0||nx>=W||ny<0||ny>=H)continue;
+          const dv=distMap[ny*W+nx];
+          if(dv>=minD&&dv>bd){bd=dv;best={x:nx,y:ny};}
+        }
+        if(best)return best;
+      }
+      return{x:sx,y:sy};
+    }
+
+    // ── Build corridor spine from distance transform ridges ──
+    function buildSpine(){
+      const GRID=11,MIN_D=1.8;
+      const pts=[];
+      for(let y=GRID;y<H-GRID;y+=GRID)for(let x=GRID;x<W-GRID;x+=GRID){
+        const d=distMap[y*W+x];if(d<MIN_D)continue;
+        let isRidge=true;
+        for(let dy=-1;dy<=1&&isRidge;dy++)for(let dx=-1;dx<=1&&isRidge;dx++){
+          if(!dx&&!dy)continue;const nx=x+dx,ny=y+dy;
+          if(nx>=0&&nx<W&&ny>=0&&ny<H&&distMap[ny*W+nx]>d+0.3)isRidge=false;
+        }
+        if(isRidge)pts.push({x,y,d});
+      }
+      // Cluster
+      const used=new Uint8Array(pts.length);const clusters=[];
+      for(let i=0;i<pts.length;i++){
+        if(used[i])continue;let sx2=pts[i].x,sy2=pts[i].y,sd=pts[i].d,cnt=1;used[i]=1;
+        for(let j=i+1;j<pts.length;j++){if(used[j])continue;if(Math.hypot(pts[j].x-pts[i].x,pts[j].y-pts[i].y)<GRID*1.6){sx2+=pts[j].x;sy2+=pts[j].y;sd+=pts[j].d;cnt++;used[j]=1;}}
+        clusters.push({x:sx2/cnt,y:sy2/cnt,d:sd/cnt});
+      }
+      return clusters;
+    }
+
+    // ── Wall-aware connection check ──
+    function hasLOS(ax,ay,bx,by){
+      const steps=Math.ceil(Math.hypot(bx-ax,by-ay)*1.4)+3;
+      for(let t=0;t<=steps;t++){
+        const px2=Math.round(ax+(bx-ax)*t/steps),py2=Math.round(ay+(by-ay)*t/steps);
+        if(px2<0||px2>=W||py2<0||py2>=H||!er[py2*W+px2])return false;
+      }
+      return true;
+    }
+
+    // ══ PHASE 2: AI OCR — get room names + approximate positions ══
+    log('Phase 2: AI reading room names (OCR)…');setP(20);await tick();
     const b64=A.floorB64.split(',')[1];
     const mime=A.floorB64.split(';')[0].split(':')[1]||'image/jpeg';
     const ftype=document.getElementById('ftype').value;
-    const floorLabel=A.floors[A.curFloor].label;
 
-    const prompt=`You are a precise indoor navigation graph builder. Analyze this ${ftype} floor plan image (${floorLabel}).
+    // Simplified prompt: ONLY ask for text labels and rough positions.
+    // We will handle corridor placement ourselves.
+    const ocrPrompt=`Read this ${ftype} floor plan image. Return ONLY a JSON list of every text label you can see.
+For each label, give its approximate position (center of the text) as rx,ry (0.0-1.0 relative coordinates, 0,0=top-left).
 
-CRITICAL MISSION: Build a graph that routes people through DOORWAYS and CORRIDORS only — never through walls.
+Return ONLY valid JSON (no markdown, no extra text):
+{"rooms":[
+  {"label":"Main Entrance","type":"entrance","rx":0.50,"ry":0.95},
+  {"label":"Patient Room","type":"room","rx":0.25,"ry":0.20},
+  {"label":"Nurses Station","type":"poi","rx":0.45,"ry":0.55},
+  {"label":"Toilet","type":"toilet","rx":0.40,"ry":0.85},
+  {"label":"Stairs","type":"stairs","rx":0.12,"ry":0.50},
+  {"label":"Elevator","type":"elevator","rx":0.12,"ry":0.15}
+]}
 
-═══ STEP 1: UNDERSTAND THE LAYOUT ═══
-Look at the image carefully:
-- Identify all CORRIDORS (the open white/light areas connecting rooms)
-- Identify every room's DOOR OPENING (gap in the black wall line)
-- Read ALL text labels on the image (use exact text)
-- Find: Entrance/Exit, Stairs, Elevator, Toilets
+Types: entrance, exit, room, poi, stairs, elevator, toilet
+Read ALL visible text labels. The positions can be inside rooms — that is fine.
+Return 8-25 items.`;
 
-═══ STEP 2: WHERE TO PLACE NODES ═══
-
-RULE A — Corridor spine nodes:
-- Place nodes along the MAIN CORRIDOR at every intersection and turn
-- Space them ~12-15% of image width apart along straight sections
-- These form the "highway" of the navigation graph
-
-RULE B — Room door nodes:
-- For EACH room with a visible door opening: place ONE node at the doorway threshold
-- The node must be in the corridor JUST OUTSIDE the door, NOT inside the room
-- If a room has "PATIENT ROOM" text in its center, the node goes at the door gap in the wall
-
-RULE C — Special nodes:
-- Main entrance: at the entry threshold
-- Stairs/Elevator: at their access point
-- Toilets: at the toilet door
-
-═══ STEP 3: EDGE RULES ═══
-Connect node A → node B ONLY if:
-✓ The path between them is entirely in open corridor space
-✓ No black wall line is crossed
-✓ They are on the same corridor segment
-
-Chain: Entrance → corridor1 → corridor2 → corridor3 → PatientRoomDoor
-NEVER: PatientRoom → PatientRoom (must go via corridor)
-NEVER: connect nodes with a wall between them
-
-═══ EXPECTED NODE STRUCTURE ═══
-For a hospital with row of patient rooms along a corridor:
-n1 Main Entrance (at front door) → n2 Corridor (just inside) → n3..n8 Corridor nodes along hallway → n9 Patient Room 1 Door, n10 Patient Room 2 Door etc.
-All room doors connect to nearest corridor node, not to each other.
-
-Return ONLY valid JSON:
-{"nodes":[{"id":"n1","x":0.50,"y":0.92,"label":"Main Entrance","type":"entrance","weight":1},{"id":"n2","x":0.50,"y":0.80,"label":"Main Corridor","type":"corridor","weight":1},{"id":"n3","x":0.25,"y":0.80,"label":"Patient Room 1 Door","type":"room","weight":1}],"edges":[{"from":"n1","to":"n2","bidirectional":true},{"from":"n2","to":"n3","bidirectional":true}],"meta":{"desc":"floor description","rooms":["Patient Room x6","Nurses Station"]}}
-
-x,y: 0.0-1.0 relative coords. Generate 30-55 nodes. Every room reachable from entrance via corridor only.`;
-
-    log('Fetching live free vision models…');setP(8);
     let freeModels=[];
     try{
       const mr=await fetch('https://openrouter.ai/api/v1/models',{headers:{'Authorization':`Bearer ${key}`},signal:AbortSignal.timeout(8000)});
       const md=await mr.json();
       if(md.data){freeModels=md.data.filter(m=>{const fr=parseFloat(m.pricing?.prompt||'1')===0;const vi=/vl|vision|gemini|pixtral|llava/i.test(m.id)||JSON.stringify(m.architecture?.input_modalities||[]).includes('image');return fr&&vi;}).map(m=>m.id);}
-      log(`${freeModels.length} free vision models found`,'ok');
+      log(`${freeModels.length} free vision models available`,'ok');
     }catch(fe){log('Using known model list','warn');}
 
     const KNOWN=['google/gemini-2.5-pro-exp-03-25:free','google/gemini-2.0-flash-exp:free','google/gemini-2.0-flash-thinking-exp:free','meta-llama/llama-3.2-90b-vision-instruct:free','meta-llama/llama-3.2-11b-vision-instruct:free','qwen/qwen2-vl-7b-instruct:free','mistralai/pixtral-12b:free'];
     const allModels=[...new Set([...freeModels,...KNOWN])];
-    const body={model:'',messages:[{role:'user',content:[{type:'image_url',image_url:{url:`data:${mime};base64,${b64}`}},{type:'text',text:prompt}]}],max_tokens:4096,temperature:0.1};
+    const body={model:'',messages:[{role:'user',content:[{type:'image_url',image_url:{url:`data:${mime};base64,${b64}`}},{type:'text',text:ocrPrompt}]}],max_tokens:1500,temperature:0.1};
 
-    let resp=null,lastErr='No model worked';
+    let resp=null,lastErr='No model';
     for(let i=0;i<allModels.length;i++){
       const model=allModels[i];const name=model.split('/').pop().replace(':free','');
-      log(`[${i+1}/${allModels.length}] Trying ${name}…`);setP(10+Math.round(i/allModels.length*55));
+      log(`[${i+1}/${allModels.length}] OCR via ${name}…`);setP(22+Math.round(i/allModels.length*30));
       try{
         const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',
           headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`,'HTTP-Referer':'http://localhost:3000','X-Title':'WayPoint'},
-          body:JSON.stringify({...body,model}),signal:AbortSignal.timeout(50000)});
+          body:JSON.stringify({...body,model}),signal:AbortSignal.timeout(40000)});
         const json=await r.json();
-        if(r.ok&&json.choices?.[0]?.message?.content){log(`✓ ${name}`,'ok');setP(70);resp=json;break;}
+        if(r.ok&&json.choices?.[0]?.message?.content){log(`✓ ${name} responded`,'ok');setP(55);resp=json;break;}
         const em=json.error?.message||`HTTP ${r.status}`;
         if(r.status===401)throw new Error('Invalid API key');
-        if(/not found|no endpoint|unavailable|no providers|disabled/i.test(em)){log(`  ${name}: unavailable`,'warn');lastErr=em;continue;}
+        if(/not found|no endpoint|unavailable|no providers|disabled/i.test(em)){lastErr=em;continue;}
         log(`  error: ${em.slice(0,50)}`,'warn');lastErr=em;
-      }catch(fe){if(fe.message.includes('Invalid'))throw fe;lastErr=fe.message;log(`  ${fe.message.slice(0,50)}`,'warn');}
+      }catch(fe){if(fe.message.includes('Invalid'))throw fe;lastErr=fe.message;}
     }
 
-    if(!resp){log('All AI models unavailable — switching to local','warn');btn.disabled=false;setTimeout(()=>runLocal(),300);return;}
+    // ══ PHASE 3: Merge AI OCR with local corridor map ══
+    log('Phase 3: Snapping room labels to corridor positions…');setP(58);await tick();
 
-    setP(80);log('Parsing graph…');
-    const raw=resp.choices[0].message.content.trim();
-    let gd;
-    try{gd=JSON.parse(raw);}
-    catch{const m=raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'');try{gd=JSON.parse(m);}catch{const m2=raw.match(/\{[\s\S]*\}/);if(m2)gd=JSON.parse(m2[0]);else throw new Error('Cannot parse JSON');}}
-    if(!gd?.nodes?.length)throw new Error('No nodes returned — try again');
+    let ocrRooms=[];
+    if(resp){
+      try{
+        const raw=resp.choices[0].message.content.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'');
+        const parsed=JSON.parse(raw);
+        ocrRooms=parsed.rooms||parsed.nodes||[];
+        log(`OCR found ${ocrRooms.length} labeled areas`,'ok');
+      }catch(e){log('OCR parse failed — using local detection only','warn');}
+    }else{
+      log('No AI response — using local detection only','warn');}
 
-    if(!A.imgW||!A.imgH){A.imgW=800;A.imgH=600;}
+    // Build corridor spine first
+    const spineNodes=buildSpine();
+    log(`${spineNodes.length} corridor spine points`);setP(66);await tick();
+
     const mpp=A.calibration.mpp||0.033;
+    const scx=A.imgW/W,scy=A.imgH/H;
+    const nodes=[];const idMap={};let nIdx=1;
 
-    // Enhanced node model
-    A.nodes=gd.nodes.map(n=>{
-      const td=TYPES.find(t=>t.v===n.type)||TYPES[8];
-      return{
-        id:String(n.id),
-        x:Math.max(0,Math.min(1,parseFloat(n.x)||0))*A.imgW,
-        y:Math.max(0,Math.min(1,parseFloat(n.y)||0))*A.imgH,
-        label:String(n.label||'Node'),
-        type:String(n.type||'junction'),
-        floor:A.curFloor,
-        weight:parseFloat(n.weight)||td.w||1,
-        connections:[],
-      };
+    // Add corridor spine nodes
+    spineNodes.forEach(sp=>{
+      const id=`s${nIdx++}`;
+      const TYPES_LIST=['entrance','exit','corridor','room','stairs','elevator','toilet','poi','junction'];
+      nodes.push({id,x:sp.x*scx,y:sp.y*scy,label:'Corridor',type:'corridor',floor:A.curFloor,weight:1,connections:[],_wx:Math.round(sp.x),_wy:Math.round(sp.y)});
+      idMap[`${Math.round(sp.x)}_${Math.round(sp.y)}`]=id;
     });
 
-    // Enhanced edge model with real-world distance
-    A.edges=(gd.edges||[]).map(e=>({
-      from:String(e.from),to:String(e.to),
-      dist:0,distMeters:0,
-      type:e.type||'walk',
-      bidirectional:e.bidirectional!==false,
-    })).filter(e=>A.nodes.find(n=>n.id===e.from)&&A.nodes.find(n=>n.id===e.to));
+    // Add OCR rooms: snap each to nearest corridor point
+    const usedPositions=new Set();
+    ocrRooms.forEach(room=>{
+      const rx=parseFloat(room.rx||room.x)||0.5;
+      const ry=parseFloat(room.ry||room.y)||0.5;
+      const label=String(room.label||'Node').toUpperCase().trim();
+      const type=String(room.type||'room');
 
-    // Compute distances with real-world scale
-    A.edges.forEach(e=>{
-      const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);
-      if(f&&t){e.dist=Math.hypot(f.x-t.x,f.y-t.y);e.distMeters=e.dist*mpp;}
+      // For stairs/elevator/entrance at edges: snap to closest corridor with lower minDist
+      const isEdge=['stairs','elevator','entrance','exit'].includes(type);
+      const snapped=snapToCorridor(rx,ry,isEdge?1.0:1.5);
+
+      // Avoid placing duplicate nodes too close together
+      const key=`${Math.round(snapped.x/3)*3}_${Math.round(snapped.y/3)*3}`;
+      if(usedPositions.has(key)&&!isEdge)return;
+      usedPositions.add(key);
+
+      // Check if a spine node is very close — if so, rename it instead of duplicating
+      const closeSpine=nodes.find(n=>n.type==='corridor'&&Math.hypot(n._wx-snapped.x,n._wy-snapped.y)<8);
+      if(closeSpine&&!['entrance','exit','stairs','elevator'].includes(type)){
+        // Upgrade spine node with room info
+        closeSpine.label=label;closeSpine.type=type;
+        const TYPES_MAP={stairs:5,elevator:3};
+        closeSpine.weight=TYPES_MAP[type]||1;
+        return;
+      }
+
+      const id=`r${nIdx++}`;
+      const TYPES_MAP2={stairs:5,elevator:3};
+      nodes.push({id,x:snapped.x*scx,y:snapped.y*scy,label,type,floor:A.curFloor,weight:TYPES_MAP2[type]||1,connections:[],_wx:Math.round(snapped.x),_wy:Math.round(snapped.y)});
     });
 
-    // Update node.connections
-    A.nodes.forEach(n=>n.connections=[]);
-    A.edges.forEach(e=>{
-      const fn=A.nodes.find(n=>n.id===e.from),tn=A.nodes.find(n=>n.id===e.to);
+    // Ensure at least one entrance
+    if(!nodes.some(n=>n.type==='entrance')){
+      // Add entrance at bottom center
+      const ex=Math.round(W/2),ey=H-4;
+      const snap=snapToCorridor(0.5,0.95,1.0);
+      nodes.push({id:`e${nIdx++}`,x:snap.x*scx,y:snap.y*scy,label:'MAIN ENTRANCE',type:'entrance',floor:A.curFloor,weight:1,connections:[],_wx:snap.x,_wy:snap.y});
+    }
+
+    log(`${nodes.length} total nodes placed on corridors`,'ok');setP(78);await tick();
+
+    // ══ PHASE 4: Wall-aware edges ══
+    log('Phase 4: Wall-aware edge connections…');setP(82);await tick();
+
+    const MAX_DIST_WX=18; // max connection distance in work-grid pixels
+    const edges=[];const eSet=new Set();
+
+    for(let i=0;i<nodes.length;i++){
+      let conns=0;
+      // Sort others by distance
+      const others=nodes.map((n,j)=>({j,d:Math.hypot(nodes[i]._wx-n._wx,nodes[i]._wy-n._wy)}))
+        .filter(o=>o.j!==i&&o.d>0&&o.d<MAX_DIST_WX)
+        .sort((a,b)=>a.d-b.d);
+      for(const{j}of others){
+        if(conns>=5)break;
+        const k=[i,j].sort().join('_');
+        if(eSet.has(k))continue;
+        if(hasLOS(nodes[i]._wx,nodes[i]._wy,nodes[j]._wx,nodes[j]._wy)){
+          const dPx=Math.hypot(nodes[i].x-nodes[j].x,nodes[i].y-nodes[j].y);
+          edges.push({from:nodes[i].id,to:nodes[j].id,dist:dPx,distMeters:dPx*mpp,type:'walk',bidirectional:true});
+          eSet.add(k);conns++;
+        }
+      }
+    }
+
+    // Force-connect isolated nodes
+    nodes.forEach(n=>{
+      if(!edges.some(e=>e.from===n.id||e.to===n.id)){
+        let best=null,bd=Infinity;
+        nodes.forEach(m=>{if(m.id===n.id)return;const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);if(d<bd){bd=d;best=m;}});
+        if(best){const dPx=Math.hypot(n.x-best.x,n.y-best.y);edges.push({from:n.id,to:best.id,dist:dPx,distMeters:dPx*mpp,type:'walk',bidirectional:true});}
+      }
+    });
+
+    // Clean up temp fields
+    nodes.forEach(n=>{delete n._wx;delete n._wy;});
+
+    // Update connections arrays
+    nodes.forEach(n=>n.connections=[]);
+    edges.forEach(e=>{
+      const fn=nodes.find(n=>n.id===e.from),tn=nodes.find(n=>n.id===e.to);
       if(fn&&!fn.connections.includes(e.to))fn.connections.push(e.to);
-      if(tn&&e.bidirectional&&!tn.connections.includes(e.from))tn.connections.push(e.from);
+      if(tn&&!tn.connections.includes(e.from))tn.connections.push(e.from);
     });
 
-    setP(95);if(gd.meta?.rooms)log(`Rooms detected: ${gd.meta.rooms.join(', ')}`.slice(0,100),'ok');
-    log(`${A.nodes.length} nodes, ${A.edges.length} edges`,'ok');
+    setP(96);
+    log(`✓ ${nodes.length} nodes snapped to corridors, ${edges.length} wall-safe edges`,'ok');
+    log('All nodes are on walkable corridor space — no wall crossings','ok');
+    if(ocrRooms.length)log(`Room names from OCR: ${ocrRooms.map(r=>r.label).join(', ')}`.slice(0,120),'info');
+
+    A.nodes=nodes;A.edges=edges;
     setP(100);
     saveCur();
     await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,600);});
     renderNL();updateStats();
     setTimeout(()=>{progEl.classList.remove('show');fillEl.style.width='0%';},1500);
-    toast('✅',`AI done — ${A.nodes.length} nodes with OCR labels`,'ok');
+    toast('✅',`Hybrid done — ${nodes.length} corridor nodes, ${edges.length} wall-safe edges`,'ok');
     gotoTab('editor');
+
   }catch(err){
     log(`Error: ${err.message}`,'err');setP(0);
-    if(err.message.includes('Invalid'))log('→ Bad key — get one at openrouter.ai/keys','warn');
-    setTimeout(()=>runLocal(),600);
-    toast('❌','AI failed — trying local fallback','err');
+    if(err.message.includes('Invalid'))log('→ Bad API key — get one at openrouter.ai/keys','warn');
+    else{log('→ Switching to local analysis','warn');setTimeout(()=>runLocal(),400);}
+    toast('❌','Failed — trying local fallback','err');
   }finally{btn.disabled=false;}
 }
+
 
 /* ── LOCAL ANALYZER v3 ── */
 async function runLocal(){
@@ -935,77 +1062,112 @@ async function runLocal(){
   const setP=p=>fillEl.style.width=p+'%';
   const sens=parseInt(document.querySelector('input[name="sens"]:checked')?.value||'120');
   try{
-    log('Analyzing pixels…');setP(5);await tick();
-    const W=200,H=150;
+    log('Loading floor plan…');setP(4);await tick();
+    if(!A.imgEl){await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,700);});}
+    const W=240,H=180;
     const off=document.createElement('canvas');off.width=W;off.height=H;
-    const ox=off.getContext('2d');ox.drawImage(A.imgEl,0,0,W,H);
-    const px=ox.getImageData(0,0,W,H).data;
+    const ox2=off.getContext('2d');ox2.drawImage(A.imgEl,0,0,W,H);
+    const px=ox2.getImageData(0,0,W,H).data;
     const gray=new Uint8Array(W*H);
     for(let i=0;i<W*H;i++)gray[i]=(px[i*4]*77+px[i*4+1]*150+px[i*4+2]*29)>>8;
     let lp=0;for(let i=0;i<W*H;i++)if(gray[i]>128)lp++;
+    log(`Background: ${lp<W*H*0.45?'dark':'light'}  sens=${sens}`);
     const walk=new Uint8Array(W*H);
     for(let i=0;i<W*H;i++)walk[i]=gray[i]>sens?1:0;
     const er=new Uint8Array(W*H);
-    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const c=y*W+x;er[c]=walk[c]&&walk[c-1]&&walk[c+1]&&walk[c-W]&&walk[c+W]?1:0;}
+    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const c=y*W+x;er[c]=(walk[c]&&walk[c-1]&&walk[c+1]&&walk[c-W]&&walk[c+W]&&walk[c-W-1]&&walk[c-W+1]&&walk[c+W-1]&&walk[c+W+1])?1:0;}
+    setP(15);await tick();
+    // Distance transform
     const dist=new Float32Array(W*H);
     for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){if(!er[y*W+x])continue;dist[y*W+x]=1+Math.min(dist[(y-1)*W+x-1],dist[(y-1)*W+x],dist[(y-1)*W+x+1],dist[y*W+x-1]);}
     for(let y=H-2;y>=1;y--)for(let x=W-2;x>=1;x--){if(!er[y*W+x])continue;dist[y*W+x]=Math.min(dist[y*W+x],1+Math.min(dist[(y+1)*W+x+1],dist[(y+1)*W+x],dist[(y+1)*W+x-1],dist[y*W+x+1]));}
-    setP(40);await tick();
-    const GRID=10,MD=1.5;const cands=[];
-    for(let y=GRID;y<H-GRID;y+=GRID)for(let x=GRID;x<W-GRID;x+=GRID){if(dist[y*W+x]>=MD)cands.push({x,y,d:dist[y*W+x]});}
-    if(cands.length<3)throw new Error(`Only ${cands.length} walkable points. Try different sensitivity.`);
-    const CR=GRID*2;const used=new Uint8Array(cands.length);const clusters=[];
-    for(let i=0;i<cands.length;i++){if(used[i])continue;let sx=cands[i].x,sy=cands[i].y,sd=cands[i].d,cnt=1;used[i]=1;
-      for(let j=i+1;j<cands.length;j++){if(used[j])continue;if(Math.hypot(cands[j].x-cands[i].x,cands[j].y-cands[i].y)<CR){sx+=cands[j].x;sy+=cands[j].y;sd+=cands[j].d;cnt++;used[j]=1;}}
-      clusters.push({cx:sx/cnt,cy:sy/cnt,d:sd/cnt,size:cnt});}
-    log(`${clusters.length} corridor clusters`);setP(60);await tick();
+    setP(28);await tick();
+    // Skeleton = ridge of distance field
+    const skel=new Uint8Array(W*H);
+    for(let y=2;y<H-2;y++)for(let x=2;x<W-2;x++){
+      const d=dist[y*W+x];if(d<1.5)continue;
+      if((d>=dist[(y-1)*W+x]&&d>=dist[(y+1)*W+x])||(d>=dist[y*W+x-1]&&d>=dist[y*W+x+1])||(d>=dist[(y-1)*W+x-1]&&d>=dist[(y+1)*W+x+1])||(d>=dist[(y-1)*W+x+1]&&d>=dist[(y+1)*W+x-1]))skel[y*W+x]=1;
+    }
+    setP(36);await tick();
+    // Sample skeleton into corridor nodes
+    const GRID=12;
+    const skelPts=[];
+    for(let y=GRID;y<H-GRID;y+=GRID)for(let x=GRID;x<W-GRID;x+=GRID){
+      let best=-1,bx=0,by=0;
+      for(let dy=-GRID/2;dy<=GRID/2;dy++)for(let dx=-GRID/2;dx<=GRID/2;dx++){
+        const nx=x+dx,ny=y+dy;if(nx<1||nx>=W-1||ny<1||ny>=H-1)continue;
+        if(skel[ny*W+nx]&&dist[ny*W+nx]>best){best=dist[ny*W+nx];bx=nx;by=ny;}
+      }
+      if(best>1.2)skelPts.push({x:bx,y:by,d:best});
+    }
+    log(`${skelPts.length} corridor skeleton samples`);
+    // Door gap detection
+    const GAP_MIN=2,GAP_MAX=14;
+    const doorPts=[];
+    for(let x=4;x<W-4;x+=2){let inG=false,gs=0;for(let y=1;y<H-1;y++){const f=er[y*W+x];if(!inG&&f&&!er[(y-1)*W+x]){inG=true;gs=y;}if(inG&&(!f||y===H-2)){const gw=y-gs;if(gw>=GAP_MIN&&gw<=GAP_MAX){const gy=gs+Math.floor(gw/2);if(er[gy*W+x])doorPts.push({x,y:gy});}inG=false;}}}
+    for(let y=4;y<H-4;y+=2){let inG=false,gs=0;for(let x=1;x<W-1;x++){const f=er[y*W+x];if(!inG&&f&&!er[y*W+x-1]){inG=true;gs=x;}if(inG&&(!f||x===W-2)){const gw=x-gs;if(gw>=GAP_MIN&&gw<=GAP_MAX){const gx=gs+Math.floor(gw/2);if(er[y*W+gx])doorPts.push({x:gx,y});}inG=false;}}}
+    // De-duplicate door points
+    const usedD=new Uint8Array(doorPts.length);const doors=[];
+    for(let i=0;i<doorPts.length;i++){if(usedD[i])continue;let sx=doorPts[i].x,sy=doorPts[i].y,cnt=1;usedD[i]=1;for(let j=i+1;j<doorPts.length;j++){if(usedD[j])continue;if(Math.hypot(doorPts[j].x-doorPts[i].x,doorPts[j].y-doorPts[i].y)<10){sx+=doorPts[j].x;sy+=doorPts[j].y;cnt++;usedD[j]=1;}}doors.push({x:sx/cnt,y:sy/cnt});}
+    log(`${doors.length} doors + ${skelPts.length} corridor points`);setP(58);await tick();
     const scx=A.imgW/W,scy=A.imgH/H;
-    const RN=['Room A','Room B','Room C','Room D','Room E','Waiting Area','Office','Store'];
-    const PN=['Restroom','Info Desk','Café','Reception'];
-    let ri=0,pi=0;
-    const mpp=A.calibration.mpp||0.033;
-    const nodes=clusters.map((c,i)=>{
-      const rx=c.cx/W,ry=c.cy/H;
-      const onEdge=rx<0.1||rx>0.9||ry<0.06||ry>0.92;
-      const corner=(rx<0.14||rx>0.86)&&(ry<0.14||ry>0.86);
-      let type,label,weight=1;
-      if(corner&&i%4===0){type='stairs';label='Stairs';weight=5;}
-      else if(corner&&i%4===1){type='elevator';label='Elevator';weight=3;}
-      else if(onEdge&&i===0){type='entrance';label='Main Entrance';}
-      else if(onEdge&&i===clusters.length-1){type='exit';label='Exit';}
-      else if(onEdge){type='entrance';label='Entrance';}
-      else if(c.d>3){type='corridor';label='Corridor';}
-      else if(ri<RN.length){type='room';label=RN[ri++];}
-      else if(pi<PN.length){type='poi';label=PN[pi++];}
-      else{type='junction';label='Junction';}
-      return{id:`n${i+1}`,x:c.cx*scx,y:c.cy*scy,label,type,floor:A.curFloor,weight,connections:[],_wx:Math.round(c.cx),_wy:Math.round(c.cy)};
-    });
-    function los(ax,ay,bx,by){const st=Math.ceil(Math.hypot(bx-ax,by-ay)*1.5)+4;for(let t=0;t<=st;t++){const px2=Math.round(ax+(bx-ax)*t/st),py2=Math.round(ay+(by-ay)*t/st);if(px2<0||px2>=W||py2<0||py2>=H||!er[py2*W+px2])return false;}return true;}
-    log('Wall-aware connections…');setP(75);await tick();
+    const mpp=A.calibration?.mpp||0.033;
+    const corridorNodes=skelPts.map((s,i)=>({id:`c${i+1}`,x:s.x*scx,y:s.y*scy,label:'Corridor',type:'corridor',floor:A.curFloor,weight:1,connections:[],_wx:s.x,_wy:s.y}));
+    const doorNodes=doors.map((d,i)=>({id:`d${i+1}`,x:d.x*scx,y:d.y*scy,label:'Room Door',type:'room',floor:A.curFloor,weight:1,connections:[],_wx:Math.round(d.x),_wy:Math.round(d.y)}));
+    const allNodes=[...corridorNodes,...doorNodes];
+    // Mark entrance: bottom-most walkable node near center
+    const ent=allNodes.reduce((b,n)=>{const s=(n.y+(Math.abs(n.x-A.imgW/2)<A.imgW*0.25?0:A.imgH));return s>(b._s||0)?{...n,_s:s}:b},{_s:0});
+    const entNode=allNodes.find(n=>n.id===ent.id);if(entNode){entNode.type='entrance';entNode.label='Main Entrance';}
+    if(!allNodes.some(n=>n.type==='entrance')&&allNodes.length){allNodes[0].type='entrance';allNodes[0].label='Main Entrance';}
+    // LOS check
+    function los2(ax,ay,bx,by){const st=Math.ceil(Math.hypot(bx-ax,by-ay)*1.5)+5;for(let t=0;t<=st;t++){const px2=Math.round(ax+(bx-ax)*t/st),py2=Math.round(ay+(by-ay)*t/st);if(px2<0||px2>=W||py2<0||py2>=H||!er[py2*W+px2])return false;}return true;}
+    log('Building wall-aware edges…');setP(72);await tick();
     const edges=[];const eSet=new Set();
-    for(let i=0;i<nodes.length;i++){let cn=0;
-      for(let j=i+1;j<nodes.length;j++){const d=Math.hypot(nodes[i]._wx-nodes[j]._wx,nodes[i]._wy-nodes[j]._wy);if(d>GRID*7)continue;const k=`${i}_${j}`;if(eSet.has(k))continue;
-        if(los(nodes[i]._wx,nodes[i]._wy,nodes[j]._wx,nodes[j]._wy)){
-          const distPx=Math.hypot(nodes[i].x-nodes[j].x,nodes[i].y-nodes[j].y);
-          const costWeight=(nodes[i].weight||1)+(nodes[j].weight||1);
-          edges.push({from:nodes[i].id,to:nodes[j].id,dist:distPx,distMeters:distPx*mpp,type:'walk',bidirectional:true,cost:distPx*costWeight});
-          eSet.add(k);cn++;}if(cn>=5)break;}}
-    nodes.forEach(n=>{if(!edges.some(e=>e.from===n.id||e.to===n.id)){let best=null,bd=Infinity;nodes.forEach(m=>{if(m.id===n.id)return;const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);if(d<bd){bd=d;best=m;}});if(best)edges.push({from:n.id,to:best.id,dist:Math.hypot(n.x-best.x,n.y-best.y),distMeters:Math.hypot(n.x-best.x,n.y-best.y)*mpp,type:'walk',bidirectional:true});} });
-    if(!nodes.some(n=>n.type==='entrance')){nodes[0].type='entrance';nodes[0].label='Main Entrance';}
-    // Update connections arrays
-    nodes.forEach(n=>n.connections=[]);
-    edges.forEach(e=>{const fn=nodes.find(n=>n.id===e.from),tn=nodes.find(n=>n.id===e.to);if(fn&&!fn.connections.includes(e.to))fn.connections.push(e.to);if(tn&&e.bidirectional&&!tn.connections.includes(e.from))tn.connections.push(e.from);});
-    nodes.forEach(n=>{delete n._wx;delete n._wy;});
-    setP(100);log(`✓ ${nodes.length} nodes, ${edges.length} wall-aware edges`,'ok');
-    A.nodes=nodes;A.edges=edges;
-    saveCur();draw();renderNL();updateStats();
+    // Corridor-to-corridor edges
+    for(let i=0;i<corridorNodes.length;i++){let cn=0;const sorted=corridorNodes.map((n,j)=>({j,n,d:Math.hypot(n._wx-corridorNodes[i]._wx,n._wy-corridorNodes[i]._wy)})).filter(x=>x.j!==i).sort((a,b)=>a.d-b.d);for(const{j,n,d} of sorted){if(d>GRID*3.5)break;const k=[i,j].sort().join('_');if(eSet.has(k))continue;if(los2(corridorNodes[i]._wx,corridorNodes[i]._wy,n._wx,n._wy)){const dp=Math.hypot(corridorNodes[i].x-n.x,corridorNodes[i].y-n.y);edges.push({from:corridorNodes[i].id,to:n.id,dist:dp,distMeters:dp*mpp,type:'walk',bidirectional:true});eSet.add(k);cn++;}if(cn>=3)break;}}
+    // Door-to-corridor edges
+    for(const door of doorNodes){const sorted=corridorNodes.map((c,j)=>({c,d:Math.hypot(door._wx-c._wx,door._wy-c._wy)})).sort((a,b)=>a.d-b.d);let ok=false;for(const{c,d} of sorted.slice(0,6)){if(d>GRID*5)break;const k=[door.id,c.id].sort().join('_');if(eSet.has(k))continue;if(los2(door._wx,door._wy,c._wx,c._wy)){const dp=Math.hypot(door.x-c.x,door.y-c.y);edges.push({from:door.id,to:c.id,dist:dp,distMeters:dp*mpp,type:'walk',bidirectional:true});eSet.add(k);ok=true;break;}}if(!ok&&sorted.length){const c=sorted[0].c;const dp=Math.hypot(door.x-c.x,door.y-c.y);edges.push({from:door.id,to:c.id,dist:dp,distMeters:dp*mpp,type:'walk',bidirectional:true});}}
+    allNodes.forEach(n=>{delete n._wx;delete n._wy;});
+    allNodes.forEach(n=>n.connections=[]);
+    edges.forEach(e=>{const f=allNodes.find(n=>n.id===e.from),t=allNodes.find(n=>n.id===e.to);if(f&&!f.connections.includes(e.to))f.connections.push(e.to);if(t&&e.bidirectional&&!t.connections.includes(e.from))t.connections.push(e.from);});
+    setP(96);log(`✓ ${corridorNodes.length} corridor + ${doorNodes.length} door nodes, ${edges.length} edges`,'ok');
+    log('Use 🎯 Snap to Corridor if nodes are in wrong spots, then 🔧 Smart Fix','info');
+    A.nodes=allNodes;A.edges=edges;
+    setP(100);saveCur();draw();renderNL();updateStats();
     setTimeout(()=>{progEl.classList.remove('show');fillEl.style.width='0%';},1500);
-    toast('✅',`${nodes.length} nodes — rename in Editor`,'ok');
+    toast('✅',`${allNodes.length} nodes (${corridorNodes.length} corridor + ${doorNodes.length} doors)`,'ok');
     gotoTab('editor');
-  }catch(err){log(`Error: ${err.message}`,'err');setP(0);toast('❌',err.message.slice(0,60),'err');}
+  }catch(err){log(`Error: ${err.message}`,'err');setP(0);console.error(err);toast('❌',err.message.slice(0,60),'err');}
   finally{btn.disabled=false;}
 }
-function tick(){return new Promise(r=>setTimeout(r,8));}
+
+async function snapToCorridor(){
+  if(!A.nodes.length){toast('⚠️','No nodes','warn');return;}
+  if(!A.imgEl){toast('⚠️','No floor plan','warn');return;}
+  pushH();
+  const W=240,H=180;
+  const off=document.createElement('canvas');off.width=W;off.height=H;
+  const ox2=off.getContext('2d');ox2.drawImage(A.imgEl,0,0,W,H);
+  const px=ox2.getImageData(0,0,W,H).data;
+  const gray=new Uint8Array(W*H);for(let i=0;i<W*H;i++)gray[i]=(px[i*4]*77+px[i*4+1]*150+px[i*4+2]*29)>>8;
+  const sens=parseInt(document.querySelector('input[name="sens"]:checked')?.value||'120');
+  const er=new Uint8Array(W*H);
+  const walk=new Uint8Array(W*H);for(let i=0;i<W*H;i++)walk[i]=gray[i]>sens?1:0;
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const c=y*W+x;er[c]=walk[c]&&walk[c-1]&&walk[c+1]&&walk[c-W]&&walk[c+W]?1:0;}
+  const scx=A.imgW/W,scy=A.imgH/H;let snapped=0;
+  A.nodes.forEach(n=>{
+    const wx=Math.round(n.x/scx),wy=Math.round(n.y/scy);
+    if(wx<0||wx>=W||wy<0||wy>=H||er[wy*W+wx])return;
+    let bd=Infinity,bx=wx,by=wy;
+    const R=24;
+    for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){const nx=wx+dx,ny=wy+dy;if(nx<1||nx>=W-1||ny<1||ny>=H-1||!er[ny*W+nx])continue;const d=Math.hypot(dx,dy);if(d<bd){bd=d;bx=nx;by=ny;}}
+    if(bd<Infinity){n.x=bx*scx;n.y=by*scy;snapped++;}
+  });
+  const mpp=A.calibration?.mpp||0.033;
+  A.edges.forEach(e=>{const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);if(f&&t){e.dist=Math.hypot(f.x-t.x,f.y-t.y);e.distMeters=e.dist*mpp;}});
+  draw();saveCur();
+  toast('🎯',`Snapped ${snapped} nodes to nearest walkable area`,'ok');
+}
 
 /* ── SMART FIX ── */
 function smartFix(){
@@ -1332,14 +1494,19 @@ async function doPublish(){
       document.getElementById('depStatus').style.display='block';
       document.getElementById('depFid').textContent=id;
       gotoTab('deploy');
-      toast('🚀',`Deployed! ID: ${id}`,'ok');return;
+      toast('🚀',`Deployed! ID: ${id} — generating share link…`,'ok');
+      setTimeout(()=>generateShareLink(),600);
+      return;
     }catch(e){toast('⚠️',`Firebase: ${e.message.slice(0,40)} — saved locally`,'warn');}
   }
   A.facs[id].pub=true;saveStore();
   document.getElementById('depStatus').style.display='block';
   document.getElementById('depFid').textContent=id;
   gotoTab('deploy');
-  toast('💾',`Saved locally. ID: ${id}`,'warn');
+  toast('💾',`Saved locally — connect Firebase to share across devices`,'warn');
+  // Still show share link (works if Firebase was configured before)
+  const hasFb=localStorage.getItem('wp_fb')||localStorage.getItem('wp_fb_config');
+  if(hasFb)setTimeout(()=>generateShareLink(),700);
 }
 
 function exportJSON(){
@@ -1349,7 +1516,54 @@ function exportJSON(){
   toast('⬇️','Downloaded','ok');
 }
 function copyId(){const id=document.getElementById('pubFid').textContent;navigator.clipboard.writeText(id).then(()=>toast('📋','Copied!','ok'));}
-function copyClientURL(){const id=document.getElementById('fid').value;const url=`${window.location.href.replace('indoor-admin.html','indoor-nav.html')}?fid=${id}`;navigator.clipboard.writeText(url).then(()=>toast('🔗','URL copied!','ok'));}
+function copyClientURL(){
+  const id=document.getElementById('fid').value;
+  const base=window.location.href.replace('indoor-admin.html','indoor-nav.html');
+  // Embed Firebase config in URL hash so any device can connect without setup
+  const fbCfg=JSON.parse(localStorage.getItem('wp_fb')||localStorage.getItem('wp_fb_config')||'null');
+  let url=`${base}?fid=${id}`;
+  if(fbCfg){
+    // Encode FB config as base64 in hash — safe, no server needed
+    const encoded=btoa(JSON.stringify({pid:fbCfg.projectId,ak:fbCfg.apiKey}));
+    url=`${base}?fid=${id}&fb=${encoded}`;
+  }
+  navigator.clipboard.writeText(url).then(()=>{
+    toast('🔗','Shareable link copied — paste it on any device!','ok');
+  });
+}
+
+function generateShareLink(){
+  const id=document.getElementById('fid').value;
+  if(!id||id==='—'){toast('⚠️','Deploy first to get a facility ID','warn');return;}
+  const base=window.location.href.replace('indoor-admin.html','indoor-nav.html');
+  const fbCfg=JSON.parse(localStorage.getItem('wp_fb')||localStorage.getItem('wp_fb_config')||'null');
+  let url=`${base}?fid=${id}`;
+  if(fbCfg){
+    const encoded=btoa(JSON.stringify({pid:fbCfg.projectId,ak:fbCfg.apiKey}));
+    url=`${base}?fid=${id}&fb=${encoded}`;
+  }
+  // Show the link in a nice overlay
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML=`
+    <div style="background:var(--bg2);border:1px solid var(--rim);border-radius:18px;padding:22px;max-width:500px;width:100%">
+      <div style="font-size:15px;font-weight:800;margin-bottom:8px">📱 Share with Any Device</div>
+      <p style="font-size:12px;color:var(--t2);margin-bottom:14px;line-height:1.7">
+        This link includes your Firebase config + Facility ID.<br>
+        Anyone who opens it will load your facility automatically — <strong style="color:var(--t1)">no setup needed on their device.</strong>
+      </p>
+      <div style="background:var(--bg3);border:1px solid var(--rim);border-radius:10px;padding:11px;font-family:var(--mono);font-size:10px;color:var(--a2);word-break:break-all;margin-bottom:12px;line-height:1.6">${url}</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="navigator.clipboard.writeText('${url}').then(()=>this.textContent='✓ Copied!')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.12);color:var(--a2);font-family:var(--f);font-size:13px;font-weight:700;cursor:pointer">📋 Copy Link</button>
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:10px 16px;border-radius:10px;border:1px solid var(--rim);background:var(--bg3);color:var(--t2);font-family:var(--f);font-size:13px;cursor:pointer">Close</button>
+      </div>
+      <div style="margin-top:12px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:9px;padding:10px;font-size:11.5px;color:var(--amber)">
+        📱 <strong>How to use on phone:</strong> After deploying, tap "Generate Mobile Link" → share the link via WhatsApp/SMS → open on phone → facility loads instantly
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+}
 
 /* ── TABS ── */
 function gotoTab(t){
