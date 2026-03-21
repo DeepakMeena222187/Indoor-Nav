@@ -2,857 +2,644 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>WayPoint Admin v2</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>WayPoint Admin v3</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- QR Code generator -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<!-- Firebase -->
 <script type="module">
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import { getFirestore, doc, setDoc, getDoc, collection } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-  window._fbImports = { initializeApp, getFirestore, doc, setDoc, getDoc, collection };
+  import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import{getFirestore,doc,setDoc,getDoc}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+  window._fb={initializeApp,getFirestore,doc,setDoc,getDoc};
 </script>
 <style>
 :root{
-  --bg:#0B0D14;--bg2:#11141E;--bg3:#171B28;--bg4:#1D2133;
-  --rim:rgba(255,255,255,0.07);--rim2:rgba(255,255,255,0.13);
-  --accent:#6366F1;--a2:#818CF8;
+  --bg:#090C15;--bg2:#0F1320;--bg3:#161B2E;--bg4:#1C2238;
+  --rim:rgba(255,255,255,.07);--rim2:rgba(255,255,255,.13);
+  --accent:#6366F1;--a2:#818CF8;--a3:rgba(99,102,241,.15);
   --green:#10B981;--amber:#F59E0B;--red:#EF4444;--cyan:#06B6D4;
   --t1:#F0F4FF;--t2:#8892B0;--t3:#454D6A;
   --f:'Outfit',sans-serif;--mono:'JetBrains Mono',monospace;
-  --spring:cubic-bezier(0.34,1.56,0.64,1);
+  --spring:cubic-bezier(.34,1.56,.64,1);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;height:100dvh;background:var(--bg);color:var(--t1);font-family:var(--f);overflow:hidden;-webkit-font-smoothing:antialiased;}
-.shell{display:grid;grid-template-columns:240px 1fr;grid-template-rows:54px 1fr;height:100vh;height:100dvh;}
-.topbar{grid-column:1/-1;background:var(--bg2);border-bottom:1px solid var(--rim);display:flex;align-items:center;padding:0 18px;gap:14px;}
-.logo-box{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#4F46E5);display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 3px 14px rgba(99,102,241,.45);}
-.logo-name{font-size:16px;font-weight:800;}
-.logo-tag{font-family:var(--mono);font-size:9px;background:rgba(99,102,241,.14);border:1px solid rgba(99,102,241,.28);border-radius:5px;padding:2px 6px;color:var(--a2);}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);overflow:hidden;-webkit-font-smoothing:antialiased;}
+.shell{display:grid;grid-template-columns:220px 1fr;grid-template-rows:52px 1fr;height:100vh;}
+/* topbar */
+.topbar{grid-column:1/-1;background:var(--bg2);border-bottom:1px solid var(--rim);display:flex;align-items:center;padding:0 16px;gap:10px;}
+.logo{display:flex;align-items:center;gap:8px;}
+.logo-box{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#4F46E5);display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 3px 12px rgba(99,102,241,.5);}
+.logo-name{font-size:15px;font-weight:800;}
+.logo-v{font-family:var(--mono);font-size:9px;background:rgba(99,102,241,.14);border:1px solid rgba(99,102,241,.28);border-radius:4px;padding:1px 5px;color:var(--a2);}
 .tb-gap{flex:1;}
-.tb-btn{padding:7px 13px;border-radius:9px;border:none;cursor:pointer;font-family:var(--f);font-size:12.5px;font-weight:600;transition:all .2s;}
+.fb-pill{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:99px;font-size:11px;font-weight:600;}
+.fb-pill.ok{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:var(--green);}
+.fb-pill.off{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:var(--red);}
+.fb-pill.wait{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:var(--amber);}
+.fb-dot{width:6px;height:6px;border-radius:50%;}
+.fb-pill.ok .fb-dot{background:var(--green);animation:blink 1.5s infinite;}
+.fb-pill.off .fb-dot{background:var(--red);}
+.fb-pill.wait .fb-dot{background:var(--amber);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.tb-btn{padding:6px 12px;border-radius:8px;border:none;cursor:pointer;font-family:var(--f);font-size:12px;font-weight:600;transition:all .2s;}
 .tb-ghost{background:var(--bg3);border:1px solid var(--rim);color:var(--t2);}
 .tb-ghost:hover{border-color:var(--rim2);color:var(--t1);}
-.tb-prim{background:linear-gradient(135deg,var(--accent),#4F46E5);color:#fff;box-shadow:0 3px 14px rgba(99,102,241,.38);}
+.tb-prim{background:linear-gradient(135deg,var(--accent),#4F46E5);color:#fff;box-shadow:0 3px 12px rgba(99,102,241,.4);}
 .tb-prim:hover{transform:translateY(-1px);}
-
-.sidebar{background:var(--bg2);border-right:1px solid var(--rim);padding:12px 10px;display:flex;flex-direction:column;gap:3px;overflow-y:auto;}
+/* sidebar */
+.sidebar{background:var(--bg2);border-right:1px solid var(--rim);padding:10px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;}
 .sidebar::-webkit-scrollbar{display:none;}
-.s-lbl{font-family:var(--mono);font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:var(--t3);padding:9px 8px 5px;}
-.s-item{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;color:var(--t2);transition:all .15s;border:1px solid transparent;}
-.s-item:hover{background:var(--bg3);color:var(--t1);}
-.s-item.on{background:rgba(99,102,241,.1);color:var(--a2);border-color:rgba(99,102,241,.22);}
-.s-ico{font-size:15px;width:20px;text-align:center;}
-.s-div{height:1px;background:var(--rim);margin:7px 4px;}
-
+.sl{font-family:var(--mono);font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:var(--t3);padding:8px 8px 4px;}
+.si{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--t2);transition:all .15s;border:1px solid transparent;}
+.si:hover{background:var(--bg3);color:var(--t1);}
+.si.on{background:rgba(99,102,241,.1);color:var(--a2);border-color:rgba(99,102,241,.2);}
+.si-i{font-size:14px;width:18px;text-align:center;}
+.sdiv{height:1px;background:var(--rim);margin:6px 4px;}
+/* main */
 .main{display:flex;flex-direction:column;overflow:hidden;}
-.tabs{display:flex;align-items:center;gap:2px;padding:10px 18px 0;background:var(--bg2);border-bottom:1px solid var(--rim);}
-.tab{padding:8px 16px;border-radius:9px 9px 0 0;cursor:pointer;font-size:13px;font-weight:600;color:var(--t3);transition:all .15s;border:1px solid transparent;border-bottom:none;position:relative;bottom:-1px;}
+.tabs{display:flex;align-items:center;gap:2px;padding:8px 16px 0;background:var(--bg2);border-bottom:1px solid var(--rim);}
+.tab{padding:7px 14px;border-radius:8px 8px 0 0;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--t3);transition:all .15s;border:1px solid transparent;border-bottom:none;position:relative;bottom:-1px;}
 .tab:hover{color:var(--t2);background:var(--bg3);}
 .tab.on{color:var(--t1);background:var(--bg);border-color:var(--rim);}
 .pane{flex:1;overflow:hidden;display:none;}
 .pane.on{display:flex;}
-
-/* scroll panes */
-.scroll-pane{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:18px;align-items:center;}
-.scroll-pane::-webkit-scrollbar{display:none;}
-
+/* scroll pane */
+.sp{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px;align-items:center;}
+.sp::-webkit-scrollbar{display:none;}
 /* cards */
-.card{width:100%;max-width:640px;background:var(--bg2);border:1px solid var(--rim);border-radius:18px;padding:22px;}
-.card-title{font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:7px;}
-
-/* form */
-.fg{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.fgr{display:flex;flex-direction:column;gap:5px;}
-.fgr.span2{grid-column:1/-1;}
-.lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:1.1px;text-transform:uppercase;color:var(--t3);}
-.inp{padding:10px 13px;border-radius:10px;background:var(--bg3);border:1px solid var(--rim);color:var(--t1);font-family:var(--f);font-size:13.5px;outline:none;transition:all .2s;width:100%;}
+.card{width:100%;max-width:640px;background:var(--bg2);border:1px solid var(--rim);border-radius:16px;padding:20px;}
+.ct{font-size:13.5px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:7px;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fgr{display:flex;flex-direction:column;gap:4px;}
+.fgr.s2{grid-column:1/-1;}
+.lbl{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);}
+.inp{padding:9px 12px;border-radius:9px;background:var(--bg3);border:1px solid var(--rim);color:var(--t1);font-family:var(--f);font-size:13px;outline:none;transition:all .2s;width:100%;}
 .inp:focus{border-color:rgba(99,102,241,.45);box-shadow:0 0 0 3px rgba(99,102,241,.1);}
 .inp::placeholder{color:var(--t3);}
-
 /* dropzone */
-.dropzone{border:2px dashed var(--rim);border-radius:14px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .25s;position:relative;overflow:hidden;background:var(--bg3);}
-.dropzone:hover,.dropzone.drag{border-color:var(--accent);background:rgba(99,102,241,.05);}
-.dropzone.done{border-color:var(--green);border-style:solid;background:rgba(16,185,129,.04);}
-.dz-input{position:absolute;inset:0;opacity:0;cursor:pointer;}
-.dz-preview{display:none;margin-top:12px;border-radius:9px;overflow:hidden;border:1px solid var(--rim);max-height:140px;}
-.dz-preview img{width:100%;object-fit:cover;max-height:140px;}
-.dz-preview.show{display:block;}
-
-/* firebase card */
-.fb-card{width:100%;max-width:640px;border-radius:18px;padding:22px;background:linear-gradient(135deg,rgba(255,144,0,.05),rgba(255,196,0,.02));border:1px solid rgba(255,160,0,.25);}
-.fb-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;background:rgba(255,160,0,.12);border:1px solid rgba(255,160,0,.3);font-family:var(--mono);font-size:9px;color:#FFA500;font-weight:600;letter-spacing:.5px;margin-bottom:12px;}
-
-/* AI card */
-.ai-card{width:100%;max-width:640px;border-radius:18px;padding:22px;background:linear-gradient(135deg,rgba(99,102,241,.06),rgba(6,182,212,.03));border:1px solid rgba(99,102,241,.22);}
-.ai-orb{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;animation:orb 3s ease-in-out infinite;}
-@keyframes orb{0%,100%{box-shadow:0 3px 16px rgba(99,102,241,.4)}50%{box-shadow:0 3px 24px rgba(99,102,241,.7)}}
-.api-inp{width:100%;padding:9px 12px;border-radius:10px;background:var(--bg3);border:1px solid var(--rim);color:var(--t1);font-family:var(--mono);font-size:11.5px;outline:none;transition:all .2s;margin-bottom:10px;}
-.api-inp:focus{border-color:rgba(99,102,241,.4);box-shadow:0 0 0 3px rgba(99,102,241,.1);}
-.api-inp::placeholder{color:var(--t3);font-family:var(--f);font-size:13px;}
-.ai-log{background:var(--bg3);border:1px solid var(--rim);border-radius:10px;padding:12px 14px;font-family:var(--mono);font-size:10.5px;color:var(--t2);line-height:1.9;display:none;max-height:120px;overflow-y:auto;margin:10px 0;}
-.ai-log.show{display:block;}
-.ai-log .ok{color:var(--green);}
-.ai-log .info{color:var(--cyan);}
-.ai-log .warn{color:var(--amber);}
-.ai-log .err{color:var(--red);}
-.prog{height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:10px;display:none;}
+.dz{border:2px dashed var(--rim);border-radius:12px;padding:28px 16px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;background:var(--bg3);}
+.dz:hover,.dz.drag{border-color:var(--accent);background:rgba(99,102,241,.05);}
+.dz.done{border-color:var(--green);border-style:solid;background:rgba(16,185,129,.04);}
+.dz input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.dzprev{display:none;margin-top:10px;border-radius:8px;overflow:hidden;border:1px solid var(--rim);max-height:130px;}
+.dzprev img{width:100%;object-fit:cover;max-height:130px;}
+.dzprev.show{display:block;}
+/* ai card */
+.aic{width:100%;max-width:640px;border-radius:16px;padding:20px;background:linear-gradient(135deg,rgba(99,102,241,.06),rgba(6,182,212,.03));border:1px solid rgba(99,102,241,.2);}
+/* buttons */
+.btn{width:100%;padding:12px;border-radius:11px;border:none;cursor:pointer;font-family:var(--f);font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s var(--spring);position:relative;overflow:hidden;}
+.btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.08),transparent);pointer-events:none;}
+.btn:hover{transform:translateY(-1px);}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+.btn-accent{background:linear-gradient(135deg,var(--accent),#4F46E5);color:#fff;box-shadow:0 4px 16px rgba(99,102,241,.4);}
+.btn-green{background:linear-gradient(135deg,var(--green),#059669);color:#fff;box-shadow:0 4px 16px rgba(16,185,129,.35);}
+.btn-ghost{background:var(--bg3);border:1px solid var(--rim);color:var(--t2);}
+.btn-ghost:hover{border-color:var(--rim2);color:var(--t1);}
+/* log */
+.log{background:var(--bg3);border:1px solid var(--rim);border-radius:9px;padding:10px 12px;font-family:var(--mono);font-size:10px;color:var(--t2);line-height:1.9;display:none;max-height:110px;overflow-y:auto;margin-top:8px;}
+.log.show{display:block;}
+.log .ok{color:var(--green);}
+.log .info{color:var(--cyan);}
+.log .warn{color:var(--amber);}
+.log .err{color:var(--red);}
+.prog{height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:8px;display:none;}
 .prog.show{display:block;}
-.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:2px;width:0%;transition:width .4s;}
-.analyze-btn{width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--cyan));font-family:var(--f);font-size:14px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s var(--spring);box-shadow:0 4px 18px rgba(99,102,241,.35);position:relative;overflow:hidden;}
-.analyze-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.1),transparent);}
-.analyze-btn:hover{transform:translateY(-2px);}
-.analyze-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
-.manual-btn{width:100%;padding:11px;border-radius:12px;cursor:pointer;background:rgba(255,255,255,.03);border:1px solid var(--rim);font-family:var(--f);font-size:13px;font-weight:600;color:var(--t2);margin-top:8px;transition:all .15s;}
-.manual-btn:hover{background:rgba(255,255,255,.06);border-color:var(--rim2);color:var(--t1);}
-
-/* action btn */
-.act-btn{width:100%;padding:13px;border-radius:13px;border:none;cursor:pointer;font-family:var(--f);font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s var(--spring);}
-.act-green{background:linear-gradient(135deg,var(--green),#059669);color:#fff;box-shadow:0 4px 18px rgba(16,185,129,.35);}
-.act-green:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(16,185,129,.45);}
-.act-blue{background:linear-gradient(135deg,var(--accent),#4F46E5);color:#fff;box-shadow:0 4px 18px rgba(99,102,241,.35);}
-.act-blue:hover{transform:translateY(-2px);}
-
+.pf{height:100%;background:linear-gradient(90deg,var(--accent),var(--cyan));border-radius:2px;width:0%;transition:width .4s;}
 /* editor */
-.editor{flex:1;display:grid;grid-template-columns:1fr 280px;overflow:hidden;}
-.canvas-wrap{position:relative;overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center;}
-#floor-canvas{cursor:crosshair;touch-action:none;}
-.ctbar{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;gap:5px;align-items:center;background:var(--bg2);border:1px solid var(--rim);border-radius:13px;padding:5px 9px;box-shadow:0 4px 22px rgba(0,0,0,.4);z-index:10;}
-.ct{width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;background:transparent;border:1px solid transparent;color:var(--t2);transition:all .15s;position:relative;}
-.ct:hover{background:var(--bg3);color:var(--t1);border-color:var(--rim);}
-.ct.on{background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.3);color:var(--a2);}
-.ct-sep{width:1px;height:22px;background:var(--rim);margin:0 2px;}
-.ct-tip{position:absolute;bottom:calc(100%+7px);left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--rim);border-radius:7px;padding:3px 8px;font-size:10.5px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;color:var(--t1);}
-.ct:hover .ct-tip{opacity:1;}
-.canvas-hint{position:absolute;bottom:14px;left:14px;background:var(--bg2);border:1px solid var(--rim);border-radius:9px;padding:7px 12px;font-size:10.5px;color:var(--t2);pointer-events:none;font-family:var(--mono);}
-.zoom-btns{position:absolute;bottom:14px;right:14px;display:flex;flex-direction:column;gap:4px;}
-.zb{width:34px;height:34px;border-radius:9px;cursor:pointer;background:var(--bg2);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--t2);transition:all .15s;}
+.editor{flex:1;display:grid;grid-template-columns:1fr 270px;overflow:hidden;}
+.cw{position:relative;overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center;}
+#fc{touch-action:none;}
+/* toolbar */
+.ctb{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:4px;align-items:center;background:var(--bg2);border:1px solid var(--rim);border-radius:12px;padding:4px 8px;box-shadow:0 4px 20px rgba(0,0,0,.4);z-index:10;}
+.ct2{width:30px;height:30px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;background:transparent;border:1px solid transparent;color:var(--t2);transition:all .15s;position:relative;}
+.ct2:hover{background:var(--bg3);color:var(--t1);border-color:var(--rim);}
+.ct2.on{background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.3);color:var(--a2);}
+.ct2 span{position:absolute;bottom:calc(100%+5px);left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--rim);border-radius:6px;padding:3px 7px;font-size:10px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;color:var(--t1);}
+.ct2:hover span{opacity:1;}
+.cs{width:1px;height:20px;background:var(--rim);margin:0 2px;}
+/* canvas hint */
+.ch{position:absolute;bottom:52px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--rim);border-radius:8px;padding:5px 10px;font-size:9.5px;color:var(--t2);pointer-events:none;font-family:var(--mono);white-space:nowrap;}
+.leg{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:10px;background:var(--bg2);border:1px solid var(--rim);border-radius:8px;padding:5px 12px;font-size:9.5px;color:var(--t2);white-space:nowrap;}
+.zb2{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;}
+.zb{width:30px;height:30px;border-radius:8px;cursor:pointer;background:var(--bg2);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--t2);transition:all .15s;}
 .zb:hover{border-color:var(--rim2);color:var(--t1);}
-
+/* grid toggle */
+.grid-btn{position:absolute;top:12px;right:12px;padding:5px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--rim);cursor:pointer;font-size:11px;color:var(--t2);font-family:var(--mono);transition:all .15s;}
+.grid-btn.on{border-color:rgba(99,102,241,.4);color:var(--a2);background:rgba(99,102,241,.1);}
 /* editor sidebar */
-.esb{background:var(--bg2);border-left:1px solid var(--rim);overflow-y:auto;padding:14px;}
+.esb{background:var(--bg2);border-left:1px solid var(--rim);overflow-y:auto;padding:12px;}
 .esb::-webkit-scrollbar{display:none;}
-.esb-sec{margin-bottom:18px;}
-.esb-lbl{font-family:var(--mono);font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:var(--t3);margin-bottom:9px;}
-.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:14px;}
-.sbox{background:var(--bg3);border:1px solid var(--rim);border-radius:9px;padding:9px 10px;}
-.sbox-val{font-family:var(--mono);font-size:17px;font-weight:600;color:var(--a2);}
-.sbox-lbl{font-size:9.5px;color:var(--t3);margin-top:1px;}
-
-.node-editor{background:var(--bg3);border:1px solid var(--rim);border-radius:11px;padding:13px;display:none;}
-.node-editor.show{display:block;}
-.ne-row{margin-bottom:11px;}
-.ne-lbl{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px;display:block;}
-.ne-inp{width:100%;padding:8px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--rim);color:var(--t1);font-family:var(--f);font-size:13px;outline:none;transition:all .15s;}
-.ne-inp:focus{border-color:rgba(99,102,241,.4);}
-.type-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
-.type-opt{padding:5px 7px;border-radius:7px;cursor:pointer;font-size:11px;border:1px solid var(--rim);background:var(--bg2);color:var(--t2);text-align:center;transition:all .15s;display:flex;align-items:center;gap:4px;}
-.type-opt:hover{border-color:var(--rim2);color:var(--t1);}
-.type-opt.on{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.3);color:var(--a2);}
-.ne-btns{display:flex;gap:5px;margin-top:10px;}
-.ne-btn{flex:1;padding:7px;border-radius:8px;cursor:pointer;font-family:var(--f);font-size:12px;font-weight:600;border:1px solid var(--rim);transition:all .15s;}
-.ne-save{background:rgba(99,102,241,.13);border-color:rgba(99,102,241,.3);color:var(--a2);}
-.ne-del{background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.25);color:var(--red);}
-.no-sel{font-size:12px;color:var(--t3);padding:3px;}
-.node-list{display:flex;flex-direction:column;gap:3px;max-height:180px;overflow-y:auto;}
-.node-list::-webkit-scrollbar{display:none;}
-.ni{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;cursor:pointer;font-size:12px;border:1px solid transparent;transition:all .15s;}
-.ni:hover{background:var(--bg3);}
-.ni.on{background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.22);}
-.ni-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
-.ni-lbl{flex:1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-
-/* QR sheet */
-.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;}
-.qr-card{background:white;color:#111;border-radius:10px;padding:14px;text-align:center;font-family:var(--f);}
-.qr-card canvas{margin:0 auto;display:block;}
-.qr-card .qr-name{font-size:12px;font-weight:700;margin-top:8px;word-break:break-word;}
-.qr-card .qr-type{font-size:10px;color:#666;margin-top:2px;}
-.qr-card .qr-id{font-family:var(--mono);font-size:9px;color:#999;margin-top:4px;}
-
-/* firebase status pill */
-.fb-status{display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:99px;font-size:12px;font-weight:600;}
-.fb-status.ok{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:var(--green);}
-.fb-status.off{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:var(--red);}
-.fb-status.pending{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:var(--amber);}
-.fb-dot{width:7px;height:7px;border-radius:50%;}
-.fb-status.ok .fb-dot{background:var(--green);animation:blink 1.5s infinite;}
-.fb-status.off .fb-dot{background:var(--red);}
-.fb-status.pending .fb-dot{background:var(--amber);}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-
+.es{margin-bottom:16px;}
+.el{font-family:var(--mono);font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:var(--t3);margin-bottom:8px;}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;}
+.sb{background:var(--bg3);border:1px solid var(--rim);border-radius:8px;padding:8px;}
+.sv{font-family:var(--mono);font-size:16px;font-weight:600;color:var(--a2);}
+.sk{font-size:9px;color:var(--t3);margin-top:1px;}
+.ne{background:var(--bg3);border:1px solid var(--rim);border-radius:10px;padding:11px;display:none;}
+.ne.show{display:block;}
+.nr{margin-bottom:10px;}
+.nl{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px;display:block;}
+.ni2{width:100%;padding:7px 9px;border-radius:7px;background:var(--bg2);border:1px solid var(--rim);color:var(--t1);font-family:var(--f);font-size:12.5px;outline:none;transition:all .15s;}
+.ni2:focus{border-color:rgba(99,102,241,.4);}
+.tg{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
+.to{padding:4px 6px;border-radius:6px;cursor:pointer;font-size:10.5px;border:1px solid var(--rim);background:var(--bg2);color:var(--t2);text-align:center;transition:all .15s;display:flex;align-items:center;gap:3px;}
+.to:hover{border-color:var(--rim2);color:var(--t1);}
+.to.on{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.3);color:var(--a2);}
+.ne-btns{display:flex;gap:5px;margin-top:9px;}
+.ne-btn{flex:1;padding:6px;border-radius:7px;cursor:pointer;font-family:var(--f);font-size:11.5px;font-weight:600;border:1px solid var(--rim);transition:all .15s;}
+.ne-save{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.28);color:var(--a2);}
+.ne-del{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.22);color:var(--red);}
+.no-sel{font-size:11.5px;color:var(--t3);padding:3px;}
+.nl2{display:flex;flex-direction:column;gap:2px;max-height:170px;overflow-y:auto;}
+.nl2::-webkit-scrollbar{display:none;}
+.nli{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:11.5px;border:1px solid transparent;transition:all .15s;}
+.nli:hover{background:var(--bg3);}
+.nli.on{background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.2);}
+.nd{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.nm{flex:1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* calibration bar */
+.cal-bar{background:var(--bg3);border:1px solid rgba(245,158,11,.25);border-radius:9px;padding:10px 12px;margin-top:10px;}
+.cal-row{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--t2);}
+/* qr */
+.qrg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+.qrc{background:#fff;color:#111;border-radius:9px;padding:12px;text-align:center;font-family:var(--f);}
+.qrc canvas{margin:0 auto;display:block;}
+.qrc .qrn{font-size:11px;font-weight:700;margin-top:7px;word-break:break-word;}
+.qrc .qrt{font-size:9px;color:#666;margin-top:1px;}
 /* toast */
-#toast{position:fixed;bottom:22px;right:22px;z-index:9999;background:var(--bg2);border:1px solid var(--rim);border-radius:12px;padding:11px 16px;display:flex;align-items:center;gap:9px;box-shadow:0 8px 28px rgba(0,0,0,.4);font-size:13px;font-weight:500;transform:translateX(110%);opacity:0;transition:all .3s var(--spring);max-width:340px;}
+#toast{position:fixed;bottom:20px;right:20px;z-index:9999;background:var(--bg2);border:1px solid var(--rim);border-radius:11px;padding:10px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.4);font-size:12.5px;font-weight:500;transform:translateX(110%);opacity:0;transition:all .3s var(--spring);max-width:300px;}
 #toast.show{transform:translateX(0);opacity:1;}
 #toast.ok{border-color:rgba(16,185,129,.35);}
 #toast.err{border-color:rgba(239,68,68,.35);}
 #toast.warn{border-color:rgba(245,158,11,.35);}
-
-
-/* ═══════════════════════════════════════
-   MOBILE RESPONSIVE
-═══════════════════════════════════════ */
-@media (max-width: 700px) {
-
-  /* Shell: stack vertically, hide sidebar */
-  .shell {
-    grid-template-columns: 1fr !important;
-    grid-template-rows: 54px auto 1fr !important;
-    height: 100vh;
-    overflow: hidden;
-  }
-
-  /* Topbar: tighter */
-  .topbar { padding: 0 12px; gap: 8px; }
-  .logo-name { font-size: 14px; }
-  .fb-status span:last-child { display: none !important; }
-  .fb-status { padding: 5px 8px; }
-  #cur-fac-label { display: none; }
-
-  /* Sidebar: horizontal bottom nav bar */
-  .sidebar {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    flex-direction: row !important;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 6px 10px !important;
-    border-right: none !important;
-    border-bottom: 1px solid var(--rim);
-    gap: 4px !important;
-    height: auto !important;
-    min-height: 52px;
-  }
-  .sidebar::-webkit-scrollbar { display: none; }
-
-  /* Hide section labels in mobile sidebar */
-  .s-lbl, .s-div { display: none !important; }
-
-  /* Sidebar items: compact chips */
-  .s-item {
-    flex-shrink: 0;
-    padding: 7px 12px !important;
-    border-radius: 20px !important;
-    font-size: 12px !important;
-    white-space: nowrap;
-    border: 1px solid var(--rim) !important;
-  }
-  .s-item.on {
-    background: rgba(99,102,241,.15) !important;
-    border-color: rgba(99,102,241,.35) !important;
-  }
-  .s-ico { font-size: 13px !important; }
-
-  /* Main content: fill remaining */
-  .main { grid-row: 3; overflow: hidden; }
-
-  /* Tabs: scrollable */
-  .tabs { padding: 8px 12px 0; gap: 2px; overflow-x: auto; }
-  .tabs::-webkit-scrollbar { display: none; }
-  .tab { padding: 7px 12px; font-size: 12px; flex-shrink: 0; }
-
-  /* Scroll panes */
-  .scroll-pane { padding: 14px 12px; gap: 14px; }
-
-  /* Cards */
-  .card, .fb-card, .ai-card { padding: 16px; border-radius: 14px; }
-  .card-title { font-size: 13px; margin-bottom: 12px; }
-
-  /* Form grid: single column */
-  .fg { grid-template-columns: 1fr !important; gap: 10px; }
-  .fgr.span2 { grid-column: 1; }
-
-  /* Inputs */
-  .inp { padding: 9px 12px; font-size: 14px; }
-
-  /* AI mode toggle buttons */
-  .ai-card > div:first-child { flex-wrap: wrap; }
-
-  /* Action buttons */
-  .act-btn { padding: 12px; font-size: 13px; }
-
-  /* EDITOR: stack canvas over node panel */
-  .editor {
-    grid-template-columns: 1fr !important;
-    grid-template-rows: 1fr auto !important;
-  }
-
-  /* Editor sidebar: horizontal strip at bottom */
-  .esb {
-    border-left: none !important;
-    border-top: 1px solid var(--rim);
-    padding: 10px 12px !important;
-    max-height: 220px;
-    overflow-y: auto;
-  }
-
-  /* Stats: keep 3 columns */
-  .stats { gap: 6px; }
-  .sbox { padding: 8px; }
-  .sbox-val { font-size: 15px; }
-
-  /* Node editor */
-  .node-editor { padding: 10px; }
-  .type-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 3px; }
-  .type-opt { font-size: 10px; padding: 4px 5px; }
-
-  /* Canvas toolbar */
-  .ctbar { top: 8px; padding: 4px 7px; gap: 3px; }
-  .ct { width: 30px; height: 30px; font-size: 14px; }
-  .ct-sep { height: 18px; }
-  .ct-tip { display: none; }
-
-  /* Canvas zoom buttons */
-  .zoom-btns { bottom: 10px; right: 10px; }
-  .zb { width: 30px; height: 30px; font-size: 14px; }
-  .canvas-hint { font-size: 9.5px; padding: 5px 9px; bottom: 10px; left: 10px; }
-
-  /* QR grid: 2 columns on mobile */
-  .qr-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
-  .qr-card { padding: 10px; }
-  .qr-card canvas { width: 100px !important; height: 100px !important; }
-
-  /* Deploy scroll */
-  .pub-scroll { padding: 14px 12px; gap: 14px; }
-
-  /* Toast */
-  #toast { bottom: 16px; right: 12px; left: 12px; max-width: none; font-size: 12.5px; }
-
-  /* Firebase status text: short */
-  #fb-status-txt { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* weight slider in node editor */
+.w-row{display:flex;align-items:center;gap:8px;}
+.w-row input[type=range]{flex:1;accent-color:var(--accent);}
+/* floor inter-connection UI */
+.fc-pair{background:var(--bg2);border:1px solid rgba(16,185,129,.2);border-radius:9px;padding:10px;margin-bottom:6px;font-size:11.5px;}
+/* mobile */
+@media(max-width:700px){
+  .shell{grid-template-columns:1fr;grid-template-rows:52px auto 1fr;}
+  .sidebar{grid-column:1/-1;grid-row:2;flex-direction:row!important;overflow-x:auto;overflow-y:hidden;padding:5px 8px!important;border-right:none!important;border-bottom:1px solid var(--rim);height:auto!important;}
+  .sl,.sdiv{display:none!important;}
+  .si{flex-shrink:0;border-radius:18px!important;padding:6px 11px!important;font-size:11.5px!important;}
+  .main{grid-row:3;}
+  .editor{grid-template-columns:1fr!important;grid-template-rows:1fr auto!important;}
+  .esb{border-left:none!important;border-top:1px solid var(--rim);max-height:200px;}
+  .fg{grid-template-columns:1fr!important;}
 }
-
-/* Tablet (700–1024) */
-@media (min-width: 701px) and (max-width: 1024px) {
-  .shell { grid-template-columns: 180px 1fr !important; }
-  .editor { grid-template-columns: 1fr 230px !important; }
-  .scroll-pane { padding: 18px; }
-}
-
 @media print{
-  .shell>*:not(#print-area){display:none!important;}
-  #print-area{display:block!important;padding:20px;}
-  .qr-card{break-inside:avoid;border:1px solid #ddd;}
+  body>*:not(#pa){display:none!important;}
+  #pa{display:block!important;padding:20px;}
 }
-#print-area{display:none;}
+#pa{display:none;}
 </style>
 </head>
 <body>
 <div class="shell">
 <header class="topbar">
-  <div style="display:flex;align-items:center;gap:9px">
-    <div class="logo-box">🧭</div>
-    <span class="logo-name">WayPoint</span>
-    <span class="logo-tag">Admin v2</span>
-  </div>
+  <div class="logo"><div class="logo-box">🧭</div><span class="logo-name">WayPoint</span><span class="logo-v">v3</span></div>
   <div class="tb-gap"></div>
-  <div class="fb-status off" id="fb-status"><div class="fb-dot"></div><span id="fb-status-txt">Firebase not connected</span></div>
-  <div style="width:1px;height:20px;background:var(--rim);margin:0 6px"></div>
-  <div style="font-family:var(--mono);font-size:11px;color:var(--t3);padding:4px 10px;background:var(--bg3);border:1px solid var(--rim);border-radius:8px" id="cur-fac-label">No facility</div>
-  <button class="tb-btn tb-ghost" onclick="newFacility()">+ New</button>
-  <button class="tb-btn tb-prim" onclick="doPublish()" id="deploy-btn">🚀 <span class="tb-deploy-txt">Deploy</span></button>
+  <div class="fb-pill off" id="fbpill"><div class="fb-dot"></div><span id="fbptxt">Firebase</span></div>
+  <div style="font-family:var(--mono);font-size:10px;color:var(--t3);padding:4px 9px;background:var(--bg3);border:1px solid var(--rim);border-radius:7px" id="facLabel">—</div>
+  <button class="tb-btn tb-ghost" onclick="newFac()">+ New</button>
+  <button class="tb-btn tb-prim" onclick="doPublish()">🚀 Deploy</button>
 </header>
 
 <aside class="sidebar">
-  <div class="s-lbl">Workflow</div>
-  <div class="s-item on" id="sn-setup" onclick="gotoTab('setup')"><span class="s-ico">🏗️</span>1. Setup & AI</div>
-  <div class="s-item" id="sn-editor" onclick="gotoTab('editor')"><span class="s-ico">✏️</span>2. Map Editor</div>
-  <div class="s-item" id="sn-qr" onclick="gotoTab('qr')"><span class="s-ico">📱</span>3. QR Codes</div>
-  <div class="s-item" id="sn-deploy" onclick="gotoTab('deploy')"><span class="s-ico">🚀</span>4. Deploy</div>
-  <div class="s-div"></div>
-  <div class="s-lbl">Open</div>
-  <div class="s-item" onclick="window.open('indoor-nav.html','_blank')"><span class="s-ico">📱</span>Client App</div>
+  <div class="sl">Workflow</div>
+  <div class="si on" id="sn-setup" onclick="gotoTab('setup')"><span class="si-i">🏗️</span>1. Setup & AI</div>
+  <div class="si" id="sn-editor" onclick="gotoTab('editor')"><span class="si-i">✏️</span>2. Map Editor</div>
+  <div class="si" id="sn-connect" onclick="gotoTab('connect')"><span class="si-i">🔗</span>3. Floor Links</div>
+  <div class="si" id="sn-qr" onclick="gotoTab('qr')"><span class="si-i">📱</span>4. QR Codes</div>
+  <div class="si" id="sn-deploy" onclick="gotoTab('deploy')"><span class="si-i">🚀</span>5. Deploy</div>
+  <div class="sdiv"></div>
+  <div class="si" onclick="window.open('indoor-nav.html','_blank')"><span class="si-i">📱</span>Client App</div>
 </aside>
 
 <main class="main">
 <div class="tabs">
   <div class="tab on" id="tab-setup" onclick="gotoTab('setup')">🏗️ Setup</div>
   <div class="tab" id="tab-editor" onclick="gotoTab('editor')">✏️ Editor</div>
-  <div class="tab" id="tab-qr" onclick="gotoTab('qr')">📱 QR Codes</div>
+  <div class="tab" id="tab-connect" onclick="gotoTab('connect')">🔗 Floor Links</div>
+  <div class="tab" id="tab-qr" onclick="gotoTab('qr')">📱 QR</div>
   <div class="tab" id="tab-deploy" onclick="gotoTab('deploy')">🚀 Deploy</div>
 </div>
 
-<!-- ══ SETUP TAB ══ -->
+<!-- SETUP -->
 <div class="pane on" id="pane-setup" style="flex-direction:column">
-<div class="scroll-pane">
-
-  <!-- Firebase Config -->
-  <div class="fb-card">
-    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px">
-      <div style="font-size:28px">🔥</div>
-      <div>
-        <div style="font-size:14px;font-weight:700">Firebase Setup</div>
-        <div style="font-size:11.5px;color:var(--t2);margin-top:2px">Free hosting + database. No server needed.</div>
-      </div>
-    </div>
-    <div class="fb-badge">🆓 Free Forever — Spark Plan</div>
-    <div style="background:var(--bg3);border:1px solid var(--rim);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--t2);line-height:2;margin-bottom:14px">
-      <strong style="color:var(--t1)">One-time setup (5 minutes):</strong><br>
-      1. Go to <a href="https://console.firebase.google.com" target="_blank" style="color:var(--cyan)">console.firebase.google.com</a> → Create project<br>
-      2. Add a <strong style="color:var(--t1)">Web app</strong> → copy the config object<br>
-      3. Go to <strong style="color:var(--t1)">Firestore Database</strong> → Create → Start in test mode<br>
-      4. Paste your config below
-    </div>
+<div class="sp">
+  <!-- Firebase -->
+  <div class="card" style="border-color:rgba(255,160,0,.2);background:linear-gradient(135deg,rgba(255,160,0,.04),transparent)">
+    <div class="ct">🔥 Firebase (Free Cloud Database)</div>
     <div class="fg" style="margin-bottom:10px">
-      <div class="fgr"><span class="lbl">API Key</span><input class="inp" id="fb-apikey" placeholder="AIzaSy…" /></div>
-      <div class="fgr"><span class="lbl">Project ID</span><input class="inp" id="fb-projectid" placeholder="my-project-id" /></div>
-      <div class="fgr"><span class="lbl">App ID</span><input class="inp" id="fb-appid" placeholder="1:123…:web:abc…" /></div>
-      <div class="fgr"><span class="lbl">Auth Domain</span><input class="inp" id="fb-authdomain" placeholder="project.firebaseapp.com" /></div>
+      <div class="fgr"><span class="lbl">API Key</span><input class="inp" id="fbak" placeholder="AIzaSy…"/></div>
+      <div class="fgr"><span class="lbl">Project ID</span><input class="inp" id="fbpid" placeholder="my-project-id"/></div>
+      <div class="fgr"><span class="lbl">App ID</span><input class="inp" id="fbaid" placeholder="1:123:web:abc"/></div>
+      <div class="fgr"><span class="lbl">Auth Domain</span><input class="inp" id="fbad" placeholder="auto-filled"/></div>
     </div>
-    <button class="act-btn act-blue" onclick="connectFirebase()">🔥 Connect Firebase</button>
+    <button class="btn btn-accent" onclick="connectFB()">🔥 Connect Firebase</button>
   </div>
-
-  <!-- Facility Info -->
+  <!-- Facility -->
   <div class="card">
-    <div class="card-title">🏢 Facility Info</div>
+    <div class="ct">🏢 Facility Info</div>
     <div class="fg">
-      <div class="fgr"><span class="lbl">Facility Name</span><input class="inp" id="f-name" placeholder="e.g. City Hospital" /></div>
-      <div class="fgr"><span class="lbl">Facility ID (auto)</span><input class="inp" id="f-id" readonly style="background:var(--bg);letter-spacing:2px;font-family:var(--mono);font-size:13px" /></div>
-      <div class="fgr"><span class="lbl">Type</span>
-        <select class="inp" id="f-type">
-          <option value="hospital">🏥 Hospital</option>
-          <option value="mall">🛍️ Mall</option>
-          <option value="airport">✈️ Airport</option>
-          <option value="office">🏢 Office</option>
-          <option value="university">🎓 University</option>
-          <option value="museum">🏛️ Museum</option>
-          <option value="station">🚉 Station</option>
-          <option value="other">📍 Other</option>
-        </select>
-      </div>
-      <div class="fgr"><span class="lbl">Floor</span><input class="inp" id="f-floors" type="number" value="1" min="1" max="50" /></div>
+      <div class="fgr"><span class="lbl">Name</span><input class="inp" id="fn" placeholder="City Hospital"/></div>
+      <div class="fgr"><span class="lbl">Facility ID</span><input class="inp" id="fid" readonly style="background:var(--bg);font-family:var(--mono);letter-spacing:2px;font-size:12px"/></div>
+      <div class="fgr"><span class="lbl">Type</span><select class="inp" id="ftype"><option value="hospital">🏥 Hospital</option><option value="mall">🛍️ Mall</option><option value="airport">✈️ Airport</option><option value="office">🏢 Office</option><option value="university">🎓 University</option><option value="museum">🏛️ Museum</option><option value="station">🚉 Station</option><option value="other">📍 Other</option></select></div>
+      <div class="fgr"><span class="lbl">Total Floors</span><input class="inp" id="ftotal" type="number" value="1" min="1" max="20"/></div>
     </div>
   </div>
-
-  <!-- Upload -->
+  <!-- Calibration -->
   <div class="card">
-    <div class="card-title">🗺️ Floor Plan</div>
-    <div class="dropzone" id="dropzone">
-      <input type="file" class="dz-input" id="file-inp" accept="image/*" onchange="onFile(this)" />
-      <div style="font-size:32px;margin-bottom:10px">🖼️</div>
-      <div style="font-size:15px;font-weight:700;margin-bottom:5px">Drop floor plan here</div>
-      <div style="font-size:12.5px;color:var(--t2)">PNG, JPG, WEBP — architectural drawings recommended</div>
+    <div class="ct">📏 Scale Calibration (Critical for Accurate Navigation)</div>
+    <p style="font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.7">Set the real-world scale so distances, ETA, and step counts are accurate. Measure a known distance on your floor plan (e.g. a corridor you know is 10m) and count its pixels.</p>
+    <div class="fg">
+      <div class="fgr"><span class="lbl">Real Distance (meters)</span><input class="inp" id="cal-m" type="number" value="10" step="0.1" min="0.1"/></div>
+      <div class="fgr"><span class="lbl">Pixels on image</span><input class="inp" id="cal-px" type="number" value="300" step="1" min="1"/></div>
+      <div class="fgr"><span class="lbl">→ Meters per pixel</span><input class="inp" id="cal-mpp" readonly style="background:var(--bg);font-family:var(--mono);color:var(--a2)"/></div>
+      <div class="fgr"><span class="lbl">Walking speed (m/min)</span><input class="inp" id="walkspd" type="number" value="80" min="20" max="200"/></div>
     </div>
-    <div class="dz-preview" id="dz-preview"><img id="preview-img" src="" alt="" /></div>
+    <button class="btn btn-ghost" style="margin-top:10px" onclick="calcCalibration()">📏 Calculate Scale</button>
   </div>
-
-  <!-- AI Analysis -->
-  <div class="ai-card">
-    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px">
-      <div class="ai-orb">🤖</div>
-      <div>
-        <div style="font-size:14px;font-weight:700">AI Analysis + OCR</div>
-        <div style="font-size:11.5px;color:var(--t2);margin-top:2px">Reads room labels from image + places named nodes</div>
-      </div>
-      <div style="margin-left:auto;display:flex;gap:6px">
-        <button onclick="setMode('ai')" id="mode-ai" style="padding:7px 12px;border-radius:9px;border:1.5px solid rgba(99,102,241,.4);background:rgba(99,102,241,.12);color:var(--a2);font-family:var(--f);font-size:12px;font-weight:700;cursor:pointer">🤖 AI</button>
-        <button onclick="setMode('local')" id="mode-local" style="padding:7px 12px;border-radius:9px;border:1px solid var(--rim);background:var(--bg3);color:var(--t2);font-family:var(--f);font-size:12px;font-weight:600;cursor:pointer">🔬 Local</button>
+  <!-- Floor upload -->
+  <div class="card">
+    <div class="ct">🗺️ Floor Plans</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center" id="floorTabs"></div>
+    <div class="dz" id="dropzone">
+      <input type="file" id="fileInp" accept="image/*" onchange="onFile(this)"/>
+      <div style="font-size:28px;margin-bottom:8px" id="dzIcon">🖼️</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px" id="dzTitle">Drop Floor 1 plan here</div>
+      <div style="font-size:12px;color:var(--t2)">PNG, JPG — architectural drawing recommended</div>
+    </div>
+    <div class="dzprev" id="dzprev"><img id="prevImg" src="" alt=""/></div>
+    <button onclick="addFloor()" style="margin-top:9px;width:100%;padding:9px;border-radius:9px;border:1px dashed rgba(99,102,241,.3);background:rgba(99,102,241,.05);color:var(--a2);font-family:var(--f);font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(99,102,241,.1)'" onmouseout="this.style.background='rgba(99,102,241,.05)'">➕ Add Another Floor</button>
+  </div>
+  <!-- AI -->
+  <div class="aic">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;animation:orb 3s ease-in-out infinite">🤖</div>
+      <div><div style="font-size:13.5px;font-weight:700">AI Analysis + OCR</div><div style="font-size:11px;color:var(--t2);margin-top:2px">Reads room labels + places nodes at doorways</div></div>
+      <div style="margin-left:auto;display:flex;gap:5px">
+        <button onclick="setMode('ai')" id="modeAI" style="padding:6px 11px;border-radius:8px;border:1.5px solid rgba(99,102,241,.4);background:rgba(99,102,241,.12);color:var(--a2);font-family:var(--f);font-size:11.5px;font-weight:700;cursor:pointer">🤖 AI</button>
+        <button onclick="setMode('local')" id="modeLoc" style="padding:6px 11px;border-radius:8px;border:1px solid var(--rim);background:var(--bg3);color:var(--t2);font-family:var(--f);font-size:11.5px;font-weight:600;cursor:pointer">🔬 Local</button>
       </div>
     </div>
-
-    <div id="panel-ai">
-      <div style="background:var(--bg3);border:1px solid var(--rim);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--t2);line-height:2;margin-bottom:10px">
-        <strong style="color:var(--t1)">Free OpenRouter key:</strong>
-        <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--cyan)">openrouter.ai/keys</a> → Create → paste below<br>
-        Set spending limit to <strong style="color:var(--t1)">$1</strong> to unlock free models (won't charge you)
+    <div id="panelAI">
+      <div style="background:var(--bg3);border:1px solid var(--rim);border-radius:9px;padding:10px 12px;font-size:11.5px;color:var(--t2);line-height:2;margin-bottom:9px">
+        <strong style="color:var(--t1)">Free OpenRouter key:</strong> <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--cyan)">openrouter.ai/keys</a> → Create → set limit $1+<br>
+        <span style="color:var(--t3)">Free models: $0 cost, no billing charged</span>
       </div>
-      <input type="password" class="api-inp" id="or-key" placeholder="sk-or-v1-… (OpenRouter free key)" />
+      <input type="password" style="width:100%;padding:8px 11px;border-radius:9px;background:var(--bg3);border:1px solid var(--rim);color:var(--t1);font-family:var(--mono);font-size:11px;outline:none;margin-bottom:9px;transition:all .2s" id="orKey" placeholder="sk-or-v1-…"/>
     </div>
-
-    <div id="panel-local" style="display:none">
-      <div style="background:var(--bg3);border:1px solid var(--rim);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--t2);line-height:1.8;margin-bottom:10px">
-        Scans pixel brightness to find walkable areas. Best for clear architectural drawings with visible corridors.<br>
-        <span style="color:var(--t3)">Room names will be auto-labeled (rename in editor)</span>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:10px">
+    <div id="panelLoc" style="display:none">
+      <div style="display:flex;gap:8px;margin-bottom:9px">
         <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer"><input type="radio" name="sens" value="60" style="accent-color:var(--accent)"> Light walls</label>
         <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer"><input type="radio" name="sens" value="120" checked style="accent-color:var(--accent)"> Normal</label>
         <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer"><input type="radio" name="sens" value="180" style="accent-color:var(--accent)"> Dark walls</label>
       </div>
     </div>
-
-    <div class="ai-log" id="ai-log"></div>
-    <div class="prog" id="prog"><div class="prog-fill" id="prog-fill"></div></div>
-    <button class="analyze-btn" id="analyze-btn" onclick="runAnalysis()">🤖 Analyze + Read Room Names (OCR)</button>
-    <button class="manual-btn" onclick="goManual()">✏️ Skip — Place nodes manually</button>
+    <div class="log" id="aiLog"></div>
+    <div class="prog" id="aiProg"><div class="pf" id="aipf"></div></div>
+    <button class="btn btn-accent" id="analyzeBtn" onclick="runAnalysis()" style="margin-top:8px">🤖 Analyze + Read Room Names</button>
+    <button class="btn btn-ghost" onclick="goManual()" style="margin-top:6px">✏️ Skip — Place nodes manually</button>
   </div>
-
 </div>
 </div>
 
-<!-- ══ EDITOR TAB ══ -->
+<!-- EDITOR -->
 <div class="pane" id="pane-editor">
   <div class="editor">
-    <div class="canvas-wrap" id="canvas-wrap">
-      <div class="ctbar">
-        <div class="ct on" id="t-sel" onclick="setTool('sel')">↖️<span class="ct-tip">Select/Move</span></div>
-        <div class="ct" id="t-node" onclick="setTool('node')">📍<span class="ct-tip">Add Node</span></div>
-        <div class="ct" id="t-edge" onclick="setTool('edge')">〰️<span class="ct-tip">Add Edge</span></div>
-        <div class="ct" id="t-del" onclick="setTool('del')">🗑️<span class="ct-tip">Delete</span></div>
-        <div class="ct-sep"></div>
-        <div class="ct" onclick="undo()">↩️<span class="ct-tip">Undo</span></div>
-        <div class="ct" onclick="autoLink()">🔗<span class="ct-tip">Auto-link</span></div>
-        <div class="ct" onclick="validate()">✅<span class="ct-tip">Validate</span></div>
-        <div class="ct-sep"></div>
-        <div class="ct" onclick="clearAll()">🧹<span class="ct-tip">Clear</span></div>
+    <div class="cw" id="cw">
+      <div class="ctb">
+        <div class="ct2 on" id="t-sel" onclick="setTool('sel')">↖️<span>Select/Move</span></div>
+        <div class="ct2" id="t-node" onclick="setTool('node')">📍<span>Add Node</span></div>
+        <div class="ct2" id="t-edge" onclick="setTool('edge')">〰️<span>Add Edge</span></div>
+        <div class="ct2" id="t-del" onclick="setTool('del')">🗑️<span>Delete</span></div>
+        <div class="cs"></div>
+        <div class="ct2" onclick="undo()">↩️<span>Undo</span></div>
+        <div class="ct2" onclick="autoLink()">🔗<span>Auto-link</span></div>
+        <div class="ct2" onclick="smartFix()">🔧<span>Smart Fix</span></div>
+        <div class="ct2" onclick="validate()">✅<span>Validate</span></div>
+        <div class="cs"></div>
+        <div class="ct2" onclick="clearAll()">🧹<span>Clear</span></div>
       </div>
-      <canvas id="floor-canvas"></canvas>
-      <div class="canvas-hint" id="c-hint">Select — click node to edit, drag to move</div>
-      <div class="zoom-btns">
-        <div class="zb" onclick="zoomBy(1.2)">+</div>
-        <div class="zb" onclick="zoomBy(1/1.2)">−</div>
-        <div class="zb" onclick="resetView()">⌂</div>
+      <canvas id="fc"></canvas>
+      <button class="grid-btn" id="gridBtn" onclick="toggleGrid()">⊞ Grid: OFF</button>
+      <div class="ch" id="ch">Select — click to edit, drag to move</div>
+      <div class="leg">
+        <span style="color:rgba(99,102,241,.9)">━</span> Valid &nbsp;
+        <span style="color:rgba(239,68,68,.8)">╌</span> Suspicious (too long) &nbsp;
+        <span style="color:rgba(245,158,11,.8)">╌</span> High cost (stairs/lift)
       </div>
+      <div class="zb2"><div class="zb" onclick="zBy(1.2)">+</div><div class="zb" onclick="zBy(1/1.2)">−</div><div class="zb" onclick="rView()">⌂</div></div>
+      <div id="edFloorBar" style="position:absolute;bottom:52px;right:52px;display:flex;gap:4px;z-index:10"></div>
     </div>
-
     <div class="esb">
       <div class="stats">
-        <div class="sbox"><div class="sbox-val" id="s-nodes">0</div><div class="sbox-lbl">Nodes</div></div>
-        <div class="sbox"><div class="sbox-val" id="s-edges">0</div><div class="sbox-lbl">Edges</div></div>
-        <div class="sbox"><div class="sbox-val" id="s-ok" style="color:var(--amber)">—</div><div class="sbox-lbl">Valid</div></div>
+        <div class="sb"><div class="sv" id="sn">0</div><div class="sk">Nodes</div></div>
+        <div class="sb"><div class="sv" id="se">0</div><div class="sk">Edges</div></div>
+        <div class="sb"><div class="sv" id="sv" style="color:var(--amber)">—</div><div class="sk">Valid</div></div>
       </div>
-      <div class="esb-sec">
-        <div class="esb-lbl">Selected Node</div>
-        <div class="node-editor" id="ne">
-          <div class="ne-row"><span class="ne-lbl">Label</span><input class="ne-inp" id="ne-lbl" placeholder="Room name" onchange="nodeChange()" /></div>
-          <div class="ne-row"><span class="ne-lbl">Type</span><div class="type-grid" id="type-grid"></div></div>
+      <div class="es">
+        <div class="el">Selected Node</div>
+        <div class="ne" id="ne">
+          <div class="nr"><span class="nl">Label</span><input class="ni2" id="nelbl" placeholder="Room name" onchange="nodeChange()"/></div>
+          <div class="nr"><span class="nl">Type</span><div class="tg" id="typeGrid"></div></div>
+          <div class="nr">
+            <span class="nl">Weight (1=normal, 5=stairs penalty)</span>
+            <div class="w-row"><input type="range" min="1" max="10" step="0.5" value="1" id="neWeight" oninput="document.getElementById('neWeightVal').textContent=this.value;nodeChange()"><span id="neWeightVal" style="font-family:var(--mono);font-size:11px;color:var(--a2);min-width:20px">1</span></div>
+          </div>
+          <div class="nr"><span class="nl">Floor</span><input class="ni2" type="number" id="neFloor" value="1" min="1" onchange="nodeChange()"/></div>
           <div class="ne-btns">
             <button class="ne-btn ne-save" onclick="saveNode()">💾 Save</button>
-            <button class="ne-btn ne-del" onclick="delSelNode()">🗑 Delete</button>
+            <button class="ne-btn ne-del" onclick="delSelNode()">🗑 Del</button>
           </div>
         </div>
-        <div class="no-sel" id="no-sel">Click a node to edit</div>
+        <div class="no-sel" id="noSel">Click a node to edit</div>
       </div>
-      <div class="esb-sec">
-        <div class="esb-lbl">Nodes (<span id="nl-count">0</span>)</div>
-        <div class="node-list" id="nl"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══ QR CODES TAB ══ -->
-<div class="pane" id="pane-qr" style="flex-direction:column">
-<div class="scroll-pane">
-  <div class="card" style="max-width:900px">
-    <div class="card-title">📱 QR Codes for Each Node</div>
-    <p style="font-size:13px;color:var(--t2);margin-bottom:16px;line-height:1.7">
-      Print these QR codes and stick them physically on the wall at each location. When a visitor scans one, the app instantly knows their exact position on the map — no GPS needed.
-    </p>
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <button class="act-btn act-blue" style="flex:none;padding:10px 18px" onclick="generateQRs()">🔄 Generate QR Codes</button>
-      <button class="act-btn act-green" style="flex:none;padding:10px 18px" onclick="printQRs()">🖨️ Print All QR Codes</button>
-    </div>
-    <div class="qr-grid" id="qr-grid">
-      <div style="font-size:13px;color:var(--t3);padding:20px">Generate nodes first in the editor, then come here.</div>
-    </div>
-  </div>
-</div>
-</div>
-
-<!-- ══ DEPLOY TAB ══ -->
-<div class="pane" id="pane-deploy" style="flex-direction:column">
-<div class="scroll-pane">
-
-  <div class="card" style="max-width:640px">
-    <div class="card-title">🚀 Deploy to Firebase</div>
-    <div style="background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.2);border-radius:12px;padding:14px;margin-bottom:14px">
-      <div style="font-size:12px;color:var(--t2);line-height:2">
-        <strong style="color:var(--t1)">How it works:</strong><br>
-        1. Click Deploy → saves your facility to Firebase Firestore<br>
-        2. Share your <strong style="color:var(--t1)">Facility ID</strong> with visitors<br>
-        3. They open the client app, enter the ID → map loads from cloud<br>
-        4. They scan a QR code at any location → position locked instantly
-      </div>
-    </div>
-
-    <div style="background:var(--bg3);border:1px solid rgba(99,102,241,.25);border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-bottom:4px">FACILITY ID</div>
-        <div style="font-family:var(--mono);font-size:22px;font-weight:600;color:var(--a2);letter-spacing:2px" id="pub-fid">—</div>
-      </div>
-      <button style="padding:8px 14px;border-radius:9px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:var(--a2);cursor:pointer;font-family:var(--f);font-size:12px;font-weight:600" onclick="copyId()">📋 Copy</button>
-    </div>
-
-    <button class="act-btn act-green" style="margin-bottom:10px" onclick="doPublish()">🚀 Deploy to Firebase Firestore</button>
-    <button class="act-btn" style="background:var(--bg3);border:1px solid var(--rim);color:var(--t2)" onclick="exportJSON()">⬇️ Also Download JSON Backup</button>
-
-      <div id="deploy-status" style="display:none;margin-top:14px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);border-radius:12px;padding:14px">
-        <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:8px">✅ Deployed to Firebase!</div>
-        <div style="font-size:12px;color:var(--t2);line-height:2.1">
-          Facility ID: <strong id="status-fid" style="color:var(--a2);font-family:var(--mono);letter-spacing:1px;font-size:14px">—</strong><br>
-          <strong style="color:var(--t1)">Same browser:</strong> Open <code>indoor-nav.html</code> → enter ID above ✓<br>
-          <strong style="color:var(--t1)">Different device:</strong> You need to configure Firebase in the client app too.<br>
-          Click below to copy a ready-to-use URL:
+      <div class="es">
+        <div class="el">Calibration</div>
+        <div class="cal-bar">
+          <div class="cal-row">📏 <span id="calInfo" style="font-family:var(--mono);font-size:10px;color:var(--a2)">—</span></div>
         </div>
-        <button onclick="copyClientURL()" style="margin-top:10px;width:100%;padding:10px;border-radius:10px;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.1);color:var(--a2);font-family:var(--f);font-size:13px;font-weight:700;cursor:pointer">🔗 Copy Client URL with Facility ID</button>
       </div>
-  </div>
-
-
-  <div class="card" style="max-width:640px;border-color:rgba(99,102,241,.25)">
-    <div class="card-title">🌐 Deploy as Real Public App (Free)</div>
-    <p style="font-size:12.5px;color:var(--t2);margin-bottom:16px;line-height:1.7">
-      Host both HTML files online so anyone with the URL can use it — no local server needed.
-    </p>
-
-    <!-- Option 1: Netlify -->
-    <div style="background:rgba(0,173,181,.07);border:1px solid rgba(0,173,181,.25);border-radius:12px;padding:14px;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:800;color:#00ADB5;margin-bottom:8px">🏆 Option 1 — Netlify Drop (30 seconds, easiest)</div>
-      <div style="font-size:12px;color:var(--t2);line-height:2;margin-bottom:10px">
-        1. Go to <a href="https://app.netlify.com/drop" target="_blank" style="color:#00ADB5">app.netlify.com/drop</a><br>
-        2. Create a folder on your PC called <code style="color:var(--t1)">waypoint</code><br>
-        3. Put <code style="color:var(--t1)">indoor-admin.html</code> and <code style="color:var(--t1)">indoor-nav.html</code> inside it<br>
-        4. Drag that folder onto the Netlify page<br>
-        5. Get a live URL like <code style="color:#00ADB5">waypoint-xyz.netlify.app</code> ✅<br>
-        <span style="color:var(--t3)">✓ Free forever · Custom domain available · HTTPS included</span>
-      </div>
-      <button onclick="window.open('https://app.netlify.com/drop','_blank')" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(0,173,181,.35);background:rgba(0,173,181,.1);color:#00ADB5;font-family:var(--f);font-size:13px;font-weight:700;cursor:pointer">
-        → Open Netlify Drop
-      </button>
-    </div>
-
-    <!-- Option 2: GitHub Pages -->
-    <div style="background:rgba(255,255,255,.03);border:1px solid var(--rim);border-radius:12px;padding:14px;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:800;color:var(--t1);margin-bottom:8px">📦 Option 2 — GitHub Pages (free, permanent)</div>
-      <div style="font-size:12px;color:var(--t2);line-height:2">
-        1. Create a free account at <a href="https://github.com" target="_blank" style="color:var(--cyan)">github.com</a><br>
-        2. New repository → upload both HTML files<br>
-        3. Settings → Pages → Branch: main → Save<br>
-        4. Live at <code style="color:var(--cyan)">yourusername.github.io/waypoint</code> ✅<br>
-        <span style="color:var(--t3)">✓ Free forever · Version history · Custom domain</span>
+      <div class="es">
+        <div class="el">Nodes (<span id="nlc">0</span>)</div>
+        <div class="nl2" id="nl2"></div>
       </div>
     </div>
+  </div>
+</div>
 
-    <!-- Option 3: Firebase Hosting -->
-    <div style="background:rgba(255,160,0,.05);border:1px solid rgba(255,160,0,.2);border-radius:12px;padding:14px">
-      <div style="font-size:13px;font-weight:800;color:#FFA500;margin-bottom:8px">🔥 Option 3 — Firebase Hosting (since you have Firebase)</div>
-      <div style="font-size:12px;color:var(--t2);line-height:2;margin-bottom:10px">
-        Run these 4 commands in your project folder:
-      </div>
-      <div style="background:var(--bg);border:1px solid var(--rim);border-radius:9px;padding:12px;font-family:var(--mono);font-size:11.5px;color:var(--green);line-height:2.2;position:relative">
-        <pre style="white-space:pre-wrap;margin:0">npm install -g firebase-tools
-firebase login
-firebase init hosting
-firebase deploy</pre>
-        <button onclick="copyFirebaseCmds()" style="position:absolute;top:8px;right:8px;padding:4px 10px;border-radius:6px;border:1px solid var(--rim);background:var(--bg2);color:var(--t2);font-family:var(--f);font-size:11px;cursor:pointer">Copy</button>
-      </div>
-      <div style="font-size:11px;color:var(--t3);margin-top:8px">Live at <code>your-project.web.app</code> — same domain as your Firestore data</div>
+<!-- FLOOR LINKS -->
+<div class="pane" id="pane-connect" style="flex-direction:column">
+<div class="sp">
+  <div class="card">
+    <div class="ct">🔗 Cross-Floor Connections</div>
+    <p style="font-size:12.5px;color:var(--t2);margin-bottom:16px;line-height:1.7">Link stairs and elevators between floors. When a user navigates from Floor 1 to Floor 2, the route will go through these connections automatically.</p>
+    <div id="fcList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+    <button class="btn btn-accent" onclick="addFloorConn()">➕ Add Floor Connection</button>
+  </div>
+</div>
+</div>
+
+<!-- QR -->
+<div class="pane" id="pane-qr" style="flex-direction:column">
+<div class="sp">
+  <div class="card" style="max-width:900px">
+    <div class="ct">📱 QR Codes per Node</div>
+    <p style="font-size:12.5px;color:var(--t2);margin-bottom:14px;line-height:1.7">Print these and stick them at each location. Users scan to set their exact position — no GPS needed.</p>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px" id="qrFloorBar"></div>
+    <div style="display:flex;gap:7px;margin-bottom:14px">
+      <button class="btn btn-accent" style="flex:none;padding:9px 16px" onclick="genQRs()">🔄 Generate</button>
+      <button class="btn btn-green" style="flex:none;padding:9px 16px" onclick="printQRs()">🖨️ Print All</button>
+    </div>
+    <div class="qrg" id="qrGrid"><div style="font-size:13px;color:var(--t3);padding:20px">Generate nodes first, then come here.</div></div>
+  </div>
+</div>
+</div>
+
+<!-- DEPLOY -->
+<div class="pane" id="pane-deploy" style="flex-direction:column">
+<div class="sp">
+  <div class="card">
+    <div class="ct">🚀 Deploy to Firebase</div>
+    <div style="background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:2.1">
+      After deploying: share the <strong style="color:var(--t1)">Facility ID</strong> with visitors → they open client app → map loads from cloud ☁️<br>
+      QR codes auto-set position → A* routes through doors and corridors
+    </div>
+    <div style="background:var(--bg3);border:1px solid rgba(99,102,241,.3);border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+      <div><div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:3px">FACILITY ID</div><div style="font-family:var(--mono);font-size:20px;font-weight:600;color:var(--a2);letter-spacing:2px" id="pubFid">—</div></div>
+      <button style="padding:7px 12px;border-radius:8px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:var(--a2);cursor:pointer;font-family:var(--f);font-size:12px;font-weight:600" onclick="copyId()">📋 Copy</button>
+    </div>
+    <button class="btn btn-green" style="margin-bottom:8px" onclick="doPublish()">🚀 Deploy to Firebase Firestore</button>
+    <button class="btn btn-ghost" onclick="exportJSON()">⬇️ Download JSON Backup</button>
+    <div id="depStatus" style="display:none;margin-top:12px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:6px">✅ Deployed!</div>
+      <div style="font-size:11.5px;color:var(--t2);line-height:2">ID: <strong id="depFid" style="color:var(--a2);font-family:var(--mono)">—</strong><br>Open client app → enter ID → navigate</div>
+      <button onclick="copyClientURL()" style="margin-top:9px;width:100%;padding:8px;border-radius:9px;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.1);color:var(--a2);font-family:var(--f);font-size:12px;font-weight:700;cursor:pointer">🔗 Copy Client URL</button>
     </div>
   </div>
-
-  <div class="card" style="max-width:640px">
-    <div class="card-title">📊 Graph Stats</div>
-    <div style="font-family:var(--mono);font-size:11px;color:var(--t2);line-height:2.2" id="graph-sum">Run analysis first.</div>
-  </div>
-
-  <div class="card" style="max-width:640px">
-    <div class="card-title">⚙️ PDR Settings</div>
+  <div class="card">
+    <div class="ct">⚙️ Settings</div>
     <div class="fg">
-      <div class="fgr"><span class="lbl">Step Length (m)</span><input class="inp" id="step-len" type="number" value="0.72" step="0.01" min="0.4" max="1.2" /></div>
-      <div class="fgr"><span class="lbl">px per meter</span><input class="inp" id="px-per-m" type="number" value="30" step="1" min="5" max="200" /></div>
+      <div class="fgr"><span class="lbl">Step Length (m)</span><input class="inp" id="stepLen" type="number" value="0.72" step="0.01" min="0.4" max="1.2"/></div>
+      <div class="fgr"><span class="lbl">Walk Speed (m/min)</span><input class="inp" id="walkSpd2" type="number" value="80" min="20" max="200"/></div>
     </div>
   </div>
-
+  <div class="card">
+    <div class="ct">📊 Graph Summary</div>
+    <div style="font-family:var(--mono);font-size:10.5px;color:var(--t2);line-height:2.2" id="graphSum">No data yet.</div>
+  </div>
+  <div class="card">
+    <div class="ct">🌐 Free Hosting Options</div>
+    <div style="background:rgba(0,173,181,.06);border:1px solid rgba(0,173,181,.2);border-radius:10px;padding:12px;margin-bottom:9px">
+      <div style="font-size:12.5px;font-weight:800;color:#00ADB5;margin-bottom:6px">🏆 Netlify Drop (30 seconds)</div>
+      <div style="font-size:11.5px;color:var(--t2);line-height:2;margin-bottom:8px">1. Create folder <code style="color:var(--t1)">waypoint/</code> with all 3 HTML files<br>2. Drag to <a href="https://app.netlify.com/drop" target="_blank" style="color:#00ADB5">app.netlify.com/drop</a> → live URL instantly</div>
+      <button onclick="window.open('https://app.netlify.com/drop','_blank')" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(0,173,181,.3);background:rgba(0,173,181,.1);color:#00ADB5;font-family:var(--f);font-size:12px;font-weight:700;cursor:pointer">→ Open Netlify Drop</button>
+    </div>
+  </div>
 </div>
 </div>
-
 </main>
 </div>
 
-<div id="toast"><span id="t-ico"></span><span id="t-msg"></span></div>
-<div id="print-area"></div>
+<div id="toast"><span id="tico"></span><span id="tmsg"></span></div>
+<div id="pa"></div>
 
 <script>
-/* ═════════════════════════════════════
-   STATE
-═════════════════════════════════════ */
-const A = {
-  facs:{}, curId:null, floorB64:null,
-  nodes:[], edges:[],
-  sel:null, edgeFrom:null,
-  tool:'sel', scale:1, ox:0, oy:0,
-  imgEl:null, imgW:600, imgH:400,
-  hist:[], dragNode:null, dragOff:{x:0,y:0},
-  mousePos:{x:0,y:0},
-  fbApp:null, fbDb:null, fbConnected:false,
-  analysisMode:'ai',
-};
+/* ═══════════════════════════════════════════════════════
+   WAYPOINT ADMIN v3
+   Full graph engine: enhanced node model, A* with weights,
+   grid snap, path smoothing ready, multi-floor links
+═══════════════════════════════════════════════════════ */
 
+/* ── ENHANCED NODE + EDGE MODEL ── */
 const TYPES=[
-  {v:'entrance',l:'Entrance',c:'#10B981',i:'🚪'},
-  {v:'exit',l:'Exit',c:'#EF4444',i:'🚪'},
-  {v:'corridor',l:'Corridor',c:'#6366F1',i:'🛣️'},
-  {v:'room',l:'Room',c:'#06B6D4',i:'🏠'},
-  {v:'stairs',l:'Stairs',c:'#F59E0B',i:'🪜'},
-  {v:'elevator',l:'Elevator',c:'#8B5CF6',i:'🛗'},
-  {v:'toilet',l:'Toilet',c:'#EC4899',i:'🚻'},
-  {v:'poi',l:'POI',c:'#F97316',i:'⭐'},
-  {v:'junction',l:'Junction',c:'#94A3B8',i:'✦'},
+  {v:'entrance',l:'Entrance',c:'#10B981',i:'🚪',w:1},
+  {v:'exit',    l:'Exit',    c:'#EF4444',i:'🚪',w:1},
+  {v:'corridor',l:'Corridor',c:'#6366F1',i:'🛣️',w:1},
+  {v:'room',    l:'Room',    c:'#06B6D4',i:'🏠',w:1},
+  {v:'stairs',  l:'Stairs',  c:'#F59E0B',i:'🪜',w:5},  // penalty
+  {v:'elevator',l:'Elevator',c:'#8B5CF6',i:'🛗',w:3},
+  {v:'toilet',  l:'Toilet',  c:'#EC4899',i:'🚻',w:1},
+  {v:'poi',     l:'POI',     c:'#F97316',i:'⭐',w:1},
+  {v:'junction',l:'Junction',c:'#94A3B8',i:'✦',w:1},
 ];
 
-/* ═════════════════════════════════════
-   INIT
-═════════════════════════════════════ */
-const CV=()=>document.getElementById('floor-canvas');
+/* ── STATE ── */
+const A={
+  facs:{},curId:null,
+  floors:[{b64:null,nodes:[],edges:[],imgW:600,imgH:400,label:'Floor 1',imgEl:null}],
+  curFloor:0,
+  floorConns:[],  // [{fromFloor,fromNodeId,toFloor,toNodeId,type}]
+  calibration:{mpp:0.033,walkSpd:80}, // meters per pixel, walk speed m/min
+  gridSnap:false, gridSize:20,
+  sel:null,edgeFrom:null,
+  tool:'sel',scale:1,ox:0,oy:0,
+  hist:[],dragNode:null,dragOff:{x:0,y:0},
+  mousePos:{x:0,y:0},
+  fbApp:null,fbDb:null,fbOk:false,
+  mode:'ai',
+
+  get nodes(){ return this.floors[this.curFloor]?.nodes||[]; },
+  set nodes(v){ if(this.floors[this.curFloor])this.floors[this.curFloor].nodes=v; },
+  get edges(){ return this.floors[this.curFloor]?.edges||[]; },
+  set edges(v){ if(this.floors[this.curFloor])this.floors[this.curFloor].edges=v; },
+  get floorB64(){ return this.floors[this.curFloor]?.b64||null; },
+  set floorB64(v){ if(this.floors[this.curFloor])this.floors[this.curFloor].b64=v; },
+  get imgEl(){ return this.floors[this.curFloor]?.imgEl||null; },
+  set imgEl(v){ if(this.floors[this.curFloor])this.floors[this.curFloor].imgEl=v; },
+  get imgW(){ return this.floors[this.curFloor]?.imgW||600; },
+  set imgW(v){ if(this.floors[this.curFloor])this.floors[this.curFloor].imgW=v; },
+  get imgH(){ return this.floors[this.curFloor]?.imgH||400; },
+  set imgH(v){ if(this.floors[this.curFloor])this.floors[this.curFloor].imgH=v; },
+};
+
+const CV=()=>document.getElementById('fc');
 const CX=()=>CV().getContext('2d');
 
+/* ── INIT ── */
 window.addEventListener('DOMContentLoaded',()=>{
   buildTypeGrid();
   genId();
-  loadLocal();
+  loadStore();
   setupCanvas();
-  document.getElementById('f-name').addEventListener('input',()=>{
-    document.getElementById('cur-fac-label').textContent=document.getElementById('f-name').value||'Unnamed';
+  renderFloorTabs();
+  updateCalibDisplay();
+  document.getElementById('fn').addEventListener('input',()=>{
+    document.getElementById('facLabel').textContent=document.getElementById('fn').value||'—';
   });
-  const savedKey=localStorage.getItem('wp_orkey');
-  if(savedKey) document.getElementById('or-key').value=savedKey;
-  const savedFb=JSON.parse(localStorage.getItem('wp_fb_config')||'null');
-  if(savedFb){ fillFbConfig(savedFb); connectFirebase(true); }
-
+  // Calibration live update
+  ['cal-m','cal-px'].forEach(id=>document.getElementById(id).addEventListener('input',calcCalibration));
+  // Restore saved keys
+  const ok=localStorage.getItem('wp_orkey');if(ok)document.getElementById('orKey').value=ok;
+  const fb=JSON.parse(localStorage.getItem('wp_fb')||'null');
+  if(fb){fillFB(fb);connectFB(true);}
+  // Drag & drop
   const dz=document.getElementById('dropzone');
   dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
   dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
   dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))loadImg(f);});
 });
 
-/* ═════════════════════════════════════
-   FIREBASE
-═════════════════════════════════════ */
-async function connectFirebase(silent=false){
-  const cfg={
-    apiKey:document.getElementById('fb-apikey').value.trim(),
-    projectId:document.getElementById('fb-projectid').value.trim(),
-    appId:document.getElementById('fb-appid').value.trim(),
-    authDomain:document.getElementById('fb-authdomain').value.trim()||`${document.getElementById('fb-projectid').value.trim()}.firebaseapp.com`,
-  };
-  if(!cfg.apiKey||!cfg.projectId){
-    if(!silent)toast('⚠️','Fill in API Key and Project ID','warn');
-    return;
-  }
-  setFbStatus('pending','Connecting…');
-  try{
-    // Wait for Firebase imports
-    let tries=0;
-    while(!window._fbImports&&tries++<20) await new Promise(r=>setTimeout(r,200));
-    if(!window._fbImports) throw new Error('Firebase SDK not loaded');
+/* ── CALIBRATION ── */
+function calcCalibration(){
+  const m=parseFloat(document.getElementById('cal-m').value)||10;
+  const px=parseFloat(document.getElementById('cal-px').value)||300;
+  const mpp=m/px;
+  A.calibration.mpp=mpp;
+  document.getElementById('cal-mpp').value=mpp.toFixed(4);
+  updateCalibDisplay();
+}
+function updateCalibDisplay(){
+  const mpp=A.calibration.mpp;
+  document.getElementById('calInfo').textContent=
+    mpp?`1px = ${(mpp*100).toFixed(1)}cm | 1m = ${Math.round(1/mpp)}px`:'Not calibrated';
+}
 
-    const{initializeApp,getFirestore,doc,setDoc,getDoc}=window._fbImports;
-    // Avoid reinitializing same app
-    try{
-      A.fbApp=initializeApp(cfg,'waypoint-'+Date.now());
-    }catch(e){
-      A.fbApp=initializeApp(cfg);
-    }
-    A.fbDb=getFirestore(A.fbApp);
-    // Test write
-    const testRef=doc(A.fbDb,'_test','ping');
-    await setDoc(testRef,{t:Date.now()});
-    A.fbConnected=true;
+/* ── FIREBASE ── */
+async function connectFB(silent=false){
+  const cfg={
+    apiKey:document.getElementById('fbak').value.trim(),
+    projectId:document.getElementById('fbpid').value.trim(),
+    appId:document.getElementById('fbaid').value.trim(),
+    authDomain:document.getElementById('fbad').value.trim()||`${document.getElementById('fbpid').value.trim()}.firebaseapp.com`,
+  };
+  if(!cfg.apiKey||!cfg.projectId){if(!silent)toast('⚠️','Fill API Key + Project ID','warn');return;}
+  setFBStatus('wait','Connecting…');
+  try{
+    let tries=0;while(!window._fb&&tries++<20)await new Promise(r=>setTimeout(r,200));
+    if(!window._fb)throw new Error('Firebase SDK not loaded');
+    A.fbApp=window._fb.initializeApp(cfg,'wp'+Date.now());
+    A.fbDb=window._fb.getFirestore(A.fbApp);
+    const{doc,setDoc}=window._fb;
+    await setDoc(doc(A.fbDb,'_ping','test'),{t:Date.now()});
+    A.fbOk=true;
+    localStorage.setItem('wp_fb',JSON.stringify(cfg));
+    localStorage.setItem('wp_client_fb',JSON.stringify(cfg));
     localStorage.setItem('wp_fb_config',JSON.stringify(cfg));
-    setFbStatus('ok','Firebase connected');
+    setFBStatus('ok','Firebase ✓');
     if(!silent)toast('🔥','Firebase connected!','ok');
   }catch(e){
-    A.fbConnected=false;
-    setFbStatus('off','Connection failed');
-    if(!silent)toast('❌',e.message.slice(0,60),'err');
-    console.error(e);
+    A.fbOk=false;setFBStatus('off','Failed');
+    if(!silent)toast('❌',e.message.slice(0,50),'err');
   }
 }
+function setFBStatus(s,t){const el=document.getElementById('fbpill');el.className='fb-pill '+s;document.getElementById('fbptxt').textContent=t;}
+function fillFB(cfg){document.getElementById('fbak').value=cfg.apiKey||'';document.getElementById('fbpid').value=cfg.projectId||'';document.getElementById('fbaid').value=cfg.appId||'';document.getElementById('fbad').value=cfg.authDomain||'';}
 
-function fillFbConfig(cfg){
-  document.getElementById('fb-apikey').value=cfg.apiKey||'';
-  document.getElementById('fb-projectid').value=cfg.projectId||'';
-  document.getElementById('fb-appid').value=cfg.appId||'';
-  document.getElementById('fb-authdomain').value=cfg.authDomain||'';
-}
-
-function setFbStatus(state,txt){
-  const el=document.getElementById('fb-status');
-  el.className='fb-status '+state;
-  document.getElementById('fb-status-txt').textContent=txt;
-}
-
-/* ═════════════════════════════════════
-   FACILITY
-═════════════════════════════════════ */
+/* ── FACILITY ── */
 function genId(){
   const ch='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id='';for(let i=0;i<8;i++)id+=ch[~~(Math.random()*ch.length)];
-  document.getElementById('f-id').value=id;
-  document.getElementById('pub-fid').textContent=id;
+  document.getElementById('fid').value=id;
+  document.getElementById('pubFid').textContent=id;
   return id;
 }
-function newFacility(){
-  A.nodes=[];A.edges=[];A.floorB64=null;A.sel=null;A.imgEl=null;
+function newFac(){
+  A.floors=[{b64:null,nodes:[],edges:[],imgW:600,imgH:400,label:'Floor 1',imgEl:null}];
+  A.curFloor=0;A.floorConns=[];A.sel=null;A.hist=[];
   genId();
-  document.getElementById('f-name').value='';
-  document.getElementById('dz-preview').classList.remove('show');
+  document.getElementById('fn').value='';
+  document.getElementById('dzprev').classList.remove('show');
   document.getElementById('dropzone').classList.remove('done');
-  document.querySelector('.dropzone div:nth-child(2)').textContent='Drop floor plan here';
-  clearCanvasDraw();
-  gotoTab('setup');
-  toast('📁','New facility','ok');
+  document.getElementById('dzTitle').textContent='Drop Floor 1 plan here';
+  document.getElementById('dzIcon').textContent='🖼️';
+  clearCanvasDraw();renderFloorTabs();renderFCList();
+  gotoTab('setup');toast('📁','New facility','ok');
 }
-function loadLocal(){
-  try{A.facs=JSON.parse(localStorage.getItem('wp_v2')||'{}');}catch(e){}
-  // Auto-restore the last active facility
-  const lastId=localStorage.getItem('wp_last_id');
-  if(lastId&&A.facs[lastId]){
-    const fac=A.facs[lastId];
-    A.curId=lastId;
-    A.nodes=fac.nodes||[];
-    A.edges=fac.edges||[];
-    A.floorB64=fac.floorImage||fac.img||null;
-    A.imgW=fac.imgW||fac.iw||600;
-    A.imgH=fac.imgH||fac.ih||400;
-    document.getElementById('f-id').value=lastId;
-    document.getElementById('f-name').value=fac.name||'';
-    document.getElementById('f-type').value=fac.type||'hospital';
-    document.getElementById('f-floors').value=fac.floors||1;
-    document.getElementById('pub-fid').textContent=lastId;
-    document.getElementById('cur-fac-label').textContent=fac.name||lastId;
-    if(document.getElementById('step-len'))document.getElementById('step-len').value=fac.stepLen||0.72;
-    if(document.getElementById('px-per-m'))document.getElementById('px-per-m').value=fac.pxPerMeter||fac.pxPerM||30;
-    if(A.floorB64){
-      document.getElementById('preview-img').src=A.floorB64;
-      document.getElementById('dz-preview').classList.add('show');
-      document.getElementById('dropzone').classList.add('done');
-      // Load image element after DOM ready
-      setTimeout(()=>loadImgEl(A.floorB64),100);
-    }
-    renderNL();updateStats();
-    console.log('[WayPoint] Restored facility:',fac.name,'nodes:',A.nodes.length);
-  }
+function loadStore(){
+  try{A.facs=JSON.parse(localStorage.getItem('wp_v3')||localStorage.getItem('wp_v2')||'{}');}catch(e){}
+  const lid=localStorage.getItem('wp_last_id');
+  if(lid&&A.facs[lid])loadFac(lid);
 }
-function saveLocal(){try{localStorage.setItem('wp_v2',JSON.stringify(A.facs));}catch(e){}}
+function saveStore(){try{localStorage.setItem('wp_v3',JSON.stringify(A.facs));}catch(e){}}
+function loadFac(id){
+  const f=A.facs[id];if(!f)return;
+  A.curId=id;
+  A.floors=f.floors?(f.floors.map(fl=>({...fl,imgEl:null}))):[{b64:f.floorImage||f.img||null,nodes:f.nodes||[],edges:f.edges||[],imgW:f.imgW||600,imgH:f.imgH||400,label:'Floor 1',imgEl:null}];
+  A.curFloor=0;
+  A.floorConns=f.floorConns||[];
+  A.calibration=f.calibration||{mpp:0.033,walkSpd:80};
+  document.getElementById('fid').value=id;
+  document.getElementById('fn').value=f.name||'';
+  document.getElementById('ftype').value=f.type||'hospital';
+  document.getElementById('pubFid').textContent=id;
+  document.getElementById('facLabel').textContent=f.name||id;
+  document.getElementById('cal-mpp').value=A.calibration.mpp?.toFixed(4)||'0.0333';
+  updateCalibDisplay();
+  if(A.floorB64){document.getElementById('prevImg').src=A.floorB64;document.getElementById('dzprev').classList.add('show');setTimeout(()=>loadImgEl(A.floorB64),100);}
+  renderFloorTabs();renderFCList();renderNL();updateStats();
+}
 
-/* ═════════════════════════════════════
-   FILE
-═════════════════════════════════════ */
+/* ── FILE UPLOAD ── */
 function onFile(inp){if(inp.files[0])loadImg(inp.files[0]);}
 function loadImg(file){
   const rd=new FileReader();
   rd.onload=e=>{
-    A.floorB64=e.target.result;
-    document.getElementById('preview-img').src=A.floorB64;
-    document.getElementById('dz-preview').classList.add('show');
+    A.floors[A.curFloor].b64=e.target.result;
+    document.getElementById('prevImg').src=e.target.result;
+    document.getElementById('dzprev').classList.add('show');
     document.getElementById('dropzone').classList.add('done');
-    loadImgEl(A.floorB64);
-    toast('🖼️','Floor plan loaded','ok');
+    document.getElementById('dzTitle').textContent=`✅ ${A.floors[A.curFloor].label}`;
+    document.getElementById('dzIcon').textContent='✅';
+    loadImgEl(e.target.result);
+    renderFloorTabs();saveCur();
+    toast('🖼️',`${A.floors[A.curFloor].label} loaded`,'ok');
   };
   rd.readAsDataURL(file);
 }
 function loadImgEl(src){
   const img=new Image();
   img.onload=()=>{
-    A.imgEl=img;
-    const wrap=document.getElementById('canvas-wrap');
+    const wrap=document.getElementById('cw');
     const ww=Math.max(wrap.clientWidth-40,600),wh=Math.max(wrap.clientHeight-80,400);
-    const sc=Math.min(ww/(img.naturalWidth||800),wh/(img.naturalHeight||600),1);
-    A.imgW=Math.round((img.naturalWidth||800)*sc);
-    A.imgH=Math.round((img.naturalHeight||600)*sc);
+    const nw=img.naturalWidth||800,nh=img.naturalHeight||600;
+    const sc=Math.min(ww/nw,wh/nh,1);
+    A.floors[A.curFloor].imgEl=img;
+    A.floors[A.curFloor].imgW=Math.round(nw*sc);
+    A.floors[A.curFloor].imgH=Math.round(nh*sc);
     CV().width=A.imgW;CV().height=A.imgH;
     A.scale=1;A.ox=0;A.oy=0;
     draw();
@@ -860,186 +647,295 @@ function loadImgEl(src){
   img.src=src;
 }
 
-/* ═════════════════════════════════════
-   MODE SWITCH
-═════════════════════════════════════ */
+/* ── MULTI-FLOOR ── */
+function addFloor(){
+  const idx=A.floors.length;
+  A.floors.push({b64:null,nodes:[],edges:[],imgW:600,imgH:400,label:`Floor ${idx+1}`,imgEl:null});
+  switchFloor(idx);
+  toast('🏢',`Floor ${idx+1} added`,'ok');
+}
+function switchFloor(idx){
+  if(A.curFloor!==idx)saveCur();
+  A.curFloor=idx;
+  const fl=A.floors[idx];
+  document.getElementById('dzTitle').textContent=fl.b64?`✅ ${fl.label}`:`Drop ${fl.label} plan here`;
+  document.getElementById('dzIcon').textContent=fl.b64?'✅':'🖼️';
+  document.getElementById('dropzone').classList.toggle('done',!!fl.b64);
+  if(fl.b64){document.getElementById('prevImg').src=fl.b64;document.getElementById('dzprev').classList.add('show');}
+  else document.getElementById('dzprev').classList.remove('show');
+  renderFloorTabs();
+  setTimeout(()=>{
+    if(fl.imgEl){CV().width=fl.imgW;CV().height=fl.imgH;A.scale=1;A.ox=0;A.oy=0;draw();}
+    else if(fl.b64)loadImgEl(fl.b64);
+    else{const wr=document.getElementById('cw');CV().width=Math.max(wr.clientWidth-40,600);CV().height=Math.max(wr.clientHeight-80,400);draw();}
+  },60);
+  renderNL();updateStats();renderEditorFloorBar();
+}
+function deleteFloor(idx){
+  if(A.floors.length<=1){toast('⚠️','Must have at least one floor','warn');return;}
+  if(!confirm(`Delete ${A.floors[idx].label}? All nodes lost.`))return;
+  A.floors.splice(idx,1);
+  A.floors.forEach((fl,i)=>{if(fl.label.startsWith('Floor '))fl.label=`Floor ${i+1}`;});
+  A.curFloor=Math.min(A.curFloor,A.floors.length-1);
+  A.floorConns=A.floorConns.filter(c=>c.fromFloor<A.floors.length&&c.toFloor<A.floors.length);
+  switchFloor(A.curFloor);saveCur();toast('🗑️','Floor deleted','warn');
+}
+function renameFloor(idx){
+  const n=prompt('Floor name:',A.floors[idx].label);
+  if(n&&n.trim()){A.floors[idx].label=n.trim();renderFloorTabs();saveCur();}
+}
+function renderFloorTabs(){
+  const bar=document.getElementById('floorTabs');if(!bar)return;
+  bar.innerHTML=A.floors.map((fl,i)=>`
+    <div style="display:flex;align-items:center;gap:4px;padding:6px 11px;border-radius:9px;cursor:pointer;
+      border:1.5px solid ${i===A.curFloor?'rgba(99,102,241,.5)':'var(--rim)'};
+      background:${i===A.curFloor?'rgba(99,102,241,.14)':'var(--bg3)'};
+      color:${i===A.curFloor?'var(--a2)':'var(--t2)'};font-size:12px;font-weight:600;transition:all .15s" onclick="switchFloor(${i})">
+      <span>${fl.b64?'🗺️':'📋'}</span>
+      <span ondblclick="renameFloor(${i})">${fl.label}</span>
+      ${A.floors.length>1?`<span onclick="event.stopPropagation();deleteFloor(${i})" style="margin-left:3px;opacity:.4;font-size:10px;cursor:pointer" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4">✕</span>`:''}
+    </div>`).join('')+`<div style="font-size:10.5px;color:var(--t3);align-self:center;padding:0 4px">dbl-click to rename</div>`;
+}
+function renderEditorFloorBar(){
+  const bar=document.getElementById('edFloorBar');if(!bar)return;
+  if(A.floors.length<=1){bar.innerHTML='';return;}
+  bar.innerHTML=A.floors.map((fl,i)=>`
+    <div onclick="switchFloor(${i})" style="padding:5px 10px;border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:600;
+      background:${i===A.curFloor?'rgba(99,102,241,.15)':'var(--bg2)'};
+      border:1px solid ${i===A.curFloor?'rgba(99,102,241,.4)':'var(--rim)'};
+      color:${i===A.curFloor?'var(--a2)':'var(--t2)'};backdrop-filter:blur(20px)">
+      ${fl.label}
+    </div>`).join('');
+}
+
+/* ── FLOOR CONNECTIONS ── */
+function renderFCList(){
+  const el=document.getElementById('fcList');if(!el)return;
+  if(!A.floorConns.length){el.innerHTML='<div style="font-size:12px;color:var(--t3);padding:8px">No floor connections yet.</div>';return;}
+  el.innerHTML=A.floorConns.map((c,i)=>`
+    <div class="fc-pair">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span>Floor ${c.fromFloor+1} → Floor ${c.toFloor+1} via <strong style="color:var(--a2)">${c.type||'stairs'}</strong></span>
+        <button onclick="removeFC(${i})" style="padding:3px 8px;border-radius:6px;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.08);color:var(--red);cursor:pointer;font-size:11px">Remove</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--t3);margin-top:4px">
+        ${getNodeLabel(c.fromFloor,c.fromNodeId)} ↔ ${getNodeLabel(c.toFloor,c.toNodeId)}
+      </div>
+    </div>`).join('');
+}
+function getNodeLabel(floorIdx,nodeId){
+  const n=A.floors[floorIdx]?.nodes.find(n=>n.id===nodeId);
+  return n?`"${n.label}" (Floor ${floorIdx+1})`:`Node ${nodeId} (Floor ${floorIdx+1})`;
+}
+function addFloorConn(){
+  if(A.floors.length<2){toast('⚠️','Need at least 2 floors','warn');return;}
+  // Find stair/elevator nodes
+  const allStairNodes=A.floors.map((fl,fi)=>fl.nodes.filter(n=>['stairs','elevator'].includes(n.type)).map(n=>({...n,fi})));
+  const flat=allStairNodes.flat();
+  if(flat.length<2){toast('⚠️','Mark nodes as "Stairs" or "Elevator" on each floor first','warn');return;}
+
+  // Simple: connect last two stair/elevator nodes across different floors
+  const byFloor=A.floors.map((fl,fi)=>fl.nodes.filter(n=>['stairs','elevator'].includes(n.type)));
+  let added=0;
+  for(let fi=0;fi<A.floors.length-1;fi++){
+    const from=byFloor[fi];const to=byFloor[fi+1];
+    if(from.length&&to.length){
+      A.floorConns.push({fromFloor:fi,fromNodeId:from[0].id,toFloor:fi+1,toNodeId:to[0].id,type:from[0].type});
+      added++;
+    }
+  }
+  if(added){saveCur();renderFCList();toast('🔗',`${added} floor connections added`,'ok');}
+  else toast('⚠️','Could not auto-detect connections — add stairs nodes on each floor','warn');
+}
+function removeFC(i){A.floorConns.splice(i,1);saveCur();renderFCList();}
+
+/* ── MODE SWITCH ── */
 function setMode(m){
-  A.analysisMode=m;
-  document.getElementById('panel-ai').style.display=m==='ai'?'block':'none';
-  document.getElementById('panel-local').style.display=m==='local'?'block':'none';
-  const ai=document.getElementById('mode-ai'),lo=document.getElementById('mode-local');
+  A.mode=m;
+  document.getElementById('panelAI').style.display=m==='ai'?'block':'none';
+  document.getElementById('panelLoc').style.display=m==='local'?'block':'none';
+  const ai=document.getElementById('modeAI'),lo=document.getElementById('modeLoc');
   if(m==='ai'){ai.style.background='rgba(99,102,241,.12)';ai.style.borderColor='rgba(99,102,241,.4)';ai.style.color='var(--a2)';lo.style.background='var(--bg3)';lo.style.borderColor='var(--rim)';lo.style.color='var(--t2)';}
   else{lo.style.background='rgba(99,102,241,.12)';lo.style.borderColor='rgba(99,102,241,.4)';lo.style.color='var(--a2)';ai.style.background='var(--bg3)';ai.style.borderColor='var(--rim)';ai.style.color='var(--t2)';}
 }
+function runAnalysis(){if(A.mode==='ai')runAI();else runLocal();}
+function goManual(){if(!A.floorB64){toast('⚠️','Upload floor plan first','warn');return;}if(!A.imgEl)loadImgEl(A.floorB64);gotoTab('editor');setTool('node');toast('✏️','Manual mode — use Node tool','ok');}
 
-function runAnalysis(){
-  if(A.analysisMode==='ai')runOpenRouterAI();
-  else runLocalAnalysis();
-}
-function goManual(){
-  if(!A.floorB64){toast('⚠️','Upload a floor plan first','warn');return;}
-  if(!A.imgEl)loadImgEl(A.floorB64);
-  toast('✏️','Manual mode — use Node tool','ok');
-  gotoTab('editor');setTool('node');
-}
-
-/* ═════════════════════════════════════
-   OPENROUTER AI + OCR
-═════════════════════════════════════ */
-async function runOpenRouterAI(){
-  if(!A.floorB64){toast('⚠️','Upload a floor plan first','warn');return;}
-  const key=document.getElementById('or-key').value.trim();
+/* ── OPENROUTER AI ── */
+async function runAI(){
+  if(!A.floorB64){toast('⚠️','Upload floor plan first','warn');return;}
+  const key=document.getElementById('orKey').value.trim();
   if(!key.startsWith('sk-or')){toast('⚠️','Enter OpenRouter key (sk-or-v1-…)','warn');return;}
   localStorage.setItem('wp_orkey',key);
 
-  const btn=document.getElementById('analyze-btn');btn.disabled=true;
-  const logEl=document.getElementById('ai-log'),progEl=document.getElementById('prog'),fillEl=document.getElementById('prog-fill');
+  const btn=document.getElementById('analyzeBtn');btn.disabled=true;
+  const logEl=document.getElementById('aiLog'),progEl=document.getElementById('aiProg'),fillEl=document.getElementById('aipf');
   logEl.classList.add('show');progEl.classList.add('show');logEl.innerHTML='';
-  const log=(m,c='info')=>{const s={ok:'✓',err:'✗',warn:'⚠',info:'›'}[c]||'›';logEl.innerHTML+=`<span class="${c}">${s}  ${m}</span>\n`;logEl.scrollTop=logEl.scrollHeight;};
+  const log=(m,c='info')=>{logEl.innerHTML+=`<span class="${c}">${{ok:'✓',err:'✗',warn:'⚠',info:'›'}[c]}  ${m}</span>\n`;logEl.scrollTop=logEl.scrollHeight;};
   const setP=p=>fillEl.style.width=p+'%';
 
   try{
-    if(!A.imgW||!A.imgH){
-      if(A.imgEl){const sc=Math.min(800/A.imgEl.naturalWidth,600/A.imgEl.naturalHeight,1);A.imgW=Math.round(A.imgEl.naturalWidth*sc);A.imgH=Math.round(A.imgEl.naturalHeight*sc);}
-      else{await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,700);});}
-    }
-    log('Preparing image for OCR + analysis…');setP(8);
+    if(!A.imgW||!A.imgH){if(A.imgEl){const sc=Math.min(800/A.imgEl.naturalWidth,600/A.imgEl.naturalHeight,1);A.imgW=Math.round(A.imgEl.naturalWidth*sc);A.imgH=Math.round(A.imgEl.naturalHeight*sc);}else{await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,700);});}}
     const b64=A.floorB64.split(',')[1];
     const mime=A.floorB64.split(';')[0].split(':')[1]||'image/jpeg';
-    const ftype=document.getElementById('f-type').value;
+    const ftype=document.getElementById('ftype').value;
+    const floorLabel=A.floors[A.curFloor].label;
 
-    // This prompt specifically asks for OCR reading of room labels
-        const prompt=`You are an expert indoor navigation graph builder for a ${ftype} floor plan.
+    const prompt=`You are a precise indoor navigation graph builder. Analyze this ${ftype} floor plan image (${floorLabel}).
 
-YOUR JOB: Create a navigation graph that guides people through DOORS and CORRIDORS — NOT through walls.
+CRITICAL MISSION: Build a graph that routes people through DOORWAYS and CORRIDORS only — never through walls.
 
-STEP 1 — READ ALL TEXT LABELS via OCR:
-- Read every room name, label, sign visible in the image
-- Use EXACT text (e.g. "ICU", "RECOVERY ROOM", "NURSES STATION", "WASHROOMS")
+═══ STEP 1: UNDERSTAND THE LAYOUT ═══
+Look at the image carefully:
+- Identify all CORRIDORS (the open white/light areas connecting rooms)
+- Identify every room's DOOR OPENING (gap in the black wall line)
+- Read ALL text labels on the image (use exact text)
+- Find: Entrance/Exit, Stairs, Elevator, Toilets
 
-STEP 2 — NODE PLACEMENT RULES (CRITICAL — read carefully):
-Place nodes ONLY at these locations:
-  A) DOOR THRESHOLDS: at the opening/doorway of every room (just outside the door, in the corridor)
-  B) CORRIDOR INTERSECTIONS: where two or more corridors meet (T-junction, crossroads)
-  C) CORRIDOR MIDPOINTS: every 80-100px equivalent along long straight corridors
-  D) STAIRS / ELEVATORS: at the entry point
-  E) MAIN ENTRANCE: at the building entrance door
+═══ STEP 2: WHERE TO PLACE NODES ═══
 
-DO NOT place nodes:
-  ✗ Inside the middle of rooms (only at the door)
-  ✗ On walls or colored wall areas
-  ✗ Floating in open space with no connection
+RULE A — Corridor spine nodes:
+- Place nodes along the MAIN CORRIDOR at every intersection and turn
+- Space them ~12-15% of image width apart along straight sections
+- These form the "highway" of the navigation graph
 
-STEP 3 — EDGE RULES (NO WALL CROSSINGS):
-  - Only connect two nodes if you can walk in a STRAIGHT LINE between them WITHOUT crossing a wall
-  - Corridor nodes connect to adjacent corridor nodes
-  - Room door nodes connect to the nearest corridor node
-  - Never connect nodes across a wall or through a colored room block
+RULE B — Room door nodes:
+- For EACH room with a visible door opening: place ONE node at the doorway threshold
+- The node must be in the corridor JUST OUTSIDE the door, NOT inside the room
+- If a room has "PATIENT ROOM" text in its center, the node goes at the door gap in the wall
 
-STEP 4 — NAMING:
-  - Door node for ICU → label "ICU Door", type "room"
-  - Corridor intersection → label "Corridor", type "corridor"  
-  - Main entrance → label "Main Entrance", type "entrance"
-  - Stairs → label "Stairs", type "stairs"
+RULE C — Special nodes:
+- Main entrance: at the entry threshold
+- Stairs/Elevator: at their access point
+- Toilets: at the toilet door
 
-Return ONLY valid JSON (no markdown, no backticks, no extra text):
-{"nodes":[{"id":"n1","x":0.08,"y":0.72,"label":"Main Entrance","type":"entrance"},{"id":"n2","x":0.08,"y":0.65,"label":"Corridor","type":"corridor"},{"id":"n3","x":0.20,"y":0.65,"label":"ICU Door","type":"room"}],"edges":[{"from":"n1","to":"n2"},{"from":"n2","to":"n3"}],"meta":{"desc":"one line description","rooms_detected":["ICU","Recovery Room","Washrooms"]}}
+═══ STEP 3: EDGE RULES ═══
+Connect node A → node B ONLY if:
+✓ The path between them is entirely in open corridor space
+✓ No black wall line is crossed
+✓ They are on the same corridor segment
 
-Coordinates: x,y are 0.0-1.0 relative (0,0=top-left corner of image)
-Generate 25-50 nodes. Every room must be reachable from entrance via corridor nodes only.`;
+Chain: Entrance → corridor1 → corridor2 → corridor3 → PatientRoomDoor
+NEVER: PatientRoom → PatientRoom (must go via corridor)
+NEVER: connect nodes with a wall between them
 
-    const body={model:'',messages:[{role:'user',content:[{type:'image_url',image_url:{url:`data:${mime};base64,${b64}`}},{type:'text',text:prompt}]}],max_tokens:4096,temperature:0.1};
+═══ EXPECTED NODE STRUCTURE ═══
+For a hospital with row of patient rooms along a corridor:
+n1 Main Entrance (at front door) → n2 Corridor (just inside) → n3..n8 Corridor nodes along hallway → n9 Patient Room 1 Door, n10 Patient Room 2 Door etc.
+All room doors connect to nearest corridor node, not to each other.
 
-    // Live model discovery
-    log('Fetching available free vision models…');setP(12);
+Return ONLY valid JSON:
+{"nodes":[{"id":"n1","x":0.50,"y":0.92,"label":"Main Entrance","type":"entrance","weight":1},{"id":"n2","x":0.50,"y":0.80,"label":"Main Corridor","type":"corridor","weight":1},{"id":"n3","x":0.25,"y":0.80,"label":"Patient Room 1 Door","type":"room","weight":1}],"edges":[{"from":"n1","to":"n2","bidirectional":true},{"from":"n2","to":"n3","bidirectional":true}],"meta":{"desc":"floor description","rooms":["Patient Room x6","Nurses Station"]}}
+
+x,y: 0.0-1.0 relative coords. Generate 30-55 nodes. Every room reachable from entrance via corridor only.`;
+
+    log('Fetching live free vision models…');setP(8);
     let freeModels=[];
     try{
       const mr=await fetch('https://openrouter.ai/api/v1/models',{headers:{'Authorization':`Bearer ${key}`},signal:AbortSignal.timeout(8000)});
       const md=await mr.json();
-      if(md.data){
-        freeModels=md.data.filter(m=>{
-          const free=parseFloat(m.pricing?.prompt||'1')===0;
-          const vis=['image'].some(w=>JSON.stringify(m.architecture?.input_modalities||[]).includes(w))||/vl|vision|gemini|pixtral|llava/i.test(m.id);
-          return free&&vis;
-        }).map(m=>m.id);
-        log(`${freeModels.length} free vision models found`,'ok');
-      }
-    }catch(fe){log('Could not fetch live model list — using known list','warn');}
+      if(md.data){freeModels=md.data.filter(m=>{const fr=parseFloat(m.pricing?.prompt||'1')===0;const vi=/vl|vision|gemini|pixtral|llava/i.test(m.id)||JSON.stringify(m.architecture?.input_modalities||[]).includes('image');return fr&&vi;}).map(m=>m.id);}
+      log(`${freeModels.length} free vision models found`,'ok');
+    }catch(fe){log('Using known model list','warn');}
 
     const KNOWN=['google/gemini-2.5-pro-exp-03-25:free','google/gemini-2.0-flash-exp:free','google/gemini-2.0-flash-thinking-exp:free','meta-llama/llama-3.2-90b-vision-instruct:free','meta-llama/llama-3.2-11b-vision-instruct:free','qwen/qwen2-vl-7b-instruct:free','mistralai/pixtral-12b:free'];
     const allModels=[...new Set([...freeModels,...KNOWN])];
+    const body={model:'',messages:[{role:'user',content:[{type:'image_url',image_url:{url:`data:${mime};base64,${b64}`}},{type:'text',text:prompt}]}],max_tokens:4096,temperature:0.1};
 
-    let responseData=null,lastErr='No model worked';
+    let resp=null,lastErr='No model worked';
     for(let i=0;i<allModels.length;i++){
-      const model=allModels[i];
-      const name=model.split('/').pop().replace(':free','');
-      log(`[${i+1}/${allModels.length}] Trying ${name}…`);setP(15+Math.round(i/allModels.length*50));
+      const model=allModels[i];const name=model.split('/').pop().replace(':free','');
+      log(`[${i+1}/${allModels.length}] Trying ${name}…`);setP(10+Math.round(i/allModels.length*55));
       try{
-        const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{
-          method:'POST',
+        const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',
           headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`,'HTTP-Referer':'http://localhost:3000','X-Title':'WayPoint'},
-          body:JSON.stringify({...body,model}),
-          signal:AbortSignal.timeout(45000),
-        });
+          body:JSON.stringify({...body,model}),signal:AbortSignal.timeout(50000)});
         const json=await r.json();
-        if(r.ok&&json.choices?.[0]?.message?.content){log(`✓ ${name}`,'ok');setP(70);responseData=json;break;}
+        if(r.ok&&json.choices?.[0]?.message?.content){log(`✓ ${name}`,'ok');setP(70);resp=json;break;}
         const em=json.error?.message||`HTTP ${r.status}`;
-        const skip=r.status===404||r.status===422||/not found|no endpoint|unavailable|no providers|disabled/i.test(em);
-        log(`  ${skip?'unavailable':'error: '+em.slice(0,50)}`,'warn');
         if(r.status===401)throw new Error('Invalid API key');
-        if(!skip)break;
-      }catch(fe){if(fe.message.includes('Invalid'))throw fe;lastErr=fe.message;}
+        if(/not found|no endpoint|unavailable|no providers|disabled/i.test(em)){log(`  ${name}: unavailable`,'warn');lastErr=em;continue;}
+        log(`  error: ${em.slice(0,50)}`,'warn');lastErr=em;
+      }catch(fe){if(fe.message.includes('Invalid'))throw fe;lastErr=fe.message;log(`  ${fe.message.slice(0,50)}`,'warn');}
     }
 
-    if(!responseData){log('All AI models unavailable — switching to local','warn');btn.disabled=false;setTimeout(()=>runLocalAnalysis(),300);return;}
+    if(!resp){log('All AI models unavailable — switching to local','warn');btn.disabled=false;setTimeout(()=>runLocal(),300);return;}
 
-    setP(80);log('Parsing OCR + graph data…');
-    const raw=responseData.choices[0].message.content.trim();
+    setP(80);log('Parsing graph…');
+    const raw=resp.choices[0].message.content.trim();
     let gd;
     try{gd=JSON.parse(raw);}
     catch{const m=raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'');try{gd=JSON.parse(m);}catch{const m2=raw.match(/\{[\s\S]*\}/);if(m2)gd=JSON.parse(m2[0]);else throw new Error('Cannot parse JSON');}}
-    if(!gd?.nodes?.length)throw new Error('No nodes in response');
-
-    setP(90);
-    if(gd.meta?.rooms_detected?.length){
-      log(`Rooms detected by OCR: ${gd.meta.rooms_detected.join(', ')}`.slice(0,120),'ok');
-    }
-    log(`${gd.nodes.length} nodes, ${gd.edges?.length||0} edges`,'ok');
-    if(gd.meta?.desc)log(gd.meta.desc,'info');
+    if(!gd?.nodes?.length)throw new Error('No nodes returned — try again');
 
     if(!A.imgW||!A.imgH){A.imgW=800;A.imgH=600;}
-    A.nodes=gd.nodes.map(n=>({id:String(n.id),x:Math.max(0,Math.min(1,parseFloat(n.x)||0))*A.imgW,y:Math.max(0,Math.min(1,parseFloat(n.y)||0))*A.imgH,label:String(n.label||'Node'),type:String(n.type||'junction')}));
-    A.edges=(gd.edges||[]).map(e=>({from:String(e.from),to:String(e.to),dist:0})).filter(e=>A.nodes.find(n=>n.id===e.from)&&A.nodes.find(n=>n.id===e.to));
-    A.edges.forEach(e=>{const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);if(f&&t)e.dist=Math.hypot(f.x-t.x,f.y-t.y);});
+    const mpp=A.calibration.mpp||0.033;
 
-    setP(100);log('✓ Done — room names read from image (OCR)','ok');
+    // Enhanced node model
+    A.nodes=gd.nodes.map(n=>{
+      const td=TYPES.find(t=>t.v===n.type)||TYPES[8];
+      return{
+        id:String(n.id),
+        x:Math.max(0,Math.min(1,parseFloat(n.x)||0))*A.imgW,
+        y:Math.max(0,Math.min(1,parseFloat(n.y)||0))*A.imgH,
+        label:String(n.label||'Node'),
+        type:String(n.type||'junction'),
+        floor:A.curFloor,
+        weight:parseFloat(n.weight)||td.w||1,
+        connections:[],
+      };
+    });
+
+    // Enhanced edge model with real-world distance
+    A.edges=(gd.edges||[]).map(e=>({
+      from:String(e.from),to:String(e.to),
+      dist:0,distMeters:0,
+      type:e.type||'walk',
+      bidirectional:e.bidirectional!==false,
+    })).filter(e=>A.nodes.find(n=>n.id===e.from)&&A.nodes.find(n=>n.id===e.to));
+
+    // Compute distances with real-world scale
+    A.edges.forEach(e=>{
+      const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);
+      if(f&&t){e.dist=Math.hypot(f.x-t.x,f.y-t.y);e.distMeters=e.dist*mpp;}
+    });
+
+    // Update node.connections
+    A.nodes.forEach(n=>n.connections=[]);
+    A.edges.forEach(e=>{
+      const fn=A.nodes.find(n=>n.id===e.from),tn=A.nodes.find(n=>n.id===e.to);
+      if(fn&&!fn.connections.includes(e.to))fn.connections.push(e.to);
+      if(tn&&e.bidirectional&&!tn.connections.includes(e.from))tn.connections.push(e.from);
+    });
+
+    setP(95);if(gd.meta?.rooms)log(`Rooms detected: ${gd.meta.rooms.join(', ')}`.slice(0,100),'ok');
+    log(`${A.nodes.length} nodes, ${A.edges.length} edges`,'ok');
+    setP(100);
     saveCur();
     await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,600);});
     renderNL();updateStats();
     setTimeout(()=>{progEl.classList.remove('show');fillEl.style.width='0%';},1500);
-    toast('✅',`AI+OCR done — ${A.nodes.length} nodes with real room names`,'ok');
+    toast('✅',`AI done — ${A.nodes.length} nodes with OCR labels`,'ok');
     gotoTab('editor');
   }catch(err){
     log(`Error: ${err.message}`,'err');setP(0);
     if(err.message.includes('Invalid'))log('→ Bad key — get one at openrouter.ai/keys','warn');
-    setTimeout(()=>runLocalAnalysis(),600);
+    setTimeout(()=>runLocal(),600);
     toast('❌','AI failed — trying local fallback','err');
   }finally{btn.disabled=false;}
 }
 
-/* ═════════════════════════════════════
-   LOCAL ANALYZER v3 (wall-aware)
-═════════════════════════════════════ */
-async function runLocalAnalysis(){
-  if(!A.floorB64){toast('⚠️','Upload a floor plan first','warn');return;}
-  const btn=document.getElementById('analyze-btn');btn.disabled=true;
-  const logEl=document.getElementById('ai-log'),progEl=document.getElementById('prog'),fillEl=document.getElementById('prog-fill');
+/* ── LOCAL ANALYZER v3 ── */
+async function runLocal(){
+  if(!A.floorB64){toast('⚠️','Upload floor plan first','warn');return;}
+  const btn=document.getElementById('analyzeBtn');btn.disabled=true;
+  const logEl=document.getElementById('aiLog'),progEl=document.getElementById('aiProg'),fillEl=document.getElementById('aipf');
   logEl.classList.add('show');progEl.classList.add('show');logEl.innerHTML='';
   const log=(m,c='info')=>{logEl.innerHTML+=`<span class="${c}">${{ok:'✓',err:'✗',warn:'⚠',info:'›'}[c]}  ${m}</span>\n`;logEl.scrollTop=logEl.scrollHeight;};
   const setP=p=>fillEl.style.width=p+'%';
-  const sensVal=parseInt(document.querySelector('input[name="sens"]:checked')?.value||'120');
+  const sens=parseInt(document.querySelector('input[name="sens"]:checked')?.value||'120');
   try{
-    log('Analyzing floor plan…');setP(5);await tick();
+    log('Analyzing pixels…');setP(5);await tick();
     const W=200,H=150;
     const off=document.createElement('canvas');off.width=W;off.height=H;
     const ox=off.getContext('2d');ox.drawImage(A.imgEl,0,0,W,H);
@@ -1047,19 +943,16 @@ async function runLocalAnalysis(){
     const gray=new Uint8Array(W*H);
     for(let i=0;i<W*H;i++)gray[i]=(px[i*4]*77+px[i*4+1]*150+px[i*4+2]*29)>>8;
     let lp=0;for(let i=0;i<W*H;i++)if(gray[i]>128)lp++;
-    const darkBg=lp<W*H*0.45;
-    log(`Background: ${darkBg?'dark':'light'}`);setP(15);await tick();
     const walk=new Uint8Array(W*H);
-    for(let i=0;i<W*H;i++)walk[i]=gray[i]>sensVal?1:0;
+    for(let i=0;i<W*H;i++)walk[i]=gray[i]>sens?1:0;
     const er=new Uint8Array(W*H);
     for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const c=y*W+x;er[c]=walk[c]&&walk[c-1]&&walk[c+1]&&walk[c-W]&&walk[c+W]?1:0;}
     const dist=new Float32Array(W*H);
-    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){if(!er[y*W+x]){dist[y*W+x]=0;continue;}dist[y*W+x]=1+Math.min(dist[(y-1)*W+x-1],dist[(y-1)*W+x],dist[(y-1)*W+x+1],dist[y*W+x-1]);}
+    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){if(!er[y*W+x])continue;dist[y*W+x]=1+Math.min(dist[(y-1)*W+x-1],dist[(y-1)*W+x],dist[(y-1)*W+x+1],dist[y*W+x-1]);}
     for(let y=H-2;y>=1;y--)for(let x=W-2;x>=1;x--){if(!er[y*W+x])continue;dist[y*W+x]=Math.min(dist[y*W+x],1+Math.min(dist[(y+1)*W+x+1],dist[(y+1)*W+x],dist[(y+1)*W+x-1],dist[y*W+x+1]));}
     setP(40);await tick();
-    const GRID=10,MIN_D=1.5;
-    const cands=[];
-    for(let y=GRID;y<H-GRID;y+=GRID)for(let x=GRID;x<W-GRID;x+=GRID){const d=dist[y*W+x];if(d>=MIN_D)cands.push({x,y,d});}
+    const GRID=10,MD=1.5;const cands=[];
+    for(let y=GRID;y<H-GRID;y+=GRID)for(let x=GRID;x<W-GRID;x+=GRID){if(dist[y*W+x]>=MD)cands.push({x,y,d:dist[y*W+x]});}
     if(cands.length<3)throw new Error(`Only ${cands.length} walkable points. Try different sensitivity.`);
     const CR=GRID*2;const used=new Uint8Array(cands.length);const clusters=[];
     for(let i=0;i<cands.length;i++){if(used[i])continue;let sx=cands[i].x,sy=cands[i].y,sd=cands[i].d,cnt=1;used[i]=1;
@@ -1067,287 +960,421 @@ async function runLocalAnalysis(){
       clusters.push({cx:sx/cnt,cy:sy/cnt,d:sd/cnt,size:cnt});}
     log(`${clusters.length} corridor clusters`);setP(60);await tick();
     const scx=A.imgW/W,scy=A.imgH/H;
-    const ROOM_N=['Room A','Room B','Room C','Room D','Room E','Waiting Area','Office','Store','Hall'];
-    const POI_N=['Restroom','Info Desk','Café','Reception','Help Desk'];
+    const RN=['Room A','Room B','Room C','Room D','Room E','Waiting Area','Office','Store'];
+    const PN=['Restroom','Info Desk','Café','Reception'];
     let ri=0,pi=0;
+    const mpp=A.calibration.mpp||0.033;
     const nodes=clusters.map((c,i)=>{
       const rx=c.cx/W,ry=c.cy/H;
       const onEdge=rx<0.1||rx>0.9||ry<0.06||ry>0.92;
       const corner=(rx<0.14||rx>0.86)&&(ry<0.14||ry>0.86);
-      let type,label;
-      if(corner&&i%4===0){type='stairs';label='Stairs';}
-      else if(corner&&i%4===1){type='elevator';label='Elevator';}
+      let type,label,weight=1;
+      if(corner&&i%4===0){type='stairs';label='Stairs';weight=5;}
+      else if(corner&&i%4===1){type='elevator';label='Elevator';weight=3;}
       else if(onEdge&&i===0){type='entrance';label='Main Entrance';}
       else if(onEdge&&i===clusters.length-1){type='exit';label='Exit';}
       else if(onEdge){type='entrance';label='Entrance';}
-      else if(c.d>3&&c.size>2){type='corridor';label='Corridor';}
-      else if(ri<ROOM_N.length){type='room';label=ROOM_N[ri++];}
-      else if(pi<POI_N.length){type='poi';label=POI_N[pi++];}
+      else if(c.d>3){type='corridor';label='Corridor';}
+      else if(ri<RN.length){type='room';label=RN[ri++];}
+      else if(pi<PN.length){type='poi';label=PN[pi++];}
       else{type='junction';label='Junction';}
-      return{id:`n${i+1}`,x:c.cx*scx,y:c.cy*scy,label,type,_wx:Math.round(c.cx),_wy:Math.round(c.cy)};
+      return{id:`n${i+1}`,x:c.cx*scx,y:c.cy*scy,label,type,floor:A.curFloor,weight,connections:[],_wx:Math.round(c.cx),_wy:Math.round(c.cy)};
     });
-    function los(ax,ay,bx,by){
-      const st=Math.ceil(Math.hypot(bx-ax,by-ay)*1.5)+4;
-      for(let t=0;t<=st;t++){const px2=Math.round(ax+(bx-ax)*t/st),py2=Math.round(ay+(by-ay)*t/st);if(px2<0||px2>=W||py2<0||py2>=H)return false;if(!er[py2*W+px2])return false;}
-      return true;
-    }
-    log('Checking wall-aware connections…');setP(75);await tick();
+    function los(ax,ay,bx,by){const st=Math.ceil(Math.hypot(bx-ax,by-ay)*1.5)+4;for(let t=0;t<=st;t++){const px2=Math.round(ax+(bx-ax)*t/st),py2=Math.round(ay+(by-ay)*t/st);if(px2<0||px2>=W||py2<0||py2>=H||!er[py2*W+px2])return false;}return true;}
+    log('Wall-aware connections…');setP(75);await tick();
     const edges=[];const eSet=new Set();
     for(let i=0;i<nodes.length;i++){let cn=0;
       for(let j=i+1;j<nodes.length;j++){const d=Math.hypot(nodes[i]._wx-nodes[j]._wx,nodes[i]._wy-nodes[j]._wy);if(d>GRID*7)continue;const k=`${i}_${j}`;if(eSet.has(k))continue;
-        if(los(nodes[i]._wx,nodes[i]._wy,nodes[j]._wx,nodes[j]._wy)){edges.push({from:nodes[i].id,to:nodes[j].id,dist:Math.hypot(nodes[i].x-nodes[j].x,nodes[i].y-nodes[j].y)});eSet.add(k);cn++;}if(cn>=5)break;}}
-    nodes.forEach(n=>{if(!edges.some(e=>e.from===n.id||e.to===n.id)){let best=null,bd=Infinity;nodes.forEach(m=>{if(m.id===n.id)return;const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);if(d<bd){bd=d;best=m;}});if(best)edges.push({from:n.id,to:best.id,dist:Math.hypot(n.x-best.x,n.y-best.y)});}});
+        if(los(nodes[i]._wx,nodes[i]._wy,nodes[j]._wx,nodes[j]._wy)){
+          const distPx=Math.hypot(nodes[i].x-nodes[j].x,nodes[i].y-nodes[j].y);
+          const costWeight=(nodes[i].weight||1)+(nodes[j].weight||1);
+          edges.push({from:nodes[i].id,to:nodes[j].id,dist:distPx,distMeters:distPx*mpp,type:'walk',bidirectional:true,cost:distPx*costWeight});
+          eSet.add(k);cn++;}if(cn>=5)break;}}
+    nodes.forEach(n=>{if(!edges.some(e=>e.from===n.id||e.to===n.id)){let best=null,bd=Infinity;nodes.forEach(m=>{if(m.id===n.id)return;const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);if(d<bd){bd=d;best=m;}});if(best)edges.push({from:n.id,to:best.id,dist:Math.hypot(n.x-best.x,n.y-best.y),distMeters:Math.hypot(n.x-best.x,n.y-best.y)*mpp,type:'walk',bidirectional:true});} });
     if(!nodes.some(n=>n.type==='entrance')){nodes[0].type='entrance';nodes[0].label='Main Entrance';}
+    // Update connections arrays
+    nodes.forEach(n=>n.connections=[]);
+    edges.forEach(e=>{const fn=nodes.find(n=>n.id===e.from),tn=nodes.find(n=>n.id===e.to);if(fn&&!fn.connections.includes(e.to))fn.connections.push(e.to);if(tn&&e.bidirectional&&!tn.connections.includes(e.from))tn.connections.push(e.from);});
     nodes.forEach(n=>{delete n._wx;delete n._wy;});
     setP(100);log(`✓ ${nodes.length} nodes, ${edges.length} wall-aware edges`,'ok');
-    log('Rename nodes in Map Editor for better results','info');
     A.nodes=nodes;A.edges=edges;
     saveCur();draw();renderNL();updateStats();
     setTimeout(()=>{progEl.classList.remove('show');fillEl.style.width='0%';},1500);
-    toast('✅',`${nodes.length} nodes — rename rooms in Editor`,'ok');
+    toast('✅',`${nodes.length} nodes — rename in Editor`,'ok');
     gotoTab('editor');
   }catch(err){log(`Error: ${err.message}`,'err');setP(0);toast('❌',err.message.slice(0,60),'err');}
   finally{btn.disabled=false;}
 }
 function tick(){return new Promise(r=>setTimeout(r,8));}
 
-/* ═════════════════════════════════════
-   QR CODE GENERATION
-═════════════════════════════════════ */
-function generateQRs(){
-  if(!A.nodes.length){toast('⚠️','No nodes yet — run analysis first','warn');return;}
-  const facId=document.getElementById('f-id').value;
-  const grid=document.getElementById('qr-grid');
-  grid.innerHTML='';
-
-  A.nodes.forEach(n=>{
-    const td=TYPES.find(t=>t.v===n.type)||TYPES[8];
-    // QR payload: JSON with facility + node ID so client knows exactly where user is
-    const payload=JSON.stringify({fid:facId,nid:n.id,label:n.label,type:n.type});
-
-    const card=document.createElement('div');
-    card.className='qr-card';
-    const qrDiv=document.createElement('div');
-    card.appendChild(qrDiv);
-
-    // Name + type label
-    card.innerHTML+=`<div class="qr-name">${td.i} ${n.label}</div><div class="qr-type">${n.type}</div><div class="qr-id">${facId} · ${n.id}</div>`;
-
-    // Insert qrDiv before innerHTML replacement
-    card.insertBefore(qrDiv,card.firstChild);
-
-    try{
-      new QRCode(qrDiv,{text:payload,width:120,height:120,colorDark:'#111111',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-    }catch(e){qrDiv.textContent='QR Error';}
-
-    grid.appendChild(card);
-  });
-
-  toast('📱',`${A.nodes.length} QR codes generated`,'ok');
+/* ── SMART FIX ── */
+function smartFix(){
+  if(!A.nodes.length){toast('⚠️','No nodes','warn');return;}
+  pushH();let fixed=0;
+  const seen=new Set();A.edges=A.edges.filter(e=>{const k=[e.from,e.to].sort().join('_');if(seen.has(k))return false;seen.add(k);return true;});
+  const diag=Math.hypot(A.imgW,A.imgH);
+  const rm=A.edges.filter(e=>e.dist>diag*0.28).length;A.edges=A.edges.filter(e=>e.dist<=diag*0.28);fixed+=rm;
+  const rr=A.edges.filter(e=>{const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);if(f?.type==='room'&&t?.type==='room'){const mx=(f.x+t.x)/2,my=(f.y+t.y)/2;return!A.nodes.some(n=>['corridor','junction','entrance'].includes(n.type)&&Math.hypot(n.x-mx,n.y-my)<60);}return false;}).length;
+  A.edges=A.edges.filter(e=>{const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);if(f?.type==='room'&&t?.type==='room'){const mx=(f.x+t.x)/2,my=(f.y+t.y)/2;return A.nodes.some(n=>['corridor','junction','entrance'].includes(n.type)&&Math.hypot(n.x-mx,n.y-my)<60);}return true;});fixed+=rr;
+  let rc=0;A.nodes.forEach(n=>{if(!A.edges.some(e=>e.from===n.id||e.to===n.id)){let b=null,bd=Infinity;A.nodes.forEach(m=>{if(m.id===n.id||!['corridor','junction','entrance'].includes(m.type))return;const d=Math.hypot(n.x-m.x,n.y-m.y);if(d<bd){bd=d;b=m;}});if(b){const mpp=A.calibration.mpp||0.033;A.edges.push({from:n.id,to:b.id,dist:bd,distMeters:bd*mpp,type:'walk',bidirectional:true});rc++;}}});
+  const mpp2=A.calibration.mpp||0.033;A.edges.forEach(e=>{const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);if(f&&t){e.dist=Math.hypot(f.x-t.x,f.y-t.y);e.distMeters=e.dist*mpp2;}});
+  // Update connections
+  A.nodes.forEach(n=>n.connections=[]);
+  A.edges.forEach(e=>{const fn=A.nodes.find(n=>n.id===e.from),tn=A.nodes.find(n=>n.id===e.to);if(fn&&!fn.connections.includes(e.to))fn.connections.push(e.to);if(tn&&e.bidirectional&&!tn.connections.includes(e.from))tn.connections.push(e.from);});
+  updateStats();draw();saveCur();
+  toast('🔧',`Fixed: -${fixed} bad edges, +${rc} reconnected`,'ok');
 }
 
-function printQRs(){
-  if(!document.querySelector('.qr-card')){toast('⚠️','Generate QR codes first','warn');return;}
-  const facName=document.getElementById('f-name').value||'Facility';
-  const printArea=document.getElementById('print-area');
-  printArea.innerHTML=`<h2 style="font-family:sans-serif;margin-bottom:20px;color:#111">${facName} — Navigation QR Codes</h2><div class="qr-grid">${document.getElementById('qr-grid').innerHTML}</div>`;
-  window.print();
-}
-
-/* ═════════════════════════════════════
-   PUBLISH / DEPLOY
-═════════════════════════════════════ */
-async function doPublish(){
-  // If nodes are empty but we have a saved facility, restore it first
-  if(!A.nodes.length){
-    const id2=document.getElementById('f-id').value||localStorage.getItem('wp_last_id');
-    if(id2&&A.facs[id2]&&A.facs[id2].nodes?.length){
-      const fac=A.facs[id2];
-      A.nodes=fac.nodes; A.edges=fac.edges;
-      A.imgW=fac.imgW||fac.iw||600; A.imgH=fac.imgH||fac.ih||400;
-      A.floorB64=fac.floorImage||fac.img||null;
-      document.getElementById('f-id').value=id2;
-      toast('ℹ️','Loaded last facility — deploying now…');
-    } else {
-      toast('⚠️','No nodes found. Go to Setup → run analysis first.','warn');
-      return;
-    }
-  }
-  saveCur();
-  const id=document.getElementById('f-id').value;
-
-  // Try Firebase first
-  if(A.fbConnected&&A.fbDb){
-    try{
-      const{doc,setDoc}=window._fbImports;
-      const facData={
-        id,
-        name:document.getElementById('f-name').value||'Unnamed',
-        type:document.getElementById('f-type').value,
-        floors:parseInt(document.getElementById('f-floors').value)||1,
-        nodes:A.nodes,
-        edges:A.edges,
-        imgW:A.imgW,imgH:A.imgH,
-        floorImage:A.floorB64,
-        stepLen:parseFloat(document.getElementById('step-len')?.value||0.72),
-        pxPerMeter:parseFloat(document.getElementById('px-per-m')?.value||30),
-        publishedAt:Date.now(),
-      };
-      await setDoc(doc(A.fbDb,'facilities',id),facData);
-      A.facs[id]={...facData,pub:true};
-      saveLocal();
-      // Also save Firebase config under client key so indoor-nav.html can auto-read it
-      const savedCfg=JSON.parse(localStorage.getItem('wp_fb_config')||'null');
-      if(savedCfg){ localStorage.setItem('wp_client_fb',JSON.stringify(savedCfg)); }
-      gotoTab('deploy');
-      toast('🚀',`Deployed! ID: ${id}`,'ok');
-      // Show success status
-      document.getElementById('deploy-status').style.display='block';
-      document.getElementById('status-fid').textContent=id;
-      return;
-    }catch(e){
-      console.error(e);
-      toast('⚠️',`Firebase failed: ${e.message.slice(0,40)} — saving locally`,'warn');
-    }
-  }
-
-  // Fallback: localStorage
-  A.facs[id]={
-    id,name:document.getElementById('f-name').value||'Unnamed',
-    type:document.getElementById('f-type').value,
-    nodes:A.nodes,edges:A.edges,
-    imgW:A.imgW,imgH:A.imgH,
-    floorImage:A.floorB64,img:A.floorB64,
-    iw:A.imgW,ih:A.imgH,
-    stepLen:parseFloat(document.getElementById('step-len')?.value||0.72),
-    pxPerMeter:parseFloat(document.getElementById('px-per-m')?.value||30),
-    pxPerM:parseFloat(document.getElementById('px-per-m')?.value||30),
-    pub:true,updatedAt:Date.now(),
-  };
-  saveLocal();
-  gotoTab('deploy');
-  toast('💾',`Saved locally (no Firebase). ID: ${id}`,'warn');
-}
-
-function exportJSON(){
-  if(!A.curId&&!document.getElementById('f-id').value){toast('⚠️','Deploy first','warn');return;}
-  const id=document.getElementById('f-id').value;
-  const fac=A.facs[id];
-  if(!fac){toast('⚠️','Deploy first','warn');return;}
-  const blob=new Blob([JSON.stringify(fac,null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;a.download=`waypoint_${id}.json`;a.click();
-  URL.revokeObjectURL(url);
-  toast('⬇️','JSON backup downloaded','ok');
-}
-
-function saveCur(){
-  const id=document.getElementById('f-id').value;if(!id)return;
-  A.curId=id;
-  A.facs[id]={
-    id,name:document.getElementById('f-name').value||'Unnamed',
-    type:document.getElementById('f-type').value,
-    nodes:A.nodes,edges:A.edges,
-    imgW:A.imgW,imgH:A.imgH,iw:A.imgW,ih:A.imgH,
-    floorImage:A.floorB64,img:A.floorB64,
-    stepLen:parseFloat(document.getElementById('step-len')?.value||0.72),
-    pxPerMeter:parseFloat(document.getElementById('px-per-m')?.value||30),
-    pxPerM:parseFloat(document.getElementById('px-per-m')?.value||30),
-    pub:A.facs[id]?.pub||false,updatedAt:Date.now(),
-  };
-  saveLocal();
-  localStorage.setItem('wp_last_id',id);  // remember for next session
-  document.getElementById('pub-fid').textContent=id;
-  const types={};A.nodes.forEach(n=>types[n.type]=(types[n.type]||0)+1);
-  document.getElementById('graph-sum').innerHTML=`<div>Nodes: ${A.nodes.length} | Edges: ${A.edges.length}</div>`+Object.entries(types).map(([t,c])=>`<div>${TYPES.find(x=>x.v===t)?.i||'📍'} ${t}: ${c}</div>`).join('');
-}
-
-function copyId(){const id=document.getElementById('pub-fid').textContent;navigator.clipboard.writeText(id).then(()=>toast('📋','Copied!','ok'));}
-function copyFirebaseCmds(){
-  navigator.clipboard.writeText('npm install -g firebase-tools\nfirebase login\nfirebase init hosting\nfirebase deploy').then(()=>toast('📋','Commands copied!','ok'));
-}
-function copyClientURL(){
-  const id=document.getElementById('f-id').value;
-  const base=window.location.href.replace('indoor-admin.html','indoor-nav.html');
-  const url=`${base}?fid=${id}`;
-  navigator.clipboard.writeText(url).then(()=>toast('🔗','Client URL copied — paste in browser or share it','ok'));
-}
-
-/* ═════════════════════════════════════
-   CANVAS + EDITOR
-═════════════════════════════════════ */
+/* ── CANVAS ── */
 function setupCanvas(){
   const c=CV();
-  c.addEventListener('click',onCvClick);
+  c.addEventListener('click',onCC);
   c.addEventListener('mousedown',onMD);
   c.addEventListener('mousemove',onMM);
   c.addEventListener('mouseup',()=>{if(A.dragNode){saveCur();A.dragNode=null;}});
-  c.addEventListener('wheel',e=>{e.preventDefault();zoomBy(e.deltaY>0?.88:1.13);},{passive:false});
+  c.addEventListener('wheel',e=>{e.preventDefault();zBy(e.deltaY>0?.88:1.13);},{passive:false});
   c.addEventListener('contextmenu',e=>e.preventDefault());
+  c.addEventListener('touchstart',onTS,{passive:false});
+  c.addEventListener('touchmove',onTM,{passive:false});
+  c.addEventListener('touchend',()=>{A._pinchDist=0;A.dragNode=null;});
 }
-
+function snapToGrid(v){if(!A.gridSnap)return v;return Math.round(v/A.gridSize)*A.gridSize;}
 function toPt(e){const r=CV().getBoundingClientRect();return{x:(e.clientX-r.left)/A.scale-A.ox,y:(e.clientY-r.top)/A.scale-A.oy};}
 
 function draw(){
   const c=CV(),ctx=CX();if(!c.width||!c.height)return;
   ctx.save();ctx.clearRect(0,0,c.width,c.height);ctx.scale(A.scale,A.scale);ctx.translate(A.ox,A.oy);
+
+  // Floor plan
   if(A.imgEl)ctx.drawImage(A.imgEl,0,0,A.imgW,A.imgH);
-  else{ctx.fillStyle='#171B28';ctx.fillRect(0,0,A.imgW||600,A.imgH||400);ctx.fillStyle='#454D6A';ctx.font='14px Outfit';ctx.textAlign='center';ctx.fillText('Upload floor plan',300,200);}
-  for(const e of A.edges){const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);if(!f||!t)continue;ctx.beginPath();ctx.moveTo(f.x,f.y);ctx.lineTo(t.x,t.y);ctx.strokeStyle='rgba(99,102,241,0.65)';ctx.lineWidth=2.5;ctx.stroke();const mx=(f.x+t.x)/2,my=(f.y+t.y)/2,a=Math.atan2(t.y-f.y,t.x-f.x);ctx.save();ctx.translate(mx,my);ctx.rotate(a);ctx.beginPath();ctx.moveTo(0,-3);ctx.lineTo(5,0);ctx.lineTo(0,3);ctx.fillStyle='rgba(129,140,248,.7)';ctx.fill();ctx.restore();}
-  if(A.tool==='edge'&&A.edgeFrom){ctx.beginPath();ctx.moveTo(A.edgeFrom.x,A.edgeFrom.y);ctx.lineTo(A.mousePos.x,A.mousePos.y);ctx.strokeStyle='rgba(99,102,241,.35)';ctx.setLineDash([5,4]);ctx.lineWidth=2;ctx.stroke();ctx.setLineDash([]);}
-  for(const n of A.nodes){const td=TYPES.find(t=>t.v===n.type)||TYPES[8];const isSel=A.sel?.id===n.id;const r=isSel?12:8;if(isSel){ctx.beginPath();ctx.arc(n.x,n.y,r+6,0,Math.PI*2);ctx.fillStyle='rgba(99,102,241,.18)';ctx.fill();}ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=td.c;ctx.fill();ctx.strokeStyle=isSel?'#fff':'rgba(255,255,255,.25)';ctx.lineWidth=isSel?2:1.5;ctx.stroke();ctx.font=`bold ${isSel?11:9.5}px Outfit`;ctx.textAlign='center';ctx.textBaseline='top';const tw=ctx.measureText(n.label).width+6;const lx=n.x-tw/2,ly=n.y+r+2;ctx.fillStyle='rgba(11,13,20,.85)';ctx.beginPath();if(ctx.roundRect)ctx.roundRect(lx,ly,tw,13,3);else ctx.rect(lx,ly,tw,13);ctx.fill();ctx.fillStyle='#F0F4FF';ctx.fillText(n.label,n.x,ly+2);}
+  else{ctx.fillStyle='#161B2E';ctx.fillRect(0,0,A.imgW||600,A.imgH||400);ctx.fillStyle='#454D6A';ctx.font='14px Outfit';ctx.textAlign='center';ctx.fillText('Upload floor plan',A.imgW/2||300,A.imgH/2||200);}
+
+  // Grid overlay
+  if(A.gridSnap){
+    ctx.strokeStyle='rgba(99,102,241,.12)';ctx.lineWidth=0.5;
+    for(let x=0;x<A.imgW;x+=A.gridSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,A.imgH);ctx.stroke();}
+    for(let y=0;y<A.imgH;y+=A.gridSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(A.imgW,y);ctx.stroke();}
+  }
+
+  // Edges with color by type/cost
+  const diag=Math.hypot(A.imgW||600,A.imgH||400);
+  for(const e of A.edges){
+    const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);if(!f||!t)continue;
+    const isSusp=e.dist>diag*0.28;
+    const isStairs=['stairs','elevator'].includes(f.type)||['stairs','elevator'].includes(t.type);
+    ctx.beginPath();ctx.moveTo(f.x,f.y);ctx.lineTo(t.x,t.y);
+    ctx.strokeStyle=isSusp?'rgba(239,68,68,.7)':isStairs?'rgba(245,158,11,.7)':'rgba(99,102,241,.65)';
+    ctx.lineWidth=isSusp?1.8:2.2;ctx.setLineDash(isSusp||isStairs?[5,3]:[]);ctx.stroke();ctx.setLineDash([]);
+    // Arrow midpoint
+    const mx=(f.x+t.x)/2,my=(f.y+t.y)/2,a=Math.atan2(t.y-f.y,t.x-f.x);
+    ctx.save();ctx.translate(mx,my);ctx.rotate(a);ctx.beginPath();ctx.moveTo(0,-3);ctx.lineTo(5,0);ctx.lineTo(0,3);
+    ctx.fillStyle=isSusp?'rgba(239,68,68,.6)':'rgba(129,140,248,.7)';ctx.fill();ctx.restore();
+    // Distance label on hover-selected
+    if(A.sel&&(e.from===A.sel.id||e.to===A.sel.id)&&e.distMeters>0){
+      ctx.font='9px JetBrains Mono';ctx.textAlign='center';ctx.fillStyle='rgba(245,158,11,.9)';
+      ctx.fillText(`${e.distMeters.toFixed(1)}m`,mx,my-7);
+    }
+  }
+
+  // Preview edge while drawing
+  if(A.tool==='edge'&&A.edgeFrom){
+    ctx.beginPath();ctx.moveTo(A.edgeFrom.x,A.edgeFrom.y);ctx.lineTo(A.mousePos.x,A.mousePos.y);
+    ctx.strokeStyle='rgba(99,102,241,.35)';ctx.setLineDash([5,4]);ctx.lineWidth=2;ctx.stroke();ctx.setLineDash([]);
+  }
+
+  // Nodes
+  for(const n of A.nodes){
+    const td=TYPES.find(t=>t.v===n.type)||TYPES[8];
+    const isSel=A.sel?.id===n.id,r=isSel?12:8;
+    if(isSel){ctx.beginPath();ctx.arc(n.x,n.y,r+6,0,Math.PI*2);ctx.fillStyle='rgba(99,102,241,.18)';ctx.fill();}
+    // Weight ring for high-cost nodes
+    if(n.weight>2){ctx.beginPath();ctx.arc(n.x,n.y,r+3,0,Math.PI*2);ctx.strokeStyle='rgba(245,158,11,.5)';ctx.lineWidth=1.5;ctx.stroke();}
+    ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=td.c;ctx.fill();
+    ctx.strokeStyle=isSel?'#fff':'rgba(255,255,255,.25)';ctx.lineWidth=isSel?2:1.5;ctx.stroke();
+    // Label
+    ctx.font=`bold ${isSel?11:9.5}px Outfit`;ctx.textAlign='center';ctx.textBaseline='top';
+    const tw=ctx.measureText(n.label).width+6,lx=n.x-tw/2,ly=n.y+r+2;
+    ctx.fillStyle='rgba(9,12,21,.88)';ctx.beginPath();if(ctx.roundRect)ctx.roundRect(lx,ly,tw,12,2);else ctx.rect(lx,ly,tw,12);ctx.fill();
+    ctx.fillStyle='#F0F4FF';ctx.fillText(n.label,n.x,ly+2);
+    // Grid snap indicator
+    if(A.gridSnap&&isSel){ctx.strokeStyle='rgba(99,102,241,.3)';ctx.lineWidth=1;ctx.setLineDash([2,2]);ctx.strokeRect(n.x-A.gridSize/2,n.y-A.gridSize/2,A.gridSize,A.gridSize);ctx.setLineDash([]);}
+  }
   ctx.restore();
 }
 
-function clearCanvasDraw(){const c=CV();if(c.width&&c.height){const ctx=CX();ctx.clearRect(0,0,c.width,c.height);}}
 function hit(x,y){return A.nodes.find(n=>Math.hypot(n.x-x,n.y-y)<14)||null;}
-function onCvClick(e){const p=toPt(e);if(A.tool==='node'){addNode(p.x,p.y);return;}if(A.tool==='edge'){const h=hit(p.x,p.y);if(h){if(!A.edgeFrom){A.edgeFrom=h;document.getElementById('c-hint').textContent='Now click destination node';}else{if(A.edgeFrom.id!==h.id)addEdge(A.edgeFrom.id,h.id);A.edgeFrom=null;document.getElementById('c-hint').textContent='Click source, then destination';}draw();}return;}if(A.tool==='del'){const h=hit(p.x,p.y);if(h)delNode(h.id);return;}if(A.tool==='sel'){selNode(hit(p.x,p.y));}}
+
+function onCC(e){
+  const p=toPt(e);const sx=snapToGrid(p.x),sy=snapToGrid(p.y);
+  if(A.tool==='node'){addNode(sx,sy);return;}
+  if(A.tool==='edge'){const h=hit(p.x,p.y);if(h){if(!A.edgeFrom){A.edgeFrom=h;document.getElementById('ch').textContent='Now click destination node';}else{if(A.edgeFrom.id!==h.id)addEdge(A.edgeFrom.id,h.id);A.edgeFrom=null;document.getElementById('ch').textContent='Click source, then destination';}draw();}return;}
+  if(A.tool==='del'){const h=hit(p.x,p.y);if(h)delNode(h.id);return;}
+  if(A.tool==='sel'){selNode(hit(p.x,p.y));}
+}
 function onMD(e){if(A.tool!=='sel')return;const p=toPt(e);A.dragNode=hit(p.x,p.y);if(A.dragNode)A.dragOff={x:p.x-A.dragNode.x,y:p.y-A.dragNode.y};}
-function onMM(e){const p=toPt(e);A.mousePos=p;if(A.dragNode&&A.tool==='sel'){A.dragNode.x=p.x-A.dragOff.x;A.dragNode.y=p.y-A.dragOff.y;for(const e2 of A.edges){const f=A.nodes.find(n=>n.id===e2.from),t=A.nodes.find(n=>n.id===e2.to);if(f&&t)e2.dist=Math.hypot(f.x-t.x,f.y-t.y);}draw();}else if(A.tool==='edge'&&A.edgeFrom)draw();}
-function zoomBy(f){A.scale=Math.max(.3,Math.min(6,A.scale*f));draw();}
-function resetView(){A.scale=1;A.ox=0;A.oy=0;draw();}
+function onMM(e){
+  const p=toPt(e);A.mousePos=p;
+  if(A.dragNode&&A.tool==='sel'){
+    A.dragNode.x=snapToGrid(p.x-A.dragOff.x);A.dragNode.y=snapToGrid(p.y-A.dragOff.y);
+    recalcEdgeDists();draw();
+  }else if(A.tool==='edge'&&A.edgeFrom)draw();
+}
+let _ts=null;
+function onTS(e){e.preventDefault();if(e.touches.length===1)_ts={x:e.touches[0].clientX/A.scale-A.ox,y:e.touches[0].clientY/A.scale-A.oy,t:Date.now()};}
+function onTM(e){e.preventDefault();
+  if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(A._pinchDist)zBy(d/A._pinchDist);A._pinchDist=d;}
+  else if(e.touches.length===1&&_ts){A.ox=e.touches[0].clientX/A.scale-_ts.x;A.oy=e.touches[0].clientY/A.scale-_ts.y;draw();}
+}
+function zBy(f){A.scale=Math.max(.3,Math.min(6,A.scale*f));draw();}
+function rView(){A.scale=1;A.ox=0;A.oy=0;draw();}
+function clearCanvasDraw(){const c=CV();if(c.width&&c.height){CX().clearRect(0,0,c.width,c.height);}}
 function clearAll(){if(A.nodes.length&&!confirm('Delete all nodes and edges?'))return;A.nodes=[];A.edges=[];A.sel=null;selNode(null);renderNL();updateStats();draw();}
-function addNode(x,y){pushH();const id='n'+Date.now();A.nodes.push({id,x,y,label:'Node',type:'junction'});selNode(A.nodes[A.nodes.length-1]);renderNL();updateStats();draw();saveCur();}
-function addEdge(a,b){if(A.edges.find(e=>(e.from===a&&e.to===b)||(e.from===b&&e.to===a))){toast('⚠️','Edge exists','warn');return;}pushH();const fa=A.nodes.find(n=>n.id===a),ta=A.nodes.find(n=>n.id===b);A.edges.push({from:a,to:b,dist:fa&&ta?Math.hypot(fa.x-ta.x,fa.y-ta.y):0});updateStats();draw();saveCur();}
-function delNode(id){pushH();A.nodes=A.nodes.filter(n=>n.id!==id);A.edges=A.edges.filter(e=>e.from!==id&&e.to!==id);if(A.sel?.id===id)selNode(null);renderNL();updateStats();draw();saveCur();toast('🗑️','Deleted','warn');}
+function toggleGrid(){
+  A.gridSnap=!A.gridSnap;
+  const btn=document.getElementById('gridBtn');
+  btn.classList.toggle('on',A.gridSnap);
+  btn.textContent=`⊞ Grid: ${A.gridSnap?'ON':'OFF'}`;
+  draw();toast(A.gridSnap?'⊞':'⊟',A.gridSnap?'Grid snap ON — nodes snap to grid':'Grid snap OFF','ok');
+}
+
+/* ── NODE MANAGEMENT ── */
+function addNode(x,y){
+  pushH();
+  const td=TYPES[8];
+  const n={id:'n'+Date.now(),x,y,label:'Node',type:'junction',floor:A.curFloor,weight:1,connections:[]};
+  A.nodes.push(n);selNode(n);renderNL();updateStats();draw();saveCur();
+}
+function addEdge(a,b){
+  if(A.edges.find(e=>(e.from===a&&e.to===b)||(e.from===b&&e.to===a))){toast('⚠️','Edge exists','warn');return;}
+  pushH();
+  const fa=A.nodes.find(n=>n.id===a),ta=A.nodes.find(n=>n.id===b);
+  const mpp=A.calibration.mpp||0.033;
+  const dist=fa&&ta?Math.hypot(fa.x-ta.x,fa.y-ta.y):0;
+  const isStairs=['stairs','elevator'].includes(fa?.type)||['stairs','elevator'].includes(ta?.type);
+  A.edges.push({from:a,to:b,dist,distMeters:dist*mpp,type:isStairs?fa?.type||'stairs':'walk',bidirectional:true});
+  // Update connections
+  if(fa&&!fa.connections.includes(b))fa.connections.push(b);
+  if(ta&&!ta.connections.includes(a))ta.connections.push(a);
+  updateStats();draw();saveCur();
+  const fa2=A.nodes.find(n=>n.id===a),ta2=A.nodes.find(n=>n.id===b);
+  toast('〰️',`${fa2?.label} ↔ ${ta2?.label} (${(dist*mpp).toFixed(1)}m)`,'ok');
+}
+function delNode(id){
+  pushH();A.nodes=A.nodes.filter(n=>n.id!==id);A.edges=A.edges.filter(e=>e.from!==id&&e.to!==id);
+  A.nodes.forEach(n=>n.connections=n.connections.filter(c=>c!==id));
+  if(A.sel?.id===id)selNode(null);renderNL();updateStats();draw();saveCur();toast('🗑️','Deleted','warn');
+}
 function delSelNode(){if(A.sel)delNode(A.sel.id);}
-function selNode(n){A.sel=n;const ne=document.getElementById('ne'),ns=document.getElementById('no-sel');if(n){ne.classList.add('show');ns.style.display='none';document.getElementById('ne-lbl').value=n.label;document.querySelectorAll('.type-opt').forEach(o=>o.classList.toggle('on',o.dataset.v===n.type));}else{ne.classList.remove('show');ns.style.display='block';}document.querySelectorAll('.ni').forEach(el=>el.classList.toggle('on',el.dataset.id===n?.id));draw();}
-function saveNode(){if(!A.sel)return;A.sel.label=document.getElementById('ne-lbl').value||'Node';renderNL();draw();saveCur();toast('💾','Saved','ok');}
-function nodeChange(){if(A.sel){A.sel.label=document.getElementById('ne-lbl').value;draw();}}
-function setNodeType(v){if(!A.sel)return;A.sel.type=v;document.querySelectorAll('.type-opt').forEach(o=>o.classList.toggle('on',o.dataset.v===v));renderNL();draw();}
-function buildTypeGrid(){document.getElementById('type-grid').innerHTML=TYPES.map(t=>`<div class="type-opt" data-v="${t.v}" onclick="setNodeType('${t.v}')">${t.i} <span style="font-size:10.5px">${t.l}</span></div>`).join('');}
-function autoLink(){pushH();let n=0;for(let i=0;i<A.nodes.length;i++)for(let j=i+1;j<A.nodes.length;j++){const a=A.nodes[i],b=A.nodes[j];const d=Math.hypot(a.x-b.x,a.y-b.y);if(d<90&&!A.edges.find(e=>(e.from===a.id&&e.to===b.id)||(e.from===b.id&&e.to===a.id))){A.edges.push({from:a.id,to:b.id,dist:d});n++;}}updateStats();draw();saveCur();toast('🔗',`${n} edges added`,'ok');}
-function validate(){if(!A.nodes.length){toast('⚠️','No nodes','warn');return;}const hasIn=A.nodes.some(n=>n.type==='entrance');const iso=A.nodes.filter(n=>!A.edges.some(e=>e.from===n.id||e.to===n.id));if(!hasIn)toast('⚠️','No entrance node','warn');else if(iso.length)toast('⚠️',`${iso.length} isolated nodes`,'warn');else toast('✅','Graph valid','ok');}
-function renderNL(){const el=document.getElementById('nl');document.getElementById('nl-count').textContent=A.nodes.length;if(!A.nodes.length){el.innerHTML='<div style="font-size:12px;color:var(--t3)">No nodes</div>';return;}el.innerHTML=A.nodes.map(n=>{const td=TYPES.find(t=>t.v===n.type)||TYPES[8];return`<div class="ni ${A.sel?.id===n.id?'on':''}" data-id="${n.id}" onclick="selNode(A.nodes.find(x=>x.id==='${n.id}'))"><div class="ni-dot" style="background:${td.c}"></div><span class="ni-lbl">${n.label}</span><span style="font-size:13px">${td.i}</span></div>`;}).join('');}
-function updateStats(){document.getElementById('s-nodes').textContent=A.nodes.length;document.getElementById('s-edges').textContent=A.edges.length;const ok=document.getElementById('s-ok');const hasIn=A.nodes.some(n=>n.type==='entrance');if(!A.nodes.length){ok.textContent='—';ok.style.color='var(--amber)';}else if(hasIn&&A.edges.length){ok.textContent='✓';ok.style.color='var(--green)';}else{ok.textContent='✗';ok.style.color='var(--red)';}}
+function recalcEdgeDists(){
+  const mpp=A.calibration.mpp||0.033;
+  A.edges.forEach(e=>{const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);if(f&&t){e.dist=Math.hypot(f.x-t.x,f.y-t.y);e.distMeters=e.dist*mpp;}});
+}
+function selNode(n){
+  A.sel=n;
+  const ne=document.getElementById('ne'),ns=document.getElementById('noSel');
+  if(n){
+    ne.classList.add('show');ns.style.display='none';
+    document.getElementById('nelbl').value=n.label;
+    document.getElementById('neWeight').value=n.weight||1;
+    document.getElementById('neWeightVal').textContent=n.weight||1;
+    document.getElementById('neFloor').value=n.floor+1||1;
+    document.querySelectorAll('.to').forEach(o=>o.classList.toggle('on',o.dataset.v===n.type));
+  }else{ne.classList.remove('show');ns.style.display='block';}
+  document.querySelectorAll('.nli').forEach(el=>el.classList.toggle('on',el.dataset.id===n?.id));
+  draw();
+}
+function saveNode(){
+  if(!A.sel)return;
+  A.sel.label=document.getElementById('nelbl').value||'Node';
+  A.sel.weight=parseFloat(document.getElementById('neWeight').value)||1;
+  const floorInput=parseInt(document.getElementById('neFloor').value)||1;
+  A.sel.floor=floorInput-1;
+  renderNL();draw();saveCur();toast('💾','Saved','ok');
+}
+function nodeChange(){
+  if(!A.sel)return;
+  A.sel.label=document.getElementById('nelbl').value;
+  A.sel.weight=parseFloat(document.getElementById('neWeight').value)||1;
+  draw();
+}
+function setNodeType(v){
+  if(!A.sel)return;
+  A.sel.type=v;
+  const td=TYPES.find(t=>t.v===v)||TYPES[8];
+  if(A.sel.weight===1)A.sel.weight=td.w||1;
+  document.getElementById('neWeight').value=A.sel.weight;
+  document.getElementById('neWeightVal').textContent=A.sel.weight;
+  document.querySelectorAll('.to').forEach(o=>o.classList.toggle('on',o.dataset.v===v));
+  renderNL();draw();
+}
+function buildTypeGrid(){document.getElementById('typeGrid').innerHTML=TYPES.map(t=>`<div class="to" data-v="${t.v}" onclick="setNodeType('${t.v}')">${t.i} <span style="font-size:10px">${t.l}</span></div>`).join('');}
+function autoLink(){
+  pushH();let n=0;const mpp=A.calibration.mpp||0.033;
+  for(let i=0;i<A.nodes.length;i++)for(let j=i+1;j<A.nodes.length;j++){
+    const a=A.nodes[i],b=A.nodes[j];const d=Math.hypot(a.x-b.x,a.y-b.y);
+    if(d<90&&!A.edges.find(e=>(e.from===a.id&&e.to===b.id)||(e.from===b.id&&e.to===a.id))){
+      const isS=['stairs','elevator'].includes(a.type)||['stairs','elevator'].includes(b.type);
+      A.edges.push({from:a.id,to:b.id,dist:d,distMeters:d*mpp,type:isS?'stairs':'walk',bidirectional:true});
+      if(!a.connections.includes(b.id))a.connections.push(b.id);
+      if(!b.connections.includes(a.id))b.connections.push(a.id);
+      n++;}}
+  updateStats();draw();saveCur();toast('🔗',`${n} edges added`,'ok');
+}
+function validate(){
+  if(!A.nodes.length){toast('⚠️','No nodes','warn');return;}
+  const hasIn=A.nodes.some(n=>n.type==='entrance');
+  const iso=A.nodes.filter(n=>!A.edges.some(e=>e.from===n.id||e.to===n.id));
+  const noWeight=A.nodes.filter(n=>!n.weight||n.weight<1);
+  if(!hasIn)toast('⚠️','No entrance node — mark one!','warn');
+  else if(iso.length)toast('⚠️',`${iso.length} isolated nodes (not connected)`,'warn');
+  else toast('✅',`Graph valid! ${A.nodes.length} nodes, ${A.edges.length} edges`,'ok');
+}
+function renderNL(){
+  const el=document.getElementById('nl2');
+  document.getElementById('nlc').textContent=A.nodes.length;
+  if(!A.nodes.length){el.innerHTML='<div style="font-size:11.5px;color:var(--t3)">No nodes</div>';return;}
+  el.innerHTML=A.nodes.map(n=>{const td=TYPES.find(t=>t.v===n.type)||TYPES[8];
+    return`<div class="nli ${A.sel?.id===n.id?'on':''}" data-id="${n.id}" onclick="selNode(A.nodes.find(x=>x.id==='${n.id}'))">
+      <div class="nd" style="background:${td.c}"></div><span class="nm">${n.label}</span><span style="font-size:12px">${td.i}</span>
+      ${n.weight>2?`<span style="font-family:var(--mono);font-size:8px;color:var(--amber)">×${n.weight}</span>`:''}
+    </div>`;}).join('');
+}
+function updateStats(){
+  document.getElementById('sn').textContent=A.nodes.length;
+  document.getElementById('se').textContent=A.edges.length;
+  const ok=document.getElementById('sv');
+  const hasIn=A.nodes.some(n=>n.type==='entrance');
+  if(!A.nodes.length){ok.textContent='—';ok.style.color='var(--amber)';}
+  else if(hasIn&&A.edges.length){ok.textContent='✓';ok.style.color='var(--green)';}
+  else{ok.textContent='✗';ok.style.color='var(--red)';}
+  // Graph summary
+  const mpp=A.calibration.mpp||0.033;
+  const totalNodes=A.floors.reduce((s,fl)=>s+(fl.nodes?.length||0),0);
+  const totalEdges=A.floors.reduce((s,fl)=>s+(fl.edges?.length||0),0);
+  const types={};A.nodes.forEach(n=>types[n.type]=(types[n.type]||0)+1);
+  const walkSpd=A.calibration.walkSpd||80;
+  const totalDist=A.edges.reduce((s,e)=>s+(e.distMeters||0),0);
+  document.getElementById('graphSum').innerHTML=
+    `<div>Floors: ${A.floors.length} | Total nodes: ${totalNodes} | Total edges: ${totalEdges}</div>`+
+    `<div>Scale: 1px = ${(mpp*100).toFixed(1)}cm | Walk: ${walkSpd}m/min</div>`+
+    `<div>Est. total path length: ${totalDist.toFixed(0)}m</div>`+
+    Object.entries(types).map(([t,c])=>`<div>${TYPES.find(x=>x.v===t)?.i||''} ${t}: ${c}</div>`).join('');
+}
 function pushH(){A.hist.push({n:JSON.parse(JSON.stringify(A.nodes)),e:JSON.parse(JSON.stringify(A.edges))});if(A.hist.length>20)A.hist.shift();}
 function undo(){if(!A.hist.length){toast('⚠️','Nothing to undo','warn');return;}const p=A.hist.pop();A.nodes=p.n;A.edges=p.e;selNode(null);renderNL();updateStats();draw();toast('↩️','Undone','ok');}
+function setTool(t){A.tool=t;A.edgeFrom=null;document.querySelectorAll('.ct2[id^="t-"]').forEach(b=>b.classList.remove('on'));document.getElementById('t-'+t)?.classList.add('on');CV().style.cursor=t==='node'?'crosshair':t==='del'?'not-allowed':'default';const h={sel:'Select/Move nodes',node:'Click to add node (snaps to grid if on)',edge:'Click node A then B to connect',del:'Click to delete node'};document.getElementById('ch').textContent=h[t]||'';}
 
-function setTool(t){A.tool=t;A.edgeFrom=null;document.querySelectorAll('.ct[id^="t-"]').forEach(b=>b.classList.remove('on'));document.getElementById('t-'+t)?.classList.add('on');CV().style.cursor=t==='node'?'crosshair':t==='del'?'not-allowed':'default';const hints={sel:'Select/Move nodes',node:'Click map to add node',edge:'Click first then second node to connect',del:'Click node to delete'};document.getElementById('c-hint').textContent=hints[t]||'';}
+/* ── QR GENERATION ── */
+function genQRs(){
+  if(!A.nodes.length){toast('⚠️','No nodes on this floor','warn');return;}
+  const facId=document.getElementById('fid').value;
+  const floorLabel=A.floors[A.curFloor].label;
+  const grid=document.getElementById('qrGrid');
+  grid.innerHTML=`<div style="grid-column:1/-1;font-size:12.5px;font-weight:700;color:var(--a2);padding:6px 0;border-bottom:1px solid var(--rim);margin-bottom:6px">QR codes: ${floorLabel} (${A.nodes.length} nodes)${A.floors.length>1?' — switch floor tab to generate others':''}</div>`;
+  A.nodes.forEach(n=>{
+    const td=TYPES.find(t=>t.v===n.type)||TYPES[8];
+    // Full node payload — client gets exact position + type + floor
+    const payload=JSON.stringify({fid:facId,nid:n.id,label:n.label,type:n.type,floor:A.curFloor,x:n.x,y:n.y});
+    const card=document.createElement('div');card.className='qrc';
+    const qd=document.createElement('div');card.appendChild(qd);
+    try{new QRCode(qd,{text:payload,width:110,height:110,colorDark:'#111',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});}catch(e){qd.textContent='QR Error';}
+    card.insertBefore(qd,card.firstChild);
+    card.innerHTML+=`<div class="qrn">${td.i} ${n.label}</div><div class="qrt">${n.type} · ${floorLabel}</div><div style="font-family:monospace;font-size:8px;color:#999;margin-top:3px">${facId}·${n.id}</div>`;
+    grid.appendChild(card);
+  });
+  // Render floor switcher in QR tab
+  const qfb=document.getElementById('qrFloorBar');
+  if(qfb&&A.floors.length>1)qfb.innerHTML=A.floors.map((fl,i)=>`<div onclick="switchFloor(${i});setTimeout(genQRs,80)" style="padding:5px 11px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;border:1px solid ${i===A.curFloor?'rgba(99,102,241,.4)':'var(--rim)'};background:${i===A.curFloor?'rgba(99,102,241,.12)':'var(--bg3)'};color:${i===A.curFloor?'var(--a2)':'var(--t2)'};transition:all .15s">🗺️ ${fl.label}${fl.nodes?.length?` (${fl.nodes.length})`:''}</div>`).join('');
+  toast('📱',`${A.nodes.length} QR codes generated`,'ok');
+}
+function printQRs(){if(!document.querySelector('.qrc')){toast('⚠️','Generate QR codes first','warn');return;}const pa=document.getElementById('pa');pa.innerHTML=`<h2 style="font-family:sans-serif;margin-bottom:16px">${document.getElementById('fn').value||'Facility'} — ${A.floors[A.curFloor].label} QR Codes</h2><div class="qrg">${document.getElementById('qrGrid').innerHTML}</div>`;window.print();}
 
+/* ── SAVE / PUBLISH ── */
+function saveCur(){
+  const id=document.getElementById('fid').value;if(!id)return;
+  A.curId=id;
+  const floorsData=A.floors.map(fl=>({b64:fl.b64||null,nodes:fl.nodes||[],edges:fl.edges||[],imgW:fl.imgW||600,imgH:fl.imgH||400,label:fl.label||'Floor'}));
+  A.facs[id]={
+    id,name:document.getElementById('fn').value||'Unnamed',
+    type:document.getElementById('ftype').value,
+    floors:floorsData,floorConns:A.floorConns,
+    calibration:A.calibration,
+    // Legacy compat fields
+    nodes:A.floors[0]?.nodes||[],edges:A.floors[0]?.edges||[],
+    imgW:A.floors[0]?.imgW||600,imgH:A.floors[0]?.imgH||400,iw:A.floors[0]?.imgW||600,ih:A.floors[0]?.imgH||400,
+    floorImage:A.floors[0]?.b64||null,img:A.floors[0]?.b64||null,
+    stepLen:parseFloat(document.getElementById('stepLen')?.value||0.72),
+    pxPerMeter:1/(A.calibration.mpp||0.033),pxPerM:1/(A.calibration.mpp||0.033),
+    walkSpd:A.calibration.walkSpd||80,
+    pub:A.facs[id]?.pub||false,updatedAt:Date.now(),
+  };
+  saveStore();localStorage.setItem('wp_last_id',id);
+  document.getElementById('pubFid').textContent=id;
+  updateStats();
+}
+
+async function doPublish(){
+  if(!A.nodes.length){
+    const lid=localStorage.getItem('wp_last_id');
+    if(lid&&A.facs[lid]?.nodes?.length){A.nodes=A.facs[lid].nodes;A.edges=A.facs[lid].edges;}
+    else{toast('⚠️','No nodes — run analysis first','warn');return;}
+  }
+  saveCur();
+  const id=document.getElementById('fid').value;
+  if(A.fbOk&&A.fbDb){
+    try{
+      const{doc,setDoc}=window._fb;
+      await setDoc(doc(A.fbDb,'facilities',id),A.facs[id]);
+      A.facs[id].pub=true;saveStore();
+      // Share Firebase config with client
+      const savedCfg=JSON.parse(localStorage.getItem('wp_fb')||'null');
+      if(savedCfg){localStorage.setItem('wp_client_fb',JSON.stringify(savedCfg));localStorage.setItem('wp_fb_config',JSON.stringify(savedCfg));}
+      document.getElementById('depStatus').style.display='block';
+      document.getElementById('depFid').textContent=id;
+      gotoTab('deploy');
+      toast('🚀',`Deployed! ID: ${id}`,'ok');return;
+    }catch(e){toast('⚠️',`Firebase: ${e.message.slice(0,40)} — saved locally`,'warn');}
+  }
+  A.facs[id].pub=true;saveStore();
+  document.getElementById('depStatus').style.display='block';
+  document.getElementById('depFid').textContent=id;
+  gotoTab('deploy');
+  toast('💾',`Saved locally. ID: ${id}`,'warn');
+}
+
+function exportJSON(){
+  const id=document.getElementById('fid').value;const fac=A.facs[id];if(!fac){toast('⚠️','Deploy first','warn');return;}
+  const blob=new Blob([JSON.stringify(fac,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`waypoint_${id}.json`;a.click();URL.revokeObjectURL(url);
+  toast('⬇️','Downloaded','ok');
+}
+function copyId(){const id=document.getElementById('pubFid').textContent;navigator.clipboard.writeText(id).then(()=>toast('📋','Copied!','ok'));}
+function copyClientURL(){const id=document.getElementById('fid').value;const url=`${window.location.href.replace('indoor-admin.html','indoor-nav.html')}?fid=${id}`;navigator.clipboard.writeText(url).then(()=>toast('🔗','URL copied!','ok'));}
+
+/* ── TABS ── */
 function gotoTab(t){
-  ['setup','editor','qr','deploy'].forEach(x=>{
+  ['setup','editor','connect','qr','deploy'].forEach(x=>{
     document.getElementById('tab-'+x)?.classList.toggle('on',x===t);
     document.getElementById('pane-'+x)?.classList.toggle('on',x===t);
     document.getElementById('sn-'+x)?.classList.toggle('on',x===t);
   });
   if(t==='editor'){
     setTimeout(()=>{
-      const wrap=document.getElementById('canvas-wrap');
-      const ww=wrap.clientWidth-40,wh=wrap.clientHeight-80;
+      const wr=document.getElementById('cw');const ww=wr.clientWidth-40,wh=wr.clientHeight-80;
       if(A.floorB64&&A.imgEl){const sc=Math.min(ww/A.imgEl.naturalWidth,wh/A.imgEl.naturalHeight,1);A.imgW=Math.round(A.imgEl.naturalWidth*sc);A.imgH=Math.round(A.imgEl.naturalHeight*sc);CV().width=A.imgW;CV().height=A.imgH;A.scale=1;A.ox=0;A.oy=0;draw();}
-      else if(A.floorB64){loadImgEl(A.floorB64);}
+      else if(A.floorB64)loadImgEl(A.floorB64);
       else{CV().width=Math.max(ww,600);CV().height=Math.max(wh,400);draw();}
+      renderEditorFloorBar();
     },60);
   }
-  if(t==='qr'){setTimeout(()=>{if(A.nodes.length&&!document.querySelector('.qr-card'))generateQRs();},100);}
+  if(t==='qr'){setTimeout(()=>{const qfb=document.getElementById('qrFloorBar');if(qfb&&A.floors.length>1)qfb.innerHTML=A.floors.map((fl,i)=>`<div onclick="switchFloor(${i});setTimeout(genQRs,80)" style="padding:5px 10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;border:1px solid ${i===A.curFloor?'rgba(99,102,241,.4)':'var(--rim)'};background:${i===A.curFloor?'rgba(99,102,241,.12)':'var(--bg3)'};color:${i===A.curFloor?'var(--a2)':'var(--t2)'}">🗺️ ${fl.label}</div>`).join('');if(A.nodes.length&&!document.querySelector('.qrc'))genQRs();},100);}
+  if(t==='connect'){renderFCList();}
   if(t==='deploy')saveCur();
 }
 
+/* ── TOAST ── */
 let tt;
-function toast(ico,msg,type='ok'){document.getElementById('t-ico').textContent=ico;document.getElementById('t-msg').textContent=msg;const el=document.getElementById('toast');el.className=type+' show';clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),3200);}
-
+function toast(ico,msg,type='ok'){document.getElementById('tico').textContent=ico;document.getElementById('tmsg').textContent=msg;const el=document.getElementById('toast');el.className=type+' show';clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),3200);}
 window.addEventListener('resize',()=>{if(A.floorB64&&A.imgEl&&document.getElementById('pane-editor').classList.contains('on'))loadImgEl(A.floorB64);});
 </script>
 </body>
