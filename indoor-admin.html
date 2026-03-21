@@ -909,25 +909,44 @@ async function runOpenRouterAI(){
     const ftype=document.getElementById('f-type').value;
 
     // This prompt specifically asks for OCR reading of room labels
-    const prompt=`You are an expert indoor navigation system analyzing a ${ftype} floor plan.
+        const prompt=`You are an expert indoor navigation graph builder for a ${ftype} floor plan.
 
-CRITICAL: Read ALL text labels visible in the image. Use the ACTUAL room names shown.
+YOUR JOB: Create a navigation graph that guides people through DOORS and CORRIDORS — NOT through walls.
 
-Return ONLY valid JSON (no markdown, no backticks):
-{"nodes":[{"id":"n1","x":0.10,"y":0.50,"label":"Emergency Ward","type":"entrance"},{"id":"n2","x":0.30,"y":0.48,"label":"Nurses Station","type":"poi"}],"edges":[{"from":"n1","to":"n2"}],"meta":{"desc":"brief","rooms_detected":["list","of","room","names","found"]}}
+STEP 1 — READ ALL TEXT LABELS via OCR:
+- Read every room name, label, sign visible in the image
+- Use EXACT text (e.g. "ICU", "RECOVERY ROOM", "NURSES STATION", "WASHROOMS")
 
-OCR Rules:
-- READ the actual text labels printed on the floor plan
-- Use exact room names from the image (e.g. "PATIENT ROOM 1", "ICU", "NURSES STATION")
-- If text is unclear, make a reasonable guess based on context
-- Place nodes at the CENTER of each labeled room/area
+STEP 2 — NODE PLACEMENT RULES (CRITICAL — read carefully):
+Place nodes ONLY at these locations:
+  A) DOOR THRESHOLDS: at the opening/doorway of every room (just outside the door, in the corridor)
+  B) CORRIDOR INTERSECTIONS: where two or more corridors meet (T-junction, crossroads)
+  C) CORRIDOR MIDPOINTS: every 80-100px equivalent along long straight corridors
+  D) STAIRS / ELEVATORS: at the entry point
+  E) MAIN ENTRANCE: at the building entrance door
 
-Layout Rules:
-- x,y are RELATIVE 0.0-1.0 coordinates (0,0=top-left)
-- Generate 20-40 nodes covering entire floor plan
-- Place CORRIDOR nodes at every hallway intersection
-- Make graph fully connected — every room reachable from entrance
-- Node types: entrance exit corridor room stairs elevator toilet poi junction`;
+DO NOT place nodes:
+  ✗ Inside the middle of rooms (only at the door)
+  ✗ On walls or colored wall areas
+  ✗ Floating in open space with no connection
+
+STEP 3 — EDGE RULES (NO WALL CROSSINGS):
+  - Only connect two nodes if you can walk in a STRAIGHT LINE between them WITHOUT crossing a wall
+  - Corridor nodes connect to adjacent corridor nodes
+  - Room door nodes connect to the nearest corridor node
+  - Never connect nodes across a wall or through a colored room block
+
+STEP 4 — NAMING:
+  - Door node for ICU → label "ICU Door", type "room"
+  - Corridor intersection → label "Corridor", type "corridor"  
+  - Main entrance → label "Main Entrance", type "entrance"
+  - Stairs → label "Stairs", type "stairs"
+
+Return ONLY valid JSON (no markdown, no backticks, no extra text):
+{"nodes":[{"id":"n1","x":0.08,"y":0.72,"label":"Main Entrance","type":"entrance"},{"id":"n2","x":0.08,"y":0.65,"label":"Corridor","type":"corridor"},{"id":"n3","x":0.20,"y":0.65,"label":"ICU Door","type":"room"}],"edges":[{"from":"n1","to":"n2"},{"from":"n2","to":"n3"}],"meta":{"desc":"one line description","rooms_detected":["ICU","Recovery Room","Washrooms"]}}
+
+Coordinates: x,y are 0.0-1.0 relative (0,0=top-left corner of image)
+Generate 25-50 nodes. Every room must be reachable from entrance via corridor nodes only.`;
 
     const body={model:'',messages:[{role:'user',content:[{type:'image_url',image_url:{url:`data:${mime};base64,${b64}`}},{type:'text',text:prompt}]}],max_tokens:4096,temperature:0.1};
 
