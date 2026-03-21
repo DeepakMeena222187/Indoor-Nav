@@ -326,6 +326,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
       </div>
       <canvas id="fc"></canvas>
       <button class="grid-btn" id="gridBtn" onclick="toggleGrid()">⊞ Grid: OFF</button>
+      <button class="grid-btn" id="debugToggle" onclick="toggleDebug()" style="right:52px" title="Show skeleton overlay">🔬 Debug: OFF</button>
       <div class="ch" id="ch">Select — click to edit, drag to move</div>
       <div class="leg">
         <span style="color:rgba(99,102,241,.9)">━</span> Valid &nbsp;
@@ -1053,121 +1054,356 @@ Return 8-25 items.`;
 
 
 /* ── LOCAL ANALYZER v3 ── */
+/* ═══════════════════════════════════════════════════════════
+   CORRIDOR DETECTION PIPELINE v4
+   ────────────────────────────────
+   1. Binary map (threshold)
+   2. Distance transform
+   3. Zhang-Suen skeletonization → 1px corridor centerlines
+   4. Width filter → reject skeleton pixels inside large rooms
+   5. Sample nodes along skeleton every ~N px
+   6. Door detection → find wall gaps near room labels
+   7. K-nearest + LOS edges (clean, no spaghetti)
+   8. Debug overlay toggle
+═══════════════════════════════════════════════════════════ */
+
+/* ── DEBUG CANVAS OVERLAY ── */
+let _debugCanvas=null;
+function showDebugOverlay(W,H,skeleton,distMap,nodes,scx,scy){
+  if(!document.getElementById('debugToggle')?.classList.contains('on'))return;
+  if(!_debugCanvas){
+    _debugCanvas=document.createElement('canvas');
+    _debugCanvas.style.cssText='position:absolute;top:0;left:0;pointer-events:none;opacity:.7;z-index:5';
+    document.getElementById('cw').appendChild(_debugCanvas);
+  }
+  _debugCanvas.width=CV().width;_debugCanvas.height=CV().height;
+  const ctx=_debugCanvas.getContext('2d');
+  ctx.save();ctx.scale(A.scale,A.scale);ctx.translate(A.ox,A.oy);
+  // Draw skeleton (cyan)
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    if(!skeleton[y*W+x])continue;
+    const w=distMap[y*W+x]*2; // corridor width in pixels
+    ctx.fillStyle=w<6?'rgba(0,255,200,.8)':'rgba(255,100,0,.5)'; // cyan=corridor orange=room-ish
+    ctx.fillRect(x*scx,y*scy,scx+.5,scy+.5);
+  }
+  // Draw nodes as crosses
+  nodes.forEach(n=>{
+    ctx.strokeStyle='rgba(255,255,0,.9)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(n.x-5,n.y);ctx.lineTo(n.x+5,n.y);ctx.moveTo(n.x,n.y-5);ctx.lineTo(n.x,n.y+5);ctx.stroke();
+  });
+  ctx.restore();
+}
+function clearDebugOverlay(){if(_debugCanvas){_debugCanvas.getContext('2d').clearRect(0,0,_debugCanvas.width,_debugCanvas.height);}}
+
 async function runLocal(){
   if(!A.floorB64){toast('⚠️','Upload floor plan first','warn');return;}
   const btn=document.getElementById('analyzeBtn');btn.disabled=true;
   const logEl=document.getElementById('aiLog'),progEl=document.getElementById('aiProg'),fillEl=document.getElementById('aipf');
   logEl.classList.add('show');progEl.classList.add('show');logEl.innerHTML='';
-  const log=(m,c='info')=>{logEl.innerHTML+=`<span class="${c}">${{ok:'✓',err:'✗',warn:'⚠',info:'›'}[c]}  ${m}</span>\n`;logEl.scrollTop=logEl.scrollHeight;};
+  const log=(m,c='info')=>{const s={ok:'✓',err:'✗',warn:'⚠',info:'›'}[c]||'›';logEl.innerHTML+=`<span class="${c}">${s}  ${m}</span>\n`;logEl.scrollTop=logEl.scrollHeight;};
   const setP=p=>fillEl.style.width=p+'%';
   const sens=parseInt(document.querySelector('input[name="sens"]:checked')?.value||'120');
+
   try{
-    log('Loading floor plan…');setP(4);await tick();
+    log('Step 1: Loading image…');setP(4);await tick();
     if(!A.imgEl){await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,700);});}
-    const W=240,H=180;
+    if(!A.imgW||!A.imgH){A.imgW=800;A.imgH=600;}
+
+    // Work resolution — balance speed vs accuracy
+    const W=260,H=195;
     const off=document.createElement('canvas');off.width=W;off.height=H;
-    const ox2=off.getContext('2d');ox2.drawImage(A.imgEl,0,0,W,H);
-    const px=ox2.getImageData(0,0,W,H).data;
+    const octx=off.getContext('2d');octx.drawImage(A.imgEl,0,0,W,H);
+    const raw=octx.getImageData(0,0,W,H).data;
     const gray=new Uint8Array(W*H);
-    for(let i=0;i<W*H;i++)gray[i]=(px[i*4]*77+px[i*4+1]*150+px[i*4+2]*29)>>8;
-    let lp=0;for(let i=0;i<W*H;i++)if(gray[i]>128)lp++;
-    log(`Background: ${lp<W*H*0.45?'dark':'light'}  sens=${sens}`);
-    const walk=new Uint8Array(W*H);
-    for(let i=0;i<W*H;i++)walk[i]=gray[i]>sens?1:0;
-    const er=new Uint8Array(W*H);
-    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const c=y*W+x;er[c]=(walk[c]&&walk[c-1]&&walk[c+1]&&walk[c-W]&&walk[c+W]&&walk[c-W-1]&&walk[c-W+1]&&walk[c+W-1]&&walk[c+W+1])?1:0;}
-    setP(15);await tick();
-    // Distance transform
+    for(let i=0;i<W*H;i++)gray[i]=(raw[i*4]*77+raw[i*4+1]*150+raw[i*4+2]*29)>>8;
+    const walkable=new Uint8Array(W*H);
+    for(let i=0;i<W*H;i++)walkable[i]=gray[i]>sens?1:0;
+    setP(10);log(`Binary map: threshold=${sens}`);await tick();
+
+    /* ── STEP 2: Distance transform ── */
     const dist=new Float32Array(W*H);
-    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){if(!er[y*W+x])continue;dist[y*W+x]=1+Math.min(dist[(y-1)*W+x-1],dist[(y-1)*W+x],dist[(y-1)*W+x+1],dist[y*W+x-1]);}
-    for(let y=H-2;y>=1;y--)for(let x=W-2;x>=1;x--){if(!er[y*W+x])continue;dist[y*W+x]=Math.min(dist[y*W+x],1+Math.min(dist[(y+1)*W+x+1],dist[(y+1)*W+x],dist[(y+1)*W+x-1],dist[y*W+x+1]));}
-    setP(28);await tick();
-    // Skeleton = ridge of distance field
+    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+      if(!walkable[y*W+x])continue;
+      dist[y*W+x]=1+Math.min(dist[(y-1)*W+x-1],dist[(y-1)*W+x],dist[(y-1)*W+x+1],dist[y*W+x-1]);
+    }
+    for(let y=H-2;y>=1;y--)for(let x=W-2;x>=1;x--){
+      if(!walkable[y*W+x])continue;
+      dist[y*W+x]=Math.min(dist[y*W+x],1+Math.min(
+        dist[(y+1)*W+x+1],dist[(y+1)*W+x],dist[(y+1)*W+x-1],dist[y*W+x+1]
+      ));
+    }
+    const maxDist=Math.max(...dist);
+    setP(18);log(`Distance transform done. Max dist=${maxDist.toFixed(1)}px`);await tick();
+
+    /* ── STEP 3: Zhang-Suen skeletonization ──
+       Morphological thinning → 1-pixel wide corridor centerlines
+       This is the KEY missing piece — gives us actual corridor topology */
+    log('Step 3: Skeletonizing (Zhang-Suen thinning)…');setP(22);await tick();
+
     const skel=new Uint8Array(W*H);
-    for(let y=2;y<H-2;y++)for(let x=2;x<W-2;x++){
-      const d=dist[y*W+x];if(d<1.5)continue;
-      if((d>=dist[(y-1)*W+x]&&d>=dist[(y+1)*W+x])||(d>=dist[y*W+x-1]&&d>=dist[y*W+x+1])||(d>=dist[(y-1)*W+x-1]&&d>=dist[(y+1)*W+x+1])||(d>=dist[(y-1)*W+x+1]&&d>=dist[(y+1)*W+x-1]))skel[y*W+x]=1;
+    // Copy walkable into skel (we'll thin it)
+    for(let i=0;i<W*H;i++)skel[i]=walkable[i];
+
+    // Zhang-Suen helper: count transitions 0→1 in ordered 8-neighborhood
+    function transitions(x,y){
+      const p=[
+        skel[y*W+x+1],skel[(y-1)*W+x+1],skel[(y-1)*W+x],skel[(y-1)*W+x-1],
+        skel[y*W+x-1],skel[(y+1)*W+x-1],skel[(y+1)*W+x],skel[(y+1)*W+x+1],
+        skel[y*W+x+1] // wrap
+      ];
+      let t=0;for(let i=0;i<8;i++)if(p[i]===0&&p[i+1]===1)t++;
+      return t;
     }
-    setP(36);await tick();
-    // Sample skeleton into corridor nodes
-    const GRID=12;
-    const skelPts=[];
-    for(let y=GRID;y<H-GRID;y+=GRID)for(let x=GRID;x<W-GRID;x+=GRID){
-      let best=-1,bx=0,by=0;
-      for(let dy=-GRID/2;dy<=GRID/2;dy++)for(let dx=-GRID/2;dx<=GRID/2;dx++){
-        const nx=x+dx,ny=y+dy;if(nx<1||nx>=W-1||ny<1||ny>=H-1)continue;
-        if(skel[ny*W+nx]&&dist[ny*W+nx]>best){best=dist[ny*W+nx];bx=nx;by=ny;}
+    function neighbors(x,y){
+      return skel[(y-1)*W+x]+skel[(y-1)*W+x+1]+skel[y*W+x+1]+skel[(y+1)*W+x+1]+
+             skel[(y+1)*W+x]+skel[(y+1)*W+x-1]+skel[y*W+x-1]+skel[(y-1)*W+x-1];
+    }
+
+    // Run Zhang-Suen iterations (max 25 passes — enough for most maps)
+    let changed=true,pass=0;
+    const toDelete=new Uint8Array(W*H);
+    while(changed&&pass<25){
+      changed=false;
+      // Sub-iteration 1
+      toDelete.fill(0);
+      for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+        if(!skel[y*W+x])continue;
+        const nb=neighbors(x,y),tr=transitions(x,y);
+        if(nb>=2&&nb<=6&&tr===1&&
+           (skel[(y-1)*W+x]||skel[y*W+x+1]||skel[(y+1)*W+x])===0 ||
+           (skel[y*W+x+1]||skel[(y+1)*W+x]||skel[y*W+x-1])===0
+        ){toDelete[y*W+x]=1;}
       }
-      if(best>1.2)skelPts.push({x:bx,y:by,d:best});
+      for(let i=0;i<W*H;i++)if(toDelete[i]){skel[i]=0;changed=true;}
+      // Sub-iteration 2
+      toDelete.fill(0);
+      for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+        if(!skel[y*W+x])continue;
+        const nb=neighbors(x,y),tr=transitions(x,y);
+        if(nb>=2&&nb<=6&&tr===1&&
+           (skel[(y-1)*W+x]||skel[y*W+x+1]||skel[y*W+x-1])===0 ||
+           (skel[(y-1)*W+x]||skel[(y+1)*W+x]||skel[y*W+x-1])===0
+        ){toDelete[y*W+x]=1;}
+      }
+      for(let i=0;i<W*H;i++)if(toDelete[i]){skel[i]=0;changed=true;}
+      pass++;
     }
-    log(`${skelPts.length} corridor skeleton samples`);
-    // Door gap detection
-    const GAP_MIN=2,GAP_MAX=14;
-    const doorPts=[];
-    for(let x=4;x<W-4;x+=2){let inG=false,gs=0;for(let y=1;y<H-1;y++){const f=er[y*W+x];if(!inG&&f&&!er[(y-1)*W+x]){inG=true;gs=y;}if(inG&&(!f||y===H-2)){const gw=y-gs;if(gw>=GAP_MIN&&gw<=GAP_MAX){const gy=gs+Math.floor(gw/2);if(er[gy*W+x])doorPts.push({x,y:gy});}inG=false;}}}
-    for(let y=4;y<H-4;y+=2){let inG=false,gs=0;for(let x=1;x<W-1;x++){const f=er[y*W+x];if(!inG&&f&&!er[y*W+x-1]){inG=true;gs=x;}if(inG&&(!f||x===W-2)){const gw=x-gs;if(gw>=GAP_MIN&&gw<=GAP_MAX){const gx=gs+Math.floor(gw/2);if(er[y*W+gx])doorPts.push({x:gx,y});}inG=false;}}}
-    // De-duplicate door points
-    const usedD=new Uint8Array(doorPts.length);const doors=[];
-    for(let i=0;i<doorPts.length;i++){if(usedD[i])continue;let sx=doorPts[i].x,sy=doorPts[i].y,cnt=1;usedD[i]=1;for(let j=i+1;j<doorPts.length;j++){if(usedD[j])continue;if(Math.hypot(doorPts[j].x-doorPts[i].x,doorPts[j].y-doorPts[i].y)<10){sx+=doorPts[j].x;sy+=doorPts[j].y;cnt++;usedD[j]=1;}}doors.push({x:sx/cnt,y:sy/cnt});}
-    log(`${doors.length} doors + ${skelPts.length} corridor points`);setP(58);await tick();
+    const skelCount=skel.reduce((s,v)=>s+v,0);
+    setP(38);log(`Skeleton: ${skelCount} centerline pixels (${pass} passes)`,'ok');await tick();
+
+    /* ── STEP 4: Width filter ──
+       skeleton pixel width = dist[pixel] * 2
+       - Small/medium width → corridor → KEEP
+       - Very large width → center of big room → REJECT
+       Threshold: reject if wider than ~3 average corridor widths */
+    log('Step 4: Width filtering (removing room centers)…');setP(42);await tick();
+
+    // Calculate median corridor width from skeleton pixels
+    const widths=[];
+    for(let i=0;i<W*H;i++)if(skel[i])widths.push(dist[i]*2);
+    widths.sort((a,b)=>a-b);
+    const medW=widths[Math.floor(widths.length/2)]||3;
+    // Reject skeleton pixels wider than 3× median (= inside large room, not corridor)
+    const MAX_WIDTH=Math.max(medW*3.5,8);
+    const corridorSkel=new Uint8Array(W*H);
+    let kept=0;
+    for(let i=0;i<W*H;i++){
+      if(skel[i]&&dist[i]*2<=MAX_WIDTH){corridorSkel[i]=1;kept++;}
+    }
+    setP(50);log(`Width filter: kept ${kept} corridor pixels (maxW=${MAX_WIDTH.toFixed(1)}px, medW=${medW.toFixed(1)}px)`,'ok');
+    if(kept<10)throw new Error(`Only ${kept} corridor pixels survived. Try different sensitivity.`);
+    await tick();
+
+    /* ── STEP 5: Sample nodes along skeleton ──
+       Walk skeleton, place node every STEP pixels
+       This guarantees nodes lie exactly on corridor centerlines */
+    log('Step 5: Sampling nodes along skeleton…');setP(55);await tick();
+
+    const STEP=14; // place node every 14px in work grid
     const scx=A.imgW/W,scy=A.imgH/H;
+
+    // BFS along skeleton to sample uniformly
+    const visited=new Uint8Array(W*H);
+    const skelNodes=[];
+
+    // Find all junction pixels (≥3 skeleton neighbors) and endpoints (1 neighbor)
+    function skelNeighborCount(x,y){
+      let c=0;
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+        if(!dx&&!dy)continue;const nx=x+dx,ny=y+dy;
+        if(nx>=0&&nx<W&&ny>=0&&ny<H&&corridorSkel[ny*W+nx])c++;
+      }return c;
+    }
+
+    // First pass: collect junctions and endpoints (structural nodes)
+    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+      if(!corridorSkel[y*W+x])continue;
+      const nc=skelNeighborCount(x,y);
+      if(nc===1||nc>=3){// endpoint or junction
+        skelNodes.push({x,y,d:dist[y*W+x],isJunction:nc>=3});
+        visited[y*W+x]=1;
+      }
+    }
+
+    // Second pass: sample remaining skeleton pixels at intervals
+    for(let y=1;y<H-1;y+=Math.max(1,Math.round(STEP/scx)))for(let x=1;x<W-1;x+=Math.max(1,Math.round(STEP/scy))){
+      if(!corridorSkel[y*W+x]||visited[y*W+x])continue;
+      // Snap to nearest skeleton pixel in vicinity
+      let bx=x,by=y,bd=Infinity;
+      for(let dy=-STEP;dy<=STEP;dy++)for(let dx=-STEP;dx<=STEP;dx++){
+        const nx=x+dx,ny=y+dy;if(nx<0||nx>=W||ny<0||ny>=H)continue;
+        if(corridorSkel[ny*W+nx]&&!visited[ny*W+nx]){
+          const d2=Math.hypot(dx,dy);if(d2<bd){bd=d2;bx=nx;by=ny;}
+        }
+      }
+      if(bd<=STEP){skelNodes.push({x:bx,y:by,d:dist[by*W+bx]});visited[by*W+bx]=1;}
+    }
+    setP(65);log(`${skelNodes.length} skeleton nodes sampled`,'ok');await tick();
+
+    /* ── STEP 6: Door detection ──
+       For each skeleton node, check if it's near a wall gap
+       (room boundary → gap in wall → door threshold)
+       This is where rooms connect to corridors */
+    log('Step 6: Detecting door positions…');setP(68);await tick();
+
+    // Find wall gaps: walkable pixel flanked by wall pixels on both sides
+    // in one axis — these are likely doorways
+    const doorPts=new Uint8Array(W*H);
+    for(let y=2;y<H-2;y++)for(let x=2;x<W-2;x++){
+      if(!walkable[y*W+x])continue;
+      // Horizontal door: wall above AND below, open left or right
+      const wallU=!walkable[(y-1)*W+x],wallD=!walkable[(y+1)*W+x];
+      // Vertical door: wall left AND right, open top or bottom
+      const wallL=!walkable[y*W+x-1],wallR=!walkable[y*W+x+1];
+      if((wallU&&wallD)||(wallL&&wallR))doorPts[y*W+x]=1;
+    }
+
+    setP(72);await tick();
+
+    /* ── STEP 7: Build final node list ──
+       Skeleton nodes form the corridor graph.
+       Door points nearby get labeled as room door nodes. */
     const mpp=A.calibration?.mpp||0.033;
-    const corridorNodes=skelPts.map((s,i)=>({id:`c${i+1}`,x:s.x*scx,y:s.y*scy,label:'Corridor',type:'corridor',floor:A.curFloor,weight:1,connections:[],_wx:s.x,_wy:s.y}));
-    const doorNodes=doors.map((d,i)=>({id:`d${i+1}`,x:d.x*scx,y:d.y*scy,label:'Room Door',type:'room',floor:A.curFloor,weight:1,connections:[],_wx:Math.round(d.x),_wy:Math.round(d.y)}));
-    const allNodes=[...corridorNodes,...doorNodes];
-    // Mark entrance: bottom-most walkable node near center
-    const ent=allNodes.reduce((b,n)=>{const s=(n.y+(Math.abs(n.x-A.imgW/2)<A.imgW*0.25?0:A.imgH));return s>(b._s||0)?{...n,_s:s}:b},{_s:0});
-    const entNode=allNodes.find(n=>n.id===ent.id);if(entNode){entNode.type='entrance';entNode.label='Main Entrance';}
-    if(!allNodes.some(n=>n.type==='entrance')&&allNodes.length){allNodes[0].type='entrance';allNodes[0].label='Main Entrance';}
-    // LOS check
-    function los2(ax,ay,bx,by){const st=Math.ceil(Math.hypot(bx-ax,by-ay)*1.5)+5;for(let t=0;t<=st;t++){const px2=Math.round(ax+(bx-ax)*t/st),py2=Math.round(ay+(by-ay)*t/st);if(px2<0||px2>=W||py2<0||py2>=H||!er[py2*W+px2])return false;}return true;}
-    log('Building wall-aware edges…');setP(72);await tick();
+    const nodes=[];let nIdx=1;
+
+    // Type assignment by position
+    const TYPES_W={stairs:5,elevator:3,entrance:1,exit:1,corridor:1,room:1,toilet:1,poi:1,junction:1};
+    skelNodes.forEach(sp=>{
+      const rx=sp.x/W,ry=sp.y/H;
+      const onEdge=rx<0.09||rx>0.91||ry<0.05||ry>0.91;
+      const corner=(rx<0.12||rx>0.88)&&(ry<0.12||ry>0.88);
+      // Is this near a door point?
+      let nearDoor=false;
+      for(let dy=-3;dy<=3&&!nearDoor;dy++)for(let dx=-3;dx<=3&&!nearDoor;dx++){
+        const nx=sp.x+dx,ny=sp.y+dy;
+        if(nx>=0&&nx<W&&ny>=0&&ny<H&&doorPts[ny*W+nx])nearDoor=true;
+      }
+      let type='corridor',label='Corridor',weight=1;
+      if(corner&&nIdx%5===0){type='stairs';label='Stairs';weight=5;}
+      else if(corner&&nIdx%5===1){type='elevator';label='Elevator';weight=3;}
+      else if(onEdge&&nIdx===1){type='entrance';label='Main Entrance';}
+      else if(onEdge&&nIdx===skelNodes.length){type='exit';label='Exit';}
+      else if(onEdge){type='entrance';label='Entrance';}
+      else if(nearDoor){type='room';label=`Room ${String.fromCharCode(64+Math.min(26,(nIdx%26)+1))}`;weight=1;}
+      else if(sp.isJunction){type='junction';label='Junction';}
+      nodes.push({id:`n${nIdx++}`,x:sp.x*scx,y:sp.y*scy,label,type,floor:A.curFloor,weight,connections:[],_wx:sp.x,_wy:sp.y});
+    });
+
+    if(!nodes.some(n=>n.type==='entrance')){nodes[0].type='entrance';nodes[0].label='Main Entrance';}
+    setP(78);log(`${nodes.length} nodes placed on skeleton`,'ok');await tick();
+
+    /* ── STEP 8: K-nearest + LOS edges (clean, no spaghetti) ──
+       Only connect if:
+       1. LOS along skeleton (not raw walkable — stricter)
+       2. Distance < threshold
+       3. Max k=3 neighbors per node (prevents spaghetti) */
+    log('Step 8: Building clean edges (k=3 + LOS)…');setP(82);await tick();
+
+    function skelLOS(ax,ay,bx,by){
+      // Path must stay on corridor skeleton (or very close to it)
+      const steps=Math.ceil(Math.hypot(bx-ax,by-ay)*1.3)+3;
+      for(let t=0;t<=steps;t++){
+        const px2=Math.round(ax+(bx-ax)*t/steps),py2=Math.round(ay+(by-ay)*t/steps);
+        if(px2<0||px2>=W||py2<0||py2>=H)return false;
+        // Must stay walkable (using corridorSkel would be too strict — use walkable with some tolerance)
+        if(!walkable[py2*W+px2])return false;
+      }
+      return true;
+    }
+
     const edges=[];const eSet=new Set();
-    // Corridor-to-corridor edges
-    for(let i=0;i<corridorNodes.length;i++){let cn=0;const sorted=corridorNodes.map((n,j)=>({j,n,d:Math.hypot(n._wx-corridorNodes[i]._wx,n._wy-corridorNodes[i]._wy)})).filter(x=>x.j!==i).sort((a,b)=>a.d-b.d);for(const{j,n,d} of sorted){if(d>GRID*3.5)break;const k=[i,j].sort().join('_');if(eSet.has(k))continue;if(los2(corridorNodes[i]._wx,corridorNodes[i]._wy,n._wx,n._wy)){const dp=Math.hypot(corridorNodes[i].x-n.x,corridorNodes[i].y-n.y);edges.push({from:corridorNodes[i].id,to:n.id,dist:dp,distMeters:dp*mpp,type:'walk',bidirectional:true});eSet.add(k);cn++;}if(cn>=3)break;}}
-    // Door-to-corridor edges
-    for(const door of doorNodes){const sorted=corridorNodes.map((c,j)=>({c,d:Math.hypot(door._wx-c._wx,door._wy-c._wy)})).sort((a,b)=>a.d-b.d);let ok=false;for(const{c,d} of sorted.slice(0,6)){if(d>GRID*5)break;const k=[door.id,c.id].sort().join('_');if(eSet.has(k))continue;if(los2(door._wx,door._wy,c._wx,c._wy)){const dp=Math.hypot(door.x-c.x,door.y-c.y);edges.push({from:door.id,to:c.id,dist:dp,distMeters:dp*mpp,type:'walk',bidirectional:true});eSet.add(k);ok=true;break;}}if(!ok&&sorted.length){const c=sorted[0].c;const dp=Math.hypot(door.x-c.x,door.y-c.y);edges.push({from:door.id,to:c.id,dist:dp,distMeters:dp*mpp,type:'walk',bidirectional:true});}}
-    allNodes.forEach(n=>{delete n._wx;delete n._wy;});
-    allNodes.forEach(n=>n.connections=[]);
-    edges.forEach(e=>{const f=allNodes.find(n=>n.id===e.from),t=allNodes.find(n=>n.id===e.to);if(f&&!f.connections.includes(e.to))f.connections.push(e.to);if(t&&e.bidirectional&&!t.connections.includes(e.from))t.connections.push(e.from);});
-    setP(96);log(`✓ ${corridorNodes.length} corridor + ${doorNodes.length} door nodes, ${edges.length} edges`,'ok');
-    log('Use 🎯 Snap to Corridor if nodes are in wrong spots, then 🔧 Smart Fix','info');
-    A.nodes=allNodes;A.edges=edges;
-    setP(100);saveCur();draw();renderNL();updateStats();
+    const K=4;// max connections per node
+    const MAX_CONN_WX=STEP*4.5;
+
+    for(let i=0;i<nodes.length;i++){
+      // Get K nearest that pass LOS
+      const candidates=[];
+      for(let j=0;j<nodes.length;j++){
+        if(i===j)continue;
+        const d=Math.hypot(nodes[i]._wx-nodes[j]._wx,nodes[i]._wy-nodes[j]._wy);
+        if(d<MAX_CONN_WX)candidates.push({j,d});
+      }
+      candidates.sort((a,b)=>a.d-b.d);
+      let added=0;
+      for(const{j}of candidates){
+        if(added>=K)break;
+        const k=[i,j].sort().join('_');
+        if(eSet.has(k))continue;
+        if(skelLOS(nodes[i]._wx,nodes[i]._wy,nodes[j]._wx,nodes[j]._wy)){
+          const dPx=Math.hypot(nodes[i].x-nodes[j].x,nodes[i].y-nodes[j].y);
+          const isStairs=['stairs','elevator'].includes(nodes[i].type)||['stairs','elevator'].includes(nodes[j].type);
+          edges.push({from:nodes[i].id,to:nodes[j].id,dist:dPx,distMeters:dPx*mpp,type:isStairs?nodes[i].type:'walk',bidirectional:true});
+          eSet.add(k);added++;
+        }
+      }
+    }
+
+    // Ensure connectivity
+    nodes.forEach(n=>{
+      if(!edges.some(e=>e.from===n.id||e.to===n.id)){
+        let best=null,bd=Infinity;
+        nodes.forEach(m=>{if(m.id===n.id)return;const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);if(d<bd){bd=d;best=m;}});
+        if(best){const dp=Math.hypot(n.x-best.x,n.y-best.y);edges.push({from:n.id,to:best.id,dist:dp,distMeters:dp*mpp,type:'walk',bidirectional:true});}
+      }
+    });
+
+    // Update connections arrays
+    nodes.forEach(n=>n.connections=[]);
+    edges.forEach(e=>{
+      const fn=nodes.find(n=>n.id===e.from),tn=nodes.find(n=>n.id===e.to);
+      if(fn&&!fn.connections.includes(e.to))fn.connections.push(e.to);
+      if(tn&&!tn.connections.includes(e.from))tn.connections.push(e.from);
+    });
+
+    // Recalc edge distances
+    edges.forEach(e=>{const f=nodes.find(n=>n.id===e.from),t=nodes.find(n=>n.id===e.to);if(f&&t){e.dist=Math.hypot(f.x-t.x,f.y-t.y);e.distMeters=e.dist*mpp;}});
+
+    // Clean up temp fields
+    nodes.forEach(n=>{delete n._wx;delete n._wy;});
+
+    setP(95);
+    log(`✓ ${nodes.length} skeleton nodes, ${edges.length} clean edges`,'ok');
+    log('Nodes lie on corridor centerlines — rename rooms in Editor','info');
+    await tick();
+
+    A.nodes=nodes;A.edges=edges;
+    setP(100);
+    saveCur();
+    showDebugOverlay(W,H,corridorSkel,dist,A.nodes,scx,scy);
+    draw();renderNL();updateStats();
     setTimeout(()=>{progEl.classList.remove('show');fillEl.style.width='0%';},1500);
-    toast('✅',`${allNodes.length} nodes (${corridorNodes.length} corridor + ${doorNodes.length} doors)`,'ok');
+    toast('✅',`Skeleton: ${nodes.length} corridor nodes, ${edges.length} edges`,'ok');
     gotoTab('editor');
-  }catch(err){log(`Error: ${err.message}`,'err');setP(0);console.error(err);toast('❌',err.message.slice(0,60),'err');}
-  finally{btn.disabled=false;}
+
+  }catch(err){
+    log(`Error: ${err.message}`,'err');setP(0);
+    log('→ Try different sensitivity or use Manual mode','warn');
+    toast('❌',err.message.slice(0,60),'err');
+  }finally{btn.disabled=false;}
 }
 
-async function snapToCorridor(){
-  if(!A.nodes.length){toast('⚠️','No nodes','warn');return;}
-  if(!A.imgEl){toast('⚠️','No floor plan','warn');return;}
-  pushH();
-  const W=240,H=180;
-  const off=document.createElement('canvas');off.width=W;off.height=H;
-  const ox2=off.getContext('2d');ox2.drawImage(A.imgEl,0,0,W,H);
-  const px=ox2.getImageData(0,0,W,H).data;
-  const gray=new Uint8Array(W*H);for(let i=0;i<W*H;i++)gray[i]=(px[i*4]*77+px[i*4+1]*150+px[i*4+2]*29)>>8;
-  const sens=parseInt(document.querySelector('input[name="sens"]:checked')?.value||'120');
-  const er=new Uint8Array(W*H);
-  const walk=new Uint8Array(W*H);for(let i=0;i<W*H;i++)walk[i]=gray[i]>sens?1:0;
-  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const c=y*W+x;er[c]=walk[c]&&walk[c-1]&&walk[c+1]&&walk[c-W]&&walk[c+W]?1:0;}
-  const scx=A.imgW/W,scy=A.imgH/H;let snapped=0;
-  A.nodes.forEach(n=>{
-    const wx=Math.round(n.x/scx),wy=Math.round(n.y/scy);
-    if(wx<0||wx>=W||wy<0||wy>=H||er[wy*W+wx])return;
-    let bd=Infinity,bx=wx,by=wy;
-    const R=24;
-    for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){const nx=wx+dx,ny=wy+dy;if(nx<1||nx>=W-1||ny<1||ny>=H-1||!er[ny*W+nx])continue;const d=Math.hypot(dx,dy);if(d<bd){bd=d;bx=nx;by=ny;}}
-    if(bd<Infinity){n.x=bx*scx;n.y=by*scy;snapped++;}
-  });
-  const mpp=A.calibration?.mpp||0.033;
-  A.edges.forEach(e=>{const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);if(f&&t){e.dist=Math.hypot(f.x-t.x,f.y-t.y);e.distMeters=e.dist*mpp;}});
-  draw();saveCur();
-  toast('🎯',`Snapped ${snapped} nodes to nearest walkable area`,'ok');
-}
+function tick(){return new Promise(r=>setTimeout(r,8));}
+
 
 /* ── SMART FIX ── */
 function smartFix(){
@@ -1291,6 +1527,13 @@ function zBy(f){A.scale=Math.max(.3,Math.min(6,A.scale*f));draw();}
 function rView(){A.scale=1;A.ox=0;A.oy=0;draw();}
 function clearCanvasDraw(){const c=CV();if(c.width&&c.height){CX().clearRect(0,0,c.width,c.height);}}
 function clearAll(){if(A.nodes.length&&!confirm('Delete all nodes and edges?'))return;A.nodes=[];A.edges=[];A.sel=null;selNode(null);renderNL();updateStats();draw();}
+function toggleDebug(){
+  const btn=document.getElementById('debugToggle');
+  const isOn=btn.classList.toggle('on');
+  btn.textContent=`🔬 Debug: ${isOn?'ON':'OFF'}`;
+  if(!isOn&&_debugCanvas){_debugCanvas.getContext('2d').clearRect(0,0,_debugCanvas.width,_debugCanvas.height);}
+  toast(isOn?'🔬':'👁',isOn?'Debug overlay ON — run analysis to see skeleton':'Debug overlay OFF');
+}
 function toggleGrid(){
   A.gridSnap=!A.gridSnap;
   const btn=document.getElementById('gridBtn');
