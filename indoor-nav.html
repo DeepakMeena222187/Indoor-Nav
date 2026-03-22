@@ -132,7 +132,7 @@ html,body{height:100%;height:100dvh;background:var(--bg);color:var(--t1);font-fa
 #rpf{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:2px;width:0%;transition:width 1s;}
 
 /* Bottom panel */
-#bp{position:absolute;bottom:0;left:0;right:0;z-index:50;background:var(--bg2);border-top:1px solid var(--rim);box-shadow:0 -6px 36px rgba(0,0,0,.4);transition:transform .32s;}
+#bp{position:absolute;bottom:0;left:0;right:0;z-index:50;background:var(--bg2);border-top:1px solid var(--rim);box-shadow:0 -6px 36px rgba(0,0,0,.4);transition:transform .32s;padding-bottom:env(safe-area-inset-bottom,0px);}
 #bp.hidden{transform:translateY(100%);}
 .bpdrag{width:30px;height:3px;background:rgba(255,255,255,.07);border-radius:2px;margin:9px auto 0;}
 #bpidle{display:block;padding:11px 16px 20px;}
@@ -247,7 +247,7 @@ html,body{height:100%;height:100dvh;background:var(--bg);color:var(--t1);font-fa
     <div class="div"><div class="div-l"></div><span class="div-t">OR</span><div class="div-l"></div></div>
     <input type="file" id="jsonFile" accept=".json" style="display:none" onchange="loadJSON(this)"/>
     <button class="ebtn ebtn-g" onclick="document.getElementById('jsonFile').click()">📂 Load JSON File</button>
-    <button class="ebtn ebtn-ghost" onclick="loadDemo()">🗺️ Demo Facility</button>
+    <button class="ebtn ebtn-ghost" onclick="loadDemo()" style="margin-bottom:0">🗺️ Demo Facility</button>
     <p style="font-size:10.5px;color:var(--t3);text-align:center;margin-top:9px;line-height:1.6">
       <span style="cursor:pointer;color:var(--t3);text-decoration:underline" onclick="document.getElementById('fbcp').classList.toggle('show')">Configure Firebase ↓</span>
     </p>
@@ -592,7 +592,9 @@ async function initFB(){
   if(!window._fbc){console.warn('[WayPoint] Firebase SDK not ready');return false;}
   try{
     // Avoid re-initializing with same config
-    Nav.fbApp=window._fbc.initializeApp(cfg,'wpc'+Date.now());
+    const appName='wpc'+Date.now();
+    try{Nav.fbApp=window._fbc.initializeApp(cfg,appName);}
+    catch(e2){Nav.fbApp=window._fbc.initializeApp(cfg,appName+'_'+Math.random().toString(36).slice(2));}
     Nav.fbDb=window._fbc.getFirestore(Nav.fbApp);
     console.log('[WayPoint] Firebase connected to project:',cfg.projectId);
     return true;
@@ -610,22 +612,29 @@ function saveFBConfig(){
 async function enterFac(){
   const id=document.getElementById('fidInp').value.trim().toUpperCase();
   if(!id||id.length<4){toast('⚠️','Enter at least 4 characters');return;}
-  showLoad('Connecting to Firebase…');
+  showLoad('Loading facility…');
+
+  // 1. Try localStorage first (same browser as admin — always works)
+  let s={};
+  for(const k of['wp_v3','wp_v2']){try{s=JSON.parse(localStorage.getItem(k)||'{}');if(s[id])break;}catch(e){}}
+  if(s[id]){initFacility(s[id]);return;} // initFacility calls hideLoad internally
+
+  // 2. Try Firebase (different device — needs config saved)
   const fbOk=await initFB();
   if(fbOk&&Nav.fbDb){
     try{
       const{doc,getDoc}=window._fbc;
       const snap=await getDoc(doc(Nav.fbDb,'facilities',id));
       if(snap.exists()){initFacility(snap.data());return;}
-    }catch(e){console.warn('Firestore:',e);}
+      toast('⚠️',`Facility "${id}" not in Firebase yet — deploy it first`);
+    }catch(e){
+      console.warn('Firestore error:',e);
+      toast('⚠️','Firebase error: '+e.message.slice(0,40));
+    }
+  } else {
+    showNotFoundHelp(id);
   }
-  // Fallback: localStorage
-  let s={};
-  for(const k of['wp_v3','wp_v2']){try{s=JSON.parse(localStorage.getItem(k)||'{}');if(s[id])break;}catch(e){}}
-  if(s[id]){initFacility(s[id]);return;}
   hideLoad();
-  // Show self-serve Firebase setup — lets phone user configure without desktop
-  showNotFoundHelp(id);
 }
 
 function showNotFoundHelp(id){
@@ -657,7 +666,7 @@ function showNotFoundHelp(id){
       <!-- Option B: Enter Firebase config manually -->
       <div style="background:var(--bg3);border:1px solid var(--rim);border-radius:12px;padding:14px;margin-bottom:12px">
         <div style="font-size:13px;font-weight:700;margin-bottom:10px">🔥 Or enter Firebase config manually</div>
-        <input id="nfPid" placeholder="Firebase Project ID (e.g. my-project)" style="width:100%;padding:9px 12px;border-radius:9px;background:var(--bg2);border:1px solid var(--rim);color:var(--t1);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:8px"/>
+        <input id="nfPid" placeholder="Firebase Project ID (e.g. my-project)" value="${sessionStorage.getItem('wp_pending_pid')||''}" style="width:100%;padding:9px 12px;border-radius:9px;background:var(--bg2);border:1px solid var(--rim);color:var(--t1);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:8px"/>
         <input id="nfAk" placeholder="Firebase API Key (AIzaSy…)" style="width:100%;padding:9px 12px;border-radius:9px;background:var(--bg2);border:1px solid var(--rim);color:var(--t1);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:10px"/>
         <button onclick="saveAndRetry('${id}')" style="width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#F59E0B,#D97706);color:#fff;font-family:var(--f);font-size:13px;font-weight:800;cursor:pointer">🔥 Save Config & Try Again</button>
       </div>
@@ -795,12 +804,15 @@ function fitCanvas(){
 /* ── NAV SCREEN ── */
 function showNavScreen(fac){
   document.getElementById('se').classList.add('hidden');
+  document.getElementById('sl').classList.add('hidden');
   document.getElementById('sn').classList.remove('hidden');
-  document.getElementById('sn').style.position='fixed';
+  document.getElementById('sn').style.cssText='position:fixed;inset:0;display:flex;flex-direction:column;';
 
   Nav.canvas=document.getElementById('mc');Nav.ctx=Nav.canvas.getContext('2d');
   const wrap=document.getElementById('mw');
-  Nav.canvas.width=wrap.clientWidth;Nav.canvas.height=wrap.clientHeight;
+  // Use window dimensions as fallback when wrap hasn't laid out yet
+  Nav.canvas.width=Math.max(wrap.clientWidth||0,window.innerWidth)||375;
+  Nav.canvas.height=Math.max(wrap.clientHeight||0,window.innerHeight-160)||500;
   fitCanvas();
 
   setupMapEvents();setupSearch();renderChips();renderFloorSwitcher();
@@ -1437,18 +1449,10 @@ window.addEventListener('DOMContentLoaded',()=>{
     try{
       const decoded=JSON.parse(atob(fbParam));
       if(decoded.pid&&decoded.ak){
-        const cfg={
-          projectId:decoded.pid,
-          apiKey:decoded.ak,
-          authDomain:`${decoded.pid}.firebaseapp.com`,
-          storageBucket:`${decoded.pid}.appspot.com`,
-          appId:'placeholder',
-        };
-        // Save under all keys the app checks
+        const cfg={projectId:decoded.pid,apiKey:decoded.ak,authDomain:`${decoded.pid}.firebaseapp.com`,storageBucket:`${decoded.pid}.appspot.com`,appId:'placeholder'};
         ['wp_client_fb','wp_fb_config','wp_fb'].forEach(k=>localStorage.setItem(k,JSON.stringify(cfg)));
-        console.log('[WayPoint] Firebase config loaded from URL');
       }
-    }catch(e){console.warn('Could not parse fb param:',e);}
+    }catch(e){console.warn('fb param:',e);}
   }
 
   if(fid){

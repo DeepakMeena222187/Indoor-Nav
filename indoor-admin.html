@@ -134,6 +134,13 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
 .sb{background:var(--bg3);border:1px solid var(--rim);border-radius:8px;padding:8px;}
 .sv{font-family:var(--mono);font-size:16px;font-weight:600;color:var(--a2);}
 .sk{font-size:9px;color:var(--t3);margin-top:1px;}
+.placer-btn{padding:6px 5px;border-radius:8px;cursor:pointer;font-size:11px;border:1.5px solid var(--rim);background:var(--bg3);color:var(--t2);text-align:center;transition:all .15s;display:flex;align-items:center;gap:4px;justify-content:center;font-family:var(--f);font-weight:600;}
+.placer-btn:hover{border-color:var(--rim2);color:var(--t1);background:var(--bg4);}
+.placer-btn.active{color:#fff;border-width:2px;}
+.edge-item{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;background:var(--bg3);font-size:11px;color:var(--t2);}
+.edge-item button{padding:2px 7px;border-radius:5px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:var(--red);cursor:pointer;font-family:var(--f);font-size:10px;}
+.filter-chip{padding:3px 9px;border-radius:99px;cursor:pointer;font-size:10px;border:1px solid var(--rim);background:var(--bg3);color:var(--t3);transition:all .15s;font-weight:600;}
+.filter-chip.on{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.3);color:var(--a2);}
 .ne{background:var(--bg3);border:1px solid var(--rim);border-radius:10px;padding:11px;display:none;}
 .ne.show{display:block;}
 .nr{margin-bottom:10px;}
@@ -265,7 +272,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
   <div class="card">
     <div class="ct">🗺️ Floor Plans</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center" id="floorTabs"></div>
-    <div class="dz" id="dropzone">
+    <div class="dz" id="dropzone" onclick="document.getElementById('fileInp').click()">
       <input type="file" id="fileInp" accept="image/*" onchange="onFile(this)"/>
       <div style="font-size:28px;margin-bottom:8px" id="dzIcon">🖼️</div>
       <div style="font-size:14px;font-weight:700;margin-bottom:4px" id="dzTitle">Drop Floor 1 plan here</div>
@@ -328,6 +335,12 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
       <button class="grid-btn" id="gridBtn" onclick="toggleGrid()">⊞ Grid: OFF</button>
       <button class="grid-btn" id="debugToggle" onclick="toggleDebug()" style="right:52px" title="Show skeleton overlay">🔬 Debug: OFF</button>
       <div class="ch" id="ch">Select — click to edit, drag to move</div>
+      <div id="activeTypeHint" style="position:absolute;top:52px;left:50%;transform:translateX(-50%);
+        display:none;background:rgba(9,12,21,.9);border:1px solid rgba(99,102,241,.4);
+        border-radius:9px;padding:5px 14px;font-size:12px;font-weight:700;color:var(--a2);
+        pointer-events:none;z-index:11;backdrop-filter:blur(8px);">
+        📍 Placing: <span id="activeTypeHintText">Junction</span>
+      </div>
       <div class="leg">
         <span style="color:rgba(99,102,241,.9)">━</span> Valid &nbsp;
         <span style="color:rgba(239,68,68,.8)">╌</span> Suspicious (too long) &nbsp;
@@ -337,36 +350,84 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
       <div id="edFloorBar" style="position:absolute;bottom:52px;right:52px;display:flex;gap:4px;z-index:10"></div>
     </div>
     <div class="esb">
+
+      <!-- Stats row -->
       <div class="stats">
         <div class="sb"><div class="sv" id="sn">0</div><div class="sk">Nodes</div></div>
         <div class="sb"><div class="sv" id="se">0</div><div class="sk">Edges</div></div>
         <div class="sb"><div class="sv" id="sv" style="color:var(--amber)">—</div><div class="sk">Valid</div></div>
       </div>
+
+      <!-- ── NODE PLACEMENT PANEL ── -->
+      <div class="es">
+        <div class="el">Place Node As</div>
+        <!-- Type picker — shows before placing; also updates selected node -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px" id="placerGrid"></div>
+        <div style="background:var(--bg3);border:1px solid var(--rim);border-radius:8px;padding:7px 9px;font-size:11px;color:var(--t2);line-height:1.7">
+          Active: <strong id="activePlaceType" style="color:var(--a2)">Junction</strong><br>
+          <span style="color:var(--t3)">Click map in Node mode to place</span>
+        </div>
+      </div>
+
+      <!-- ── SELECTED NODE EDITOR ── -->
       <div class="es">
         <div class="el">Selected Node</div>
         <div class="ne" id="ne">
-          <div class="nr"><span class="nl">Label</span><input class="ni2" id="nelbl" placeholder="Room name" onchange="nodeChange()"/></div>
-          <div class="nr"><span class="nl">Type</span><div class="tg" id="typeGrid"></div></div>
           <div class="nr">
-            <span class="nl">Weight (1=normal, 5=stairs penalty)</span>
-            <div class="w-row"><input type="range" min="1" max="10" step="0.5" value="1" id="neWeight" oninput="document.getElementById('neWeightVal').textContent=this.value;nodeChange()"><span id="neWeightVal" style="font-family:var(--mono);font-size:11px;color:var(--a2);min-width:20px">1</span></div>
+            <span class="nl">Label</span>
+            <input class="ni2" id="nelbl" placeholder="e.g. Patient Room 1" onchange="nodeChange()"/>
           </div>
-          <div class="nr"><span class="nl">Floor</span><input class="ni2" type="number" id="neFloor" value="1" min="1" onchange="nodeChange()"/></div>
+          <div class="nr">
+            <span class="nl">Type</span>
+            <div class="tg" id="typeGrid"></div>
+          </div>
+          <div class="nr">
+            <span class="nl">Cost Weight <span style="color:var(--t3);font-weight:400">(stairs=5, lift=3, corridor=1)</span></span>
+            <div class="w-row">
+              <input type="range" min="1" max="10" step="0.5" value="1" id="neWeight" oninput="document.getElementById('neWeightVal').textContent=this.value;nodeChange()">
+              <span id="neWeightVal" style="font-family:var(--mono);font-size:11px;color:var(--a2);min-width:20px">1</span>
+            </div>
+          </div>
           <div class="ne-btns">
             <button class="ne-btn ne-save" onclick="saveNode()">💾 Save</button>
             <button class="ne-btn ne-del" onclick="delSelNode()">🗑 Del</button>
           </div>
         </div>
-        <div class="no-sel" id="noSel">Click a node to edit</div>
+        <div class="no-sel" id="noSel">Click a node to select & edit</div>
       </div>
+
+      <!-- ── LINK / EDGE PANEL ── -->
+      <div class="es" id="linkPanel" style="display:none">
+        <div class="el">🔗 Linking Nodes</div>
+        <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);border-radius:9px;padding:9px 11px;font-size:11.5px;line-height:1.9">
+          <div style="color:var(--t2)">Step 1: <strong style="color:var(--t1)" id="linkStep1">Click first node</strong></div>
+          <div style="color:var(--t2)">Step 2: <strong style="color:var(--t1)" id="linkStep2">—</strong></div>
+          <div style="margin-top:6px;color:var(--t3);font-size:10.5px">Click same node again to cancel</div>
+        </div>
+        <div id="fromNodeBadge" style="display:none;margin-top:7px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:8px;padding:8px 10px;font-size:12px">
+          From: <strong id="fromNodeName" style="color:var(--green)">—</strong>
+        </div>
+        <button onclick="A.edgeFrom=null;document.getElementById('fromNodeBadge').style.display='none';document.getElementById('linkStep1').textContent='Click first node';document.getElementById('linkStep2').textContent='—';document.getElementById('ch').textContent='Edge mode: click first node';" style="width:100%;margin-top:8px;padding:7px;border-radius:8px;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.08);color:var(--red);font-family:var(--f);font-size:12px;font-weight:600;cursor:pointer">✕ Cancel Link</button>
+      </div>
+
+      <!-- ── EDGES OF SELECTED NODE ── -->
+      <div class="es" id="nodeEdgesPanel" style="display:none">
+        <div class="el">Connected Edges</div>
+        <div id="nodeEdgesList" style="display:flex;flex-direction:column;gap:3px;max-height:110px;overflow-y:auto"></div>
+      </div>
+
+      <!-- ── CALIBRATION ── -->
       <div class="es">
-        <div class="el">Calibration</div>
+        <div class="el">Scale</div>
         <div class="cal-bar">
           <div class="cal-row">📏 <span id="calInfo" style="font-family:var(--mono);font-size:10px;color:var(--a2)">—</span></div>
         </div>
       </div>
+
+      <!-- ── NODE LIST ── -->
       <div class="es">
-        <div class="el">Nodes (<span id="nlc">0</span>)</div>
+        <div class="el">All Nodes (<span id="nlc">0</span>)</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px" id="filterRow"></div>
         <div class="nl2" id="nl2"></div>
       </div>
     </div>
@@ -558,7 +619,14 @@ async function connectFB(silent=false){
   try{
     let tries=0;while(!window._fb&&tries++<20)await new Promise(r=>setTimeout(r,200));
     if(!window._fb)throw new Error('Firebase SDK not loaded');
-    A.fbApp=window._fb.initializeApp(cfg,'wp'+Date.now());
+    // Avoid "already initialized" error by using unique names
+    const appName='wp'+Date.now();
+    try{A.fbApp=window._fb.initializeApp(cfg,appName);}
+    catch(initErr){
+      // If same config already initialized, reuse it
+      console.warn('FB init:',initErr.message);
+      A.fbApp=window._fb.initializeApp(cfg,appName+'_'+Math.random().toString(36).slice(2));
+    }
     A.fbDb=window._fb.getFirestore(A.fbApp);
     const{doc,setDoc}=window._fb;
     await setDoc(doc(A.fbDb,'_ping','test'),{t:Date.now()});
@@ -641,13 +709,15 @@ function loadImgEl(src){
   const img=new Image();
   img.onload=()=>{
     const wrap=document.getElementById('cw');
-    const ww=Math.max(wrap.clientWidth-40,600),wh=Math.max(wrap.clientHeight-80,400);
+    // Use real wrap size if visible, else cap at sensible defaults
+    const ww=wrap.clientWidth>100?wrap.clientWidth-40:900;
+    const wh=wrap.clientHeight>100?wrap.clientHeight-80:650;
     const nw=img.naturalWidth||800,nh=img.naturalHeight||600;
     const sc=Math.min(ww/nw,wh/nh,1);
     A.floors[A.curFloor].imgEl=img;
     A.floors[A.curFloor].imgW=Math.round(nw*sc);
     A.floors[A.curFloor].imgH=Math.round(nh*sc);
-    CV().width=A.imgW;CV().height=A.imgH;
+    if(CV().width!==A.imgW||CV().height!==A.imgH){CV().width=A.imgW;CV().height=A.imgH;}
     A.scale=1;A.ox=0;A.oy=0;
     draw();
   };
@@ -1170,8 +1240,8 @@ async function runLocal(){
         if(!skel[y*W+x])continue;
         const nb=neighbors(x,y),tr=transitions(x,y);
         if(nb>=2&&nb<=6&&tr===1&&
-           (skel[(y-1)*W+x]||skel[y*W+x+1]||skel[(y+1)*W+x])===0 ||
-           (skel[y*W+x+1]||skel[(y+1)*W+x]||skel[y*W+x-1])===0
+           (skel[(y-1)*W+x]===0||skel[y*W+x+1]===0||skel[(y+1)*W+x]===0)&&
+           (skel[y*W+x+1]===0||skel[(y+1)*W+x]===0||skel[y*W+x-1]===0)
         ){toDelete[y*W+x]=1;}
       }
       for(let i=0;i<W*H;i++)if(toDelete[i]){skel[i]=0;changed=true;}
@@ -1181,8 +1251,8 @@ async function runLocal(){
         if(!skel[y*W+x])continue;
         const nb=neighbors(x,y),tr=transitions(x,y);
         if(nb>=2&&nb<=6&&tr===1&&
-           (skel[(y-1)*W+x]||skel[y*W+x+1]||skel[y*W+x-1])===0 ||
-           (skel[(y-1)*W+x]||skel[(y+1)*W+x]||skel[y*W+x-1])===0
+           (skel[(y-1)*W+x]===0||skel[y*W+x+1]===0||skel[y*W+x-1]===0)&&
+           (skel[(y-1)*W+x]===0||skel[(y+1)*W+x]===0||skel[y*W+x-1]===0)
         ){toDelete[y*W+x]=1;}
       }
       for(let i=0;i<W*H;i++)if(toDelete[i]){skel[i]=0;changed=true;}
@@ -1505,7 +1575,35 @@ function hit(x,y){return A.nodes.find(n=>Math.hypot(n.x-x,n.y-y)<14)||null;}
 function onCC(e){
   const p=toPt(e);const sx=snapToGrid(p.x),sy=snapToGrid(p.y);
   if(A.tool==='node'){addNode(sx,sy);return;}
-  if(A.tool==='edge'){const h=hit(p.x,p.y);if(h){if(!A.edgeFrom){A.edgeFrom=h;document.getElementById('ch').textContent='Now click destination node';}else{if(A.edgeFrom.id!==h.id)addEdge(A.edgeFrom.id,h.id);A.edgeFrom=null;document.getElementById('ch').textContent='Click source, then destination';}draw();}return;}
+  if(A.tool==='edge'){
+    const h=hit(p.x,p.y);
+    if(h){
+      if(!A.edgeFrom){
+        A.edgeFrom=h;
+        document.getElementById('linkStep1').textContent=`✓ From: "${h.label}"`;
+        document.getElementById('linkStep2').textContent='Click destination node';
+        document.getElementById('fromNodeBadge').style.display='block';
+        document.getElementById('fromNodeName').textContent=h.label;
+        document.getElementById('ch').textContent=`Linked from "${h.label}" — now click destination`;
+      }else{
+        if(A.edgeFrom.id===h.id){
+          // Cancel
+          A.edgeFrom=null;
+          document.getElementById('linkStep1').textContent='Click first node';
+          document.getElementById('linkStep2').textContent='—';
+          document.getElementById('fromNodeBadge').style.display='none';
+        }else{
+          addEdge(A.edgeFrom.id,h.id);
+          document.getElementById('linkStep1').textContent=`✓ Linked "${A.edgeFrom.label}" → "${h.label}"`;
+          document.getElementById('linkStep2').textContent='Click next source node';
+          document.getElementById('fromNodeBadge').style.display='none';
+          A.edgeFrom=null;
+        }
+      }
+      draw();
+    }
+    return;
+  }
   if(A.tool==='del'){const h=hit(p.x,p.y);if(h)delNode(h.id);return;}
   if(A.tool==='sel'){selNode(hit(p.x,p.y));}
 }
@@ -1545,8 +1643,9 @@ function toggleGrid(){
 /* ── NODE MANAGEMENT ── */
 function addNode(x,y){
   pushH();
-  const td=TYPES[8];
-  const n={id:'n'+Date.now(),x,y,label:'Node',type:'junction',floor:A.curFloor,weight:1,connections:[]};
+  const td=TYPES.find(t=>t.v===_activePlaceType)||TYPES[8];
+  const defaultLabels={entrance:'Entrance',exit:'Exit',corridor:'Corridor',room:'Room',stairs:'Stairs',elevator:'Elevator',toilet:'Toilet',poi:'POI',junction:'Junction'};
+  const n={id:'n'+Date.now(),x,y,label:defaultLabels[_activePlaceType]||'Node',type:_activePlaceType,floor:A.curFloor,weight:td.w||1,connections:[]};
   A.nodes.push(n);selNode(n);renderNL();updateStats();draw();saveCur();
 }
 function addEdge(a,b){
@@ -1577,14 +1676,34 @@ function recalcEdgeDists(){
 function selNode(n){
   A.sel=n;
   const ne=document.getElementById('ne'),ns=document.getElementById('noSel');
+  const ep=document.getElementById('nodeEdgesPanel');
   if(n){
     ne.classList.add('show');ns.style.display='none';
     document.getElementById('nelbl').value=n.label;
     document.getElementById('neWeight').value=n.weight||1;
     document.getElementById('neWeightVal').textContent=n.weight||1;
-    document.getElementById('neFloor').value=n.floor+1||1;
     document.querySelectorAll('.to').forEach(o=>o.classList.toggle('on',o.dataset.v===n.type));
-  }else{ne.classList.remove('show');ns.style.display='block';}
+    // Show edges panel
+    const connEdges=A.edges.filter(e=>e.from===n.id||e.to===n.id);
+    if(ep&&connEdges.length){
+      ep.style.display='block';
+      const nm={};A.nodes.forEach(x=>nm[x.id]=x);
+      document.getElementById('nodeEdgesList').innerHTML=connEdges.map((e,i)=>{
+        const other=nm[e.from===n.id?e.to:e.from];
+        const td=TYPES.find(t=>t.v===other?.type)||TYPES[8];
+        const dm=(e.distMeters||0).toFixed(1);
+        return`<div class="edge-item">
+          <span style="color:${td?.c||'#888'}">${td?.i||'•'}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${other?.label||'?'}</span>
+          <span style="font-family:var(--mono);font-size:9px;color:var(--t3)">${dm}m</span>
+          <button onclick="delEdge('${e.from}','${e.to}')">✕</button>
+        </div>`;
+      }).join('');
+    } else if(ep) ep.style.display='none';
+  }else{
+    ne.classList.remove('show');ns.style.display='block';
+    if(ep)ep.style.display='none';
+  }
   document.querySelectorAll('.nli').forEach(el=>el.classList.toggle('on',el.dataset.id===n?.id));
   draw();
 }
@@ -1592,8 +1711,6 @@ function saveNode(){
   if(!A.sel)return;
   A.sel.label=document.getElementById('nelbl').value||'Node';
   A.sel.weight=parseFloat(document.getElementById('neWeight').value)||1;
-  const floorInput=parseInt(document.getElementById('neFloor').value)||1;
-  A.sel.floor=floorInput-1;
   renderNL();draw();saveCur();toast('💾','Saved','ok');
 }
 function nodeChange(){
@@ -1612,7 +1729,56 @@ function setNodeType(v){
   document.querySelectorAll('.to').forEach(o=>o.classList.toggle('on',o.dataset.v===v));
   renderNL();draw();
 }
-function buildTypeGrid(){document.getElementById('typeGrid').innerHTML=TYPES.map(t=>`<div class="to" data-v="${t.v}" onclick="setNodeType('${t.v}')">${t.i} <span style="font-size:10px">${t.l}</span></div>`).join('');}
+function buildTypeGrid(){
+  // Placer grid — for choosing type before placing new nodes
+  const pg=document.getElementById('placerGrid');
+  if(pg)pg.innerHTML=TYPES.map(t=>`
+    <div class="placer-btn" id="pb_${t.v}" data-v="${t.v}"
+      style="border-color:${t.c}22;--pc:${t.c}"
+      onclick="setPlacerType('${t.v}')">${t.i} <span>${t.l}</span></div>`).join('');
+  setPlacerType('junction');
+  // Type grid — for editing selected node
+  document.getElementById('typeGrid').innerHTML=TYPES.map(t=>`<div class="to" data-v="${t.v}" onclick="setNodeType('${t.v}')">${t.i} <span style="font-size:10px">${t.l}</span></div>`).join('');
+  // Filter row in node list
+  const fr=document.getElementById('filterRow');
+  if(fr)fr.innerHTML='<div class="filter-chip on" data-ft="all" onclick="filterNodes(this,'all')">All</div>'+
+    TYPES.map(t=>`<div class="filter-chip" data-ft="${t.v}" onclick="filterNodes(this,'${t.v}')">${t.i}</div>`).join('');
+}
+
+let _activePlaceType='junction';
+function setPlacerType(v){
+  _activePlaceType=v;
+  document.querySelectorAll('.placer-btn').forEach(b=>{
+    const td=TYPES.find(t=>t.v===b.dataset.v)||TYPES[8];
+    b.classList.toggle('active',b.dataset.v===v);
+    b.style.background=b.dataset.v===v?td.c+'22':'var(--bg3)';
+    b.style.borderColor=b.dataset.v===v?td.c:'var(--rim)';
+    b.style.color=b.dataset.v===v?td.c:'var(--t2)';
+  });
+  const td=TYPES.find(t=>t.v===v)||TYPES[8];
+  const el=document.getElementById('activePlaceType');
+  if(el){el.textContent=`${td.i} ${td.l}`;el.style.color=td.c;}
+  const ath=document.getElementById('activeTypeHintText');
+  if(ath)ath.textContent=`${td.i} ${td.l}`;
+  const athw=document.getElementById('activeTypeHint');
+  if(athw)athw.style.borderColor=td.c+'88';
+}
+
+let _nodeFilter='all';
+function filterNodes(el,ft){
+  _nodeFilter=ft;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  renderNL();
+}
+function delEdge(from,to){
+  pushH();
+  A.edges=A.edges.filter(e=>!(e.from===from&&e.to===to)&&!(e.from===to&&e.to===from));
+  A.nodes.forEach(n=>{n.connections=n.connections.filter(c=>c!==from&&c!==to);});
+  // Re-add valid connections
+  A.edges.forEach(e=>{const fn=A.nodes.find(n=>n.id===e.from),tn=A.nodes.find(n=>n.id===e.to);if(fn&&!fn.connections.includes(e.to))fn.connections.push(e.to);if(tn&&!tn.connections.includes(e.from))tn.connections.push(e.from);});
+  if(A.sel)selNode(A.sel);updateStats();draw();saveCur();toast('✂️','Edge deleted','warn');
+}
 function autoLink(){
   pushH();let n=0;const mpp=A.calibration.mpp||0.033;
   for(let i=0;i<A.nodes.length;i++)for(let j=i+1;j<A.nodes.length;j++){
@@ -1636,11 +1802,14 @@ function validate(){
 }
 function renderNL(){
   const el=document.getElementById('nl2');
+  const filtered=_nodeFilter==='all'?A.nodes:A.nodes.filter(n=>n.type===_nodeFilter);
   document.getElementById('nlc').textContent=A.nodes.length;
-  if(!A.nodes.length){el.innerHTML='<div style="font-size:11.5px;color:var(--t3)">No nodes</div>';return;}
-  el.innerHTML=A.nodes.map(n=>{const td=TYPES.find(t=>t.v===n.type)||TYPES[8];
+  if(!filtered.length){el.innerHTML=`<div style="font-size:11px;color:var(--t3)">No ${_nodeFilter==='all'?'':''+_nodeFilter+' '}nodes</div>`;return;}
+  el.innerHTML=filtered.map(n=>{const td=TYPES.find(t=>t.v===n.type)||TYPES[8];
     return`<div class="nli ${A.sel?.id===n.id?'on':''}" data-id="${n.id}" onclick="selNode(A.nodes.find(x=>x.id==='${n.id}'))">
-      <div class="nd" style="background:${td.c}"></div><span class="nm">${n.label}</span><span style="font-size:12px">${td.i}</span>
+      <div class="nd" style="background:${td.c}"></div>
+      <span class="nm">${n.label}</span>
+      <span style="font-size:12px">${td.i}</span>
       ${n.weight>2?`<span style="font-family:var(--mono);font-size:8px;color:var(--amber)">×${n.weight}</span>`:''}
     </div>`;}).join('');
 }
@@ -1667,7 +1836,20 @@ function updateStats(){
 }
 function pushH(){A.hist.push({n:JSON.parse(JSON.stringify(A.nodes)),e:JSON.parse(JSON.stringify(A.edges))});if(A.hist.length>20)A.hist.shift();}
 function undo(){if(!A.hist.length){toast('⚠️','Nothing to undo','warn');return;}const p=A.hist.pop();A.nodes=p.n;A.edges=p.e;selNode(null);renderNL();updateStats();draw();toast('↩️','Undone','ok');}
-function setTool(t){A.tool=t;A.edgeFrom=null;document.querySelectorAll('.ct2[id^="t-"]').forEach(b=>b.classList.remove('on'));document.getElementById('t-'+t)?.classList.add('on');CV().style.cursor=t==='node'?'crosshair':t==='del'?'not-allowed':'default';const h={sel:'Select/Move nodes',node:'Click to add node (snaps to grid if on)',edge:'Click node A then B to connect',del:'Click to delete node'};document.getElementById('ch').textContent=h[t]||'';}
+function setTool(t){
+  A.tool=t;A.edgeFrom=null;
+  document.querySelectorAll('.ct2[id^="t-"]').forEach(b=>b.classList.remove('on'));
+  document.getElementById('t-'+t)?.classList.add('on');
+  CV().style.cursor=t==='node'?'crosshair':t==='del'?'not-allowed':t==='edge'?'cell':'default';
+  const ath=document.getElementById('activeTypeHint');
+  if(ath)ath.style.display=t==='node'?'block':'none';
+  const h={sel:'Select/Move — click to select, drag to move',node:'Click map to place node (type set in panel)',edge:'Click SOURCE node → then TARGET node to link',del:'Click node or use ✕ on edge to delete'};
+  document.getElementById('ch').textContent=h[t]||'';
+  // Show/hide link panel
+  const lp=document.getElementById('linkPanel');
+  if(lp)lp.style.display=t==='edge'?'block':'none';
+  if(t!=='edge'){document.getElementById('fromNodeBadge').style.display='none';document.getElementById('linkStep1').textContent='Click first node';document.getElementById('linkStep2').textContent='—';}
+}
 
 /* ── QR GENERATION ── */
 function genQRs(){
@@ -1737,8 +1919,7 @@ async function doPublish(){
       document.getElementById('depStatus').style.display='block';
       document.getElementById('depFid').textContent=id;
       gotoTab('deploy');
-      toast('🚀',`Deployed! ID: ${id} — generating share link…`,'ok');
-      setTimeout(()=>generateShareLink(),600);
+      toast('🚀',`Deployed to Firebase! Share ID: ${id}`,'ok');
       return;
     }catch(e){toast('⚠️',`Firebase: ${e.message.slice(0,40)} — saved locally`,'warn');}
   }
@@ -1746,10 +1927,7 @@ async function doPublish(){
   document.getElementById('depStatus').style.display='block';
   document.getElementById('depFid').textContent=id;
   gotoTab('deploy');
-  toast('💾',`Saved locally — connect Firebase to share across devices`,'warn');
-  // Still show share link (works if Firebase was configured before)
-  const hasFb=localStorage.getItem('wp_fb')||localStorage.getItem('wp_fb_config');
-  if(hasFb)setTimeout(()=>generateShareLink(),700);
+  toast('💾',`Saved locally. ID: ${id}. Connect Firebase to share.`,'warn');
 }
 
 function exportJSON(){
@@ -1761,49 +1939,30 @@ function exportJSON(){
 function copyId(){const id=document.getElementById('pubFid').textContent;navigator.clipboard.writeText(id).then(()=>toast('📋','Copied!','ok'));}
 function copyClientURL(){
   const id=document.getElementById('fid').value;
-  const base=window.location.href.replace('indoor-admin.html','indoor-nav.html');
-  // Embed Firebase config in URL hash so any device can connect without setup
-  const fbCfg=JSON.parse(localStorage.getItem('wp_fb')||localStorage.getItem('wp_fb_config')||'null');
-  let url=`${base}?fid=${id}`;
-  if(fbCfg){
-    // Encode FB config as base64 in hash — safe, no server needed
-    const encoded=btoa(JSON.stringify({pid:fbCfg.projectId,ak:fbCfg.apiKey}));
-    url=`${base}?fid=${id}&fb=${encoded}`;
-  }
-  navigator.clipboard.writeText(url).then(()=>{
-    toast('🔗','Shareable link copied — paste it on any device!','ok');
-  });
+  const base=window.location.href.replace('indoor-admin.html','indoor-nav.html').split('?')[0];
+  const url=`${base}?fid=${id}`;
+  navigator.clipboard.writeText(url).then(()=>toast('🔗',`Copied: ${url}`,'ok'));
 }
 
 function generateShareLink(){
   const id=document.getElementById('fid').value;
-  if(!id||id==='—'){toast('⚠️','Deploy first to get a facility ID','warn');return;}
-  const base=window.location.href.replace('indoor-admin.html','indoor-nav.html');
-  const fbCfg=JSON.parse(localStorage.getItem('wp_fb')||localStorage.getItem('wp_fb_config')||'null');
-  let url=`${base}?fid=${id}`;
-  if(fbCfg){
-    const encoded=btoa(JSON.stringify({pid:fbCfg.projectId,ak:fbCfg.apiKey}));
-    url=`${base}?fid=${id}&fb=${encoded}`;
-  }
-  // Show the link in a nice overlay
+  if(!id||id==='—'){toast('⚠️','Deploy first','warn');return;}
+  const base=window.location.href.replace('indoor-admin.html','indoor-nav.html').split('?')[0];
+  const url=`${base}?fid=${id}`;
+  // Simple overlay
   const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:20px';
-  ov.innerHTML=`
-    <div style="background:var(--bg2);border:1px solid var(--rim);border-radius:18px;padding:22px;max-width:500px;width:100%">
-      <div style="font-size:15px;font-weight:800;margin-bottom:8px">📱 Share with Any Device</div>
-      <p style="font-size:12px;color:var(--t2);margin-bottom:14px;line-height:1.7">
-        This link includes your Firebase config + Facility ID.<br>
-        Anyone who opens it will load your facility automatically — <strong style="color:var(--t1)">no setup needed on their device.</strong>
-      </p>
-      <div style="background:var(--bg3);border:1px solid var(--rim);border-radius:10px;padding:11px;font-family:var(--mono);font-size:10px;color:var(--a2);word-break:break-all;margin-bottom:12px;line-height:1.6">${url}</div>
-      <div style="display:flex;gap:8px">
-        <button onclick="navigator.clipboard.writeText('${url}').then(()=>this.textContent='✓ Copied!')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.12);color:var(--a2);font-family:var(--f);font-size:13px;font-weight:700;cursor:pointer">📋 Copy Link</button>
-        <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:10px 16px;border-radius:10px;border:1px solid var(--rim);background:var(--bg3);color:var(--t2);font-family:var(--f);font-size:13px;cursor:pointer">Close</button>
-      </div>
-      <div style="margin-top:12px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:9px;padding:10px;font-size:11.5px;color:var(--amber)">
-        📱 <strong>How to use on phone:</strong> After deploying, tap "Generate Mobile Link" → share the link via WhatsApp/SMS → open on phone → facility loads instantly
-      </div>
-    </div>`;
+  ov.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--rim);border-radius:18px;padding:24px;max-width:460px;width:100%">
+    <div style="font-size:16px;font-weight:800;margin-bottom:10px">📱 Share with Visitors</div>
+    <p style="font-size:12.5px;color:var(--t2);margin-bottom:14px;line-height:1.7">
+      Send this link to anyone. They open the <strong style="color:var(--green)">navigation app</strong> — your admin panel is at a completely separate URL and is never shared.
+    </p>
+    <div style="background:var(--bg3);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:12px;font-family:var(--mono);font-size:11px;color:var(--a2);word-break:break-all;margin-bottom:14px">${url}</div>
+    <div style="display:flex;gap:8px">
+      <button id="slcpbtn" onclick="navigator.clipboard.writeText('${url}').then(()=>{this.textContent='✓ Copied!';this.style.background='rgba(16,185,129,.18)';})" style="flex:1;padding:11px;border-radius:10px;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.12);color:var(--a2);font-family:var(--f);font-size:13px;font-weight:700;cursor:pointer">📋 Copy Link</button>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:11px 16px;border-radius:10px;border:1px solid var(--rim);background:var(--bg3);color:var(--t2);font-family:var(--f);font-size:13px;cursor:pointer">✕</button>
+    </div>
+  </div>`;
   document.body.appendChild(ov);
   ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
 }
