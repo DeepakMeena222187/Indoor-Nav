@@ -7,11 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>WayPoint — Indoor Navigation</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-<script type="module">
-  import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import{getFirestore,doc,getDoc}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-  window._fbc={initializeApp,getFirestore,doc,getDoc};
-</script>
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -582,23 +580,58 @@ function multiFloorRoute(startFloor, startNodeId, destFloor, destNodeId){
 
 /* ── FIREBASE ── */
 async function initFB(){
+  // Priority 1: localStorage
   let cfg=null;
   for(const k of['wp_client_fb','wp_fb_config','wp_fb']){
-    try{const v=localStorage.getItem(k);if(v){const parsed=JSON.parse(v);if(parsed.apiKey&&parsed.projectId){cfg=parsed;break;}}}catch(e){}
+    try{const v=localStorage.getItem(k);if(v){const p=JSON.parse(v);if(p.apiKey&&p.projectId){cfg=p;break;}}}catch(e){}
   }
-  if(!cfg){console.log('[WayPoint] No Firebase config found');return false;}
-  // Wait for Firebase SDK (loaded via ES module — may take a moment)
-  let tries=0;while(!window._fbc&&tries++<30)await new Promise(r=>setTimeout(r,200));
-  if(!window._fbc){console.warn('[WayPoint] Firebase SDK not ready');return false;}
+
+  // Priority 2: URL params
+  if(!cfg){
+    const params=new URLSearchParams(location.search);
+    const fbParam=params.get('fb');
+    if(fbParam){try{const d=JSON.parse(atob(fbParam));if(d.pid&&d.ak){cfg={projectId:d.pid,apiKey:d.ak,authDomain:d.pid+'.firebaseapp.com',storageBucket:d.pid+'.appspot.com',appId:'placeholder'};}}catch(e){}}
+  }
+
+  // Priority 3: Auto-discover config from Firestore REST using ?pid= param
+  // Admin writes config to _config/client doc on every deploy
+  if(!cfg){
+    const params=new URLSearchParams(location.search);
+    const pid=params.get('pid');
+    if(pid){
+      try{
+        const url=`https://firestore.googleapis.com/v1/projects/${pid}/databases/(default)/documents/_config/client`;
+        const r=await fetch(url,{signal:AbortSignal.timeout(6000)});
+        if(r.ok){
+          const data=await r.json();const f=data.fields||{};
+          const apiKey=(f.apiKey?.stringValue||''),projectId=(f.projectId?.stringValue||'');
+          if(apiKey&&projectId){
+            cfg={projectId,apiKey,authDomain:f.authDomain?.stringValue||projectId+'.firebaseapp.com',storageBucket:projectId+'.appspot.com',appId:'placeholder'};
+            ['wp_client_fb','wp_fb_config','wp_fb'].forEach(k=>localStorage.setItem(k,JSON.stringify(cfg)));
+            toast('🔥','Firebase auto-configured!');
+            console.log('[WayPoint] Config loaded from Firestore REST');
+          }
+        }
+      }catch(e){console.warn('[WayPoint] REST config fetch failed:',e);}
+    }
+  }
+
+  if(!cfg){console.log('[WayPoint] No Firebase config');return false;}
+
+  // Init using modular SDK (_fbc) or legacy (firebase global)
+  let tries=0;while(!window._fbc&&tries++<15)await new Promise(r=>setTimeout(r,200));
   try{
-    // Avoid re-initializing with same config
-    const appName='wpc'+Date.now();
-    try{Nav.fbApp=window._fbc.initializeApp(cfg,appName);}
-    catch(e2){Nav.fbApp=window._fbc.initializeApp(cfg,appName+'_'+Math.random().toString(36).slice(2));}
-    Nav.fbDb=window._fbc.getFirestore(Nav.fbApp);
-    console.log('[WayPoint] Firebase connected to project:',cfg.projectId);
+    if(window._fbc){
+      Nav.fbApp=window._fbc.initializeApp(cfg,'wpc'+Date.now());
+      Nav.fbDb=window._fbc.getFirestore(Nav.fbApp);
+    } else if(typeof firebase!=='undefined'){
+      try{const ex=firebase.apps.find(a=>a.name==='wpc');if(ex)await ex.delete();}catch(e){}
+      Nav.fbApp=firebase.initializeApp(cfg,'wpc');
+      Nav.fbDb=Nav.fbApp.firestore();
+    } else {return false;}
+    console.log('[WayPoint] Firebase connected:',cfg.projectId);
     return true;
-  }catch(e){console.warn('FB client init:',e);return false;}
+  }catch(e){console.warn('FB init:',e);return false;}
 }
 function saveFBConfig(){
   const pid=document.getElementById('fbpid').value.trim(),ak=document.getElementById('fbak').value.trim();
@@ -623,9 +656,8 @@ async function enterFac(){
   const fbOk=await initFB();
   if(fbOk&&Nav.fbDb){
     try{
-      const{doc,getDoc}=window._fbc;
-      const snap=await getDoc(doc(Nav.fbDb,'facilities',id));
-      if(snap.exists()){initFacility(snap.data());return;}
+      const snap=await Nav.fbDb.collection('facilities').doc(id).get();
+      if(snap.exists){initFacility(snap.data());return;}
       toast('⚠️',`Facility "${id}" not in Firebase yet — deploy it first`);
     }catch(e){
       console.warn('Firestore error:',e);
@@ -1085,6 +1117,11 @@ function updateRouteInfo(){
 function startNav(){
   if(!Nav.smoothRoute.length)return;
   Nav.isNavigating=true;Nav.routeStep=0;Nav.stepCount=0;
+  // Center map on user position
+  if(Nav.userPos&&Nav.canvas){
+    Nav.ox=Nav.canvas.width/2-Nav.userPos.x*Nav.scale;
+    Nav.oy=Nav.canvas.height/2-Nav.userPos.y*Nav.scale;
+  }
   document.getElementById('srcho').classList.add('hide');
   document.getElementById('bpidle').style.display='none';
   document.getElementById('bprt').classList.remove('show');
@@ -1465,4 +1502,11 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
 </script>
 </body>
-</html>
+</html>async function fetchFromFirebase(facId){
+  if(!Nav.fbDb)return null;
+  try{
+    const snap=await Nav.fbDb.collection('facilities').doc(facId).get();
+    if(snap.exists)return snap.data();
+    return null;
+  }catch(e){console.warn('Firestore fetch:',e);return null;}
+}

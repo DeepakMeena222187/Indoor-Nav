@@ -6,11 +6,9 @@
 <title>WayPoint Admin v3</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script type="module">
-  import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import{getFirestore,doc,setDoc,getDoc}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-  window._fb={initializeApp,getFirestore,doc,setDoc,getDoc};
-</script>
+<!-- Firebase SDK (compat - synchronous, no module issues) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <style>
 :root{
   --bg:#090C15;--bg2:#0F1320;--bg3:#161B2E;--bg4:#1C2238;
@@ -272,7 +270,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
   <div class="card">
     <div class="ct">🗺️ Floor Plans</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center" id="floorTabs"></div>
-    <div class="dz" id="dropzone" onclick="document.getElementById('fileInp').click()">
+    <div class="dz" id="dropzone">
       <input type="file" id="fileInp" accept="image/*" onchange="onFile(this)"/>
       <div style="font-size:28px;margin-bottom:8px" id="dzIcon">🖼️</div>
       <div style="font-size:14px;font-weight:700;margin-bottom:4px" id="dzTitle">Drop Floor 1 plan here</div>
@@ -477,15 +475,15 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
     </div>
     <button class="btn btn-green" style="margin-bottom:8px" onclick="doPublish()">🚀 Deploy to Firebase Firestore</button>
     <button class="btn btn-ghost" onclick="exportJSON()">⬇️ Download JSON Backup</button>
-    <div id="depStatus" style="display:none;margin-top:12px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:14px">
-      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:8px">✅ Deployed to Firebase!</div>
-      <div style="font-size:11.5px;color:var(--t2);line-height:2;margin-bottom:10px">
-        Facility ID: <strong id="depFid" style="color:var(--a2);font-family:var(--mono);font-size:16px">—</strong>
+    <div id="depStatus" style="display:none;margin-top:12px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:16px">
+      <div style="font-size:14px;font-weight:800;color:var(--green);margin-bottom:6px">✅ Live on Firebase!</div>
+      <div style="font-size:12px;color:var(--t2);line-height:2;margin-bottom:12px">
+        Facility ID: <strong id="depFid" style="color:var(--a2);font-family:var(--mono);font-size:18px;letter-spacing:2px">—</strong><br>
+        Anyone with this ID can load your map from <strong style="color:var(--t1)">any device, anywhere</strong>.
       </div>
-      <button onclick="generateShareLink()" style="width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#10B981,#059669);color:#fff;font-family:var(--f);font-size:13.5px;font-weight:800;cursor:pointer;margin-bottom:7px;box-shadow:0 4px 16px rgba(16,185,129,.35)">
-        📱 Generate Mobile Link (works on any device)
+      <button onclick="copyNavURL()" style="width:100%;padding:12px;border-radius:11px;border:none;background:linear-gradient(135deg,var(--accent),#4F46E5);color:#fff;font-family:var(--f);font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(99,102,241,.4)">
+        🔗 Copy Client App Link
       </button>
-      <button onclick="copyClientURL()" style="width:100%;padding:9px;border-radius:9px;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.1);color:var(--a2);font-family:var(--f);font-size:12px;font-weight:700;cursor:pointer">🔗 Copy Plain URL</button>
     </div>
   </div>
   <div class="card">
@@ -611,25 +609,24 @@ async function connectFB(silent=false){
   const cfg={
     apiKey:document.getElementById('fbak').value.trim(),
     projectId:document.getElementById('fbpid').value.trim(),
-    appId:document.getElementById('fbaid').value.trim(),
+    appId:document.getElementById('fbaid').value.trim()||'placeholder',
     authDomain:document.getElementById('fbad').value.trim()||`${document.getElementById('fbpid').value.trim()}.firebaseapp.com`,
+    storageBucket:`${document.getElementById('fbpid').value.trim()}.appspot.com`,
   };
   if(!cfg.apiKey||!cfg.projectId){if(!silent)toast('⚠️','Fill API Key + Project ID','warn');return;}
   setFBStatus('wait','Connecting…');
   try{
-    let tries=0;while(!window._fb&&tries++<20)await new Promise(r=>setTimeout(r,200));
-    if(!window._fb)throw new Error('Firebase SDK not loaded');
-    // Avoid "already initialized" error by using unique names
-    const appName='wp'+Date.now();
-    try{A.fbApp=window._fb.initializeApp(cfg,appName);}
-    catch(initErr){
-      // If same config already initialized, reuse it
-      console.warn('FB init:',initErr.message);
-      A.fbApp=window._fb.initializeApp(cfg,appName+'_'+Math.random().toString(36).slice(2));
-    }
-    A.fbDb=window._fb.getFirestore(A.fbApp);
-    const{doc,setDoc}=window._fb;
-    await setDoc(doc(A.fbDb,'_ping','test'),{t:Date.now()});
+    // Use compat SDK - no module issues
+    if(typeof firebase==='undefined')throw new Error('Firebase SDK not loaded. Check internet connection.');
+    // Delete existing app with same name if it exists
+    try{
+      const existing=firebase.apps.find(a=>a.name==='waypoint-admin');
+      if(existing)await existing.delete();
+    }catch(e2){}
+    A.fbApp=firebase.initializeApp(cfg,'waypoint-admin');
+    A.fbDb=A.fbApp.firestore();
+    // Test connection with a write
+    await A.fbDb.collection('_ping').doc('test').set({t:Date.now()});
     A.fbOk=true;
     localStorage.setItem('wp_fb',JSON.stringify(cfg));
     localStorage.setItem('wp_client_fb',JSON.stringify(cfg));
@@ -637,8 +634,9 @@ async function connectFB(silent=false){
     setFBStatus('ok','Firebase ✓');
     if(!silent)toast('🔥','Firebase connected!','ok');
   }catch(e){
-    A.fbOk=false;setFBStatus('off','Failed');
-    if(!silent)toast('❌',e.message.slice(0,50),'err');
+    A.fbOk=false;setFBStatus('off','Failed: '+e.message.slice(0,30));
+    if(!silent)toast('❌',e.message.slice(0,60),'err');
+    console.error('Firebase error:',e);
   }
 }
 function setFBStatus(s,t){const el=document.getElementById('fbpill');el.className='fb-pill '+s;document.getElementById('fbptxt').textContent=t;}
@@ -852,83 +850,15 @@ async function runAI(){
   const setP=p=>fillEl.style.width=p+'%';
 
   try{
-    // ══ PHASE 1: Build pixel corridor map (local) ══
-    log('Phase 1: Building corridor map from pixels…');setP(6);await tick();
+    /* Phase 1: Skeleton-based corridor detection (same engine as local) */
+    log('Phase 1: Running skeleton corridor detection…');setP(6);
     if(!A.imgEl&&A.floorB64){await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,700);});}
+    if(!A.imgEl)throw new Error('Could not load floor plan image. Try re-uploading.');
     if(!A.imgW||!A.imgH){A.imgW=800;A.imgH=600;}
-
-    const W=240,H=180;
-    const wOff=document.createElement('canvas');wOff.width=W;wOff.height=H;
-    const wCtx=wOff.getContext('2d');wCtx.drawImage(A.imgEl,0,0,W,H);
-    const ipx=wCtx.getImageData(0,0,W,H).data;
-    const gray=new Uint8Array(W*H);
-    for(let i=0;i<W*H;i++)gray[i]=(ipx[i*4]*77+ipx[i*4+1]*150+ipx[i*4+2]*29)>>8;
-    const walk=new Uint8Array(W*H);
-    for(let i=0;i<W*H;i++)walk[i]=gray[i]>130?1:0;
-    // Erode 1px
-    const er=new Uint8Array(W*H);
-    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
-      const c=y*W+x;er[c]=(walk[c]&&walk[c-1]&&walk[c+1]&&walk[c-W]&&walk[c+W])?1:0;
-    }
-    // Distance transform
-    const distMap=new Float32Array(W*H);
-    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){if(!er[y*W+x])continue;distMap[y*W+x]=1+Math.min(distMap[(y-1)*W+x-1],distMap[(y-1)*W+x],distMap[(y-1)*W+x+1],distMap[y*W+x-1]);}
-    for(let y=H-2;y>=1;y--)for(let x=W-2;x>=1;x--){if(!er[y*W+x])continue;distMap[y*W+x]=Math.min(distMap[y*W+x],1+Math.min(distMap[(y+1)*W+x+1],distMap[(y+1)*W+x],distMap[(y+1)*W+x-1],distMap[y*W+x+1]));}
-    log('Corridor map ready','ok');setP(15);await tick();
-
-    // ── Snap a room-center pixel coord to nearest corridor point ──
-    // Given: rx,ry in 0..1 (from AI, likely inside room)
-    // Returns: work-grid {x,y} on actual corridor (dist > minD)
-    function snapToCorridor(rx,ry,minD=1.5){
-      const sx=Math.round(rx*W),sy=Math.round(ry*H);
-      // Search outward in rings until we find a high-dist walkable pixel
-      if(sx>=0&&sx<W&&sy>=0&&sy<H&&distMap[sy*W+sx]>=minD)return{x:sx,y:sy};
-      for(let r=1;r<60;r++){
-        let best=null,bd=0;
-        for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
-          if(Math.abs(dx)!==r&&Math.abs(dy)!==r)continue;
-          const nx=sx+dx,ny=sy+dy;
-          if(nx<0||nx>=W||ny<0||ny>=H)continue;
-          const dv=distMap[ny*W+nx];
-          if(dv>=minD&&dv>bd){bd=dv;best={x:nx,y:ny};}
-        }
-        if(best)return best;
-      }
-      return{x:sx,y:sy};
-    }
-
-    // ── Build corridor spine from distance transform ridges ──
-    function buildSpine(){
-      const GRID=11,MIN_D=1.8;
-      const pts=[];
-      for(let y=GRID;y<H-GRID;y+=GRID)for(let x=GRID;x<W-GRID;x+=GRID){
-        const d=distMap[y*W+x];if(d<MIN_D)continue;
-        let isRidge=true;
-        for(let dy=-1;dy<=1&&isRidge;dy++)for(let dx=-1;dx<=1&&isRidge;dx++){
-          if(!dx&&!dy)continue;const nx=x+dx,ny=y+dy;
-          if(nx>=0&&nx<W&&ny>=0&&ny<H&&distMap[ny*W+nx]>d+0.3)isRidge=false;
-        }
-        if(isRidge)pts.push({x,y,d});
-      }
-      // Cluster
-      const used=new Uint8Array(pts.length);const clusters=[];
-      for(let i=0;i<pts.length;i++){
-        if(used[i])continue;let sx2=pts[i].x,sy2=pts[i].y,sd=pts[i].d,cnt=1;used[i]=1;
-        for(let j=i+1;j<pts.length;j++){if(used[j])continue;if(Math.hypot(pts[j].x-pts[i].x,pts[j].y-pts[i].y)<GRID*1.6){sx2+=pts[j].x;sy2+=pts[j].y;sd+=pts[j].d;cnt++;used[j]=1;}}
-        clusters.push({x:sx2/cnt,y:sy2/cnt,d:sd/cnt});
-      }
-      return clusters;
-    }
-
-    // ── Wall-aware connection check ──
-    function hasLOS(ax,ay,bx,by){
-      const steps=Math.ceil(Math.hypot(bx-ax,by-ay)*1.4)+3;
-      for(let t=0;t<=steps;t++){
-        const px2=Math.round(ax+(bx-ax)*t/steps),py2=Math.round(ay+(by-ay)*t/steps);
-        if(px2<0||px2>=W||py2<0||py2>=H||!er[py2*W+px2])return false;
-      }
-      return true;
-    }
+    const cg=await buildCorridorGraph(A.imgEl,A.imgW,A.imgH,log,setP);
+    const{W,H,clustered:spineNodes,hasLOS,snapToCorridor}=cg;
+    A._debug=cg.debugData;
+    log('Corridor skeleton ready — using skeleton snap for room labels','ok');setP(20);await tick();
 
     // ══ PHASE 2: AI OCR — get room names + approximate positions ══
     log('Phase 2: AI reading room names (OCR)…');setP(20);await tick();
@@ -998,20 +928,17 @@ Return 8-25 items.`;
     }else{
       log('No AI response — using local detection only','warn');}
 
-    // Build corridor spine first
-    const spineNodes=buildSpine();
-    log(`${spineNodes.length} corridor spine points`);setP(66);await tick();
+    /* Phase 3: Merge OCR labels with skeleton corridor nodes */
+    log('Phase 3: Merging OCR labels with skeleton nodes…');setP(60);await tick();
 
     const mpp=A.calibration.mpp||0.033;
     const scx=A.imgW/W,scy=A.imgH/H;
-    const nodes=[];const idMap={};let nIdx=1;
+    const nodes=[];let nIdx=1;
 
-    // Add corridor spine nodes
-    spineNodes.forEach(sp=>{
+    // Start with skeleton corridor nodes — these are GUARANTEED on corridors
+    spineNodes.forEach((sp,i)=>{
       const id=`s${nIdx++}`;
-      const TYPES_LIST=['entrance','exit','corridor','room','stairs','elevator','toilet','poi','junction'];
-      nodes.push({id,x:sp.x*scx,y:sp.y*scy,label:'Corridor',type:'corridor',floor:A.curFloor,weight:1,connections:[],_wx:Math.round(sp.x),_wy:Math.round(sp.y)});
-      idMap[`${Math.round(sp.x)}_${Math.round(sp.y)}`]=id;
+      nodes.push({id,x:sp.x*scx,y:sp.y*scy,label:'Corridor',type:sp.isJunction?'junction':'corridor',floor:A.curFloor,weight:1,connections:[],_wx:Math.round(sp.x),_wy:Math.round(sp.y)});
     });
 
     // Add OCR rooms: snap each to nearest corridor point
@@ -1056,26 +983,30 @@ Return 8-25 items.`;
 
     log(`${nodes.length} total nodes placed on corridors`,'ok');setP(78);await tick();
 
-    // ══ PHASE 4: Wall-aware edges ══
-    log('Phase 4: Wall-aware edge connections…');setP(82);await tick();
+    /* Phase 4: Wall-aware edges — k=3 nearest, max 4 per node */
+    log('Phase 4: Wall-aware edges (k=3, max 4 per node)…');setP(84);await tick();
 
-    const MAX_DIST_WX=18; // max connection distance in work-grid pixels
+    const MAX_CONN=4, K=3, MAX_WX=22;
     const edges=[];const eSet=new Set();
 
     for(let i=0;i<nodes.length;i++){
+      const ni=nodes[i];
+      const others=nodes
+        .map((n,j)=>({j,d:Math.hypot(ni._wx-n._wx,ni._wy-n._wy)}))
+        .filter(o=>o.j!==i&&o.d>0&&o.d<=MAX_WX)
+        .sort((a,b)=>a.d-b.d).slice(0,K*2);
       let conns=0;
-      // Sort others by distance
-      const others=nodes.map((n,j)=>({j,d:Math.hypot(nodes[i]._wx-n._wx,nodes[i]._wy-n._wy)}))
-        .filter(o=>o.j!==i&&o.d>0&&o.d<MAX_DIST_WX)
-        .sort((a,b)=>a.d-b.d);
       for(const{j}of others){
-        if(conns>=5)break;
-        const k=[i,j].sort().join('_');
-        if(eSet.has(k))continue;
-        if(hasLOS(nodes[i]._wx,nodes[i]._wy,nodes[j]._wx,nodes[j]._wy)){
-          const dPx=Math.hypot(nodes[i].x-nodes[j].x,nodes[i].y-nodes[j].y);
-          edges.push({from:nodes[i].id,to:nodes[j].id,dist:dPx,distMeters:dPx*mpp,type:'walk',bidirectional:true});
-          eSet.add(k);conns++;
+        if(conns>=MAX_CONN)break;
+        const nj=nodes[j];
+        if(nj.connections.length>=MAX_CONN)continue;
+        const kk=[i,j].sort().join('_');
+        if(eSet.has(kk))continue;
+        if(hasLOS(ni._wx,ni._wy,nj._wx,nj._wy)){
+          const dPx=Math.hypot(ni.x-nj.x,ni.y-nj.y);
+          edges.push({from:ni.id,to:nj.id,dist:dPx,distMeters:dPx*mpp,type:'walk',bidirectional:true});
+          eSet.add(kk);conns++;
+          ni.connections.push(nj.id);nj.connections.push(ni.id);
         }
       }
     }
@@ -1084,21 +1015,12 @@ Return 8-25 items.`;
     nodes.forEach(n=>{
       if(!edges.some(e=>e.from===n.id||e.to===n.id)){
         let best=null,bd=Infinity;
-        nodes.forEach(m=>{if(m.id===n.id)return;const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);if(d<bd){bd=d;best=m;}});
-        if(best){const dPx=Math.hypot(n.x-best.x,n.y-best.y);edges.push({from:n.id,to:best.id,dist:dPx,distMeters:dPx*mpp,type:'walk',bidirectional:true});}
+        nodes.forEach(m=>{if(m.id===n.id||m.connections.length>=MAX_CONN)return;const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);if(d<bd){bd=d;best=m;}});
+        if(best){const dPx=Math.hypot(n.x-best.x,n.y-best.y);edges.push({from:n.id,to:best.id,dist:dPx,distMeters:dPx*mpp,type:'walk',bidirectional:true});n.connections.push(best.id);best.connections.push(n.id);}
       }
     });
 
-    // Clean up temp fields
     nodes.forEach(n=>{delete n._wx;delete n._wy;});
-
-    // Update connections arrays
-    nodes.forEach(n=>n.connections=[]);
-    edges.forEach(e=>{
-      const fn=nodes.find(n=>n.id===e.from),tn=nodes.find(n=>n.id===e.to);
-      if(fn&&!fn.connections.includes(e.to))fn.connections.push(e.to);
-      if(tn&&!tn.connections.includes(e.from))tn.connections.push(e.from);
-    });
 
     setP(96);
     log(`✓ ${nodes.length} nodes snapped to corridors, ${edges.length} wall-safe edges`,'ok');
@@ -1165,6 +1087,316 @@ function showDebugOverlay(W,H,skeleton,distMap,nodes,scx,scy){
 }
 function clearDebugOverlay(){if(_debugCanvas){_debugCanvas.getContext('2d').clearRect(0,0,_debugCanvas.width,_debugCanvas.height);}}
 
+/* ═══════════════════════════════════════════════════════════
+   CORRIDOR DETECTION ENGINE v4
+   Pipeline:
+     1. Grayscale + threshold → binary walkable map
+     2. Distance transform (accurate wall distance per pixel)
+     3. Zhang-Suen thinning → skeleton (1px wide centerlines)
+     4. Width filter: skeleton pixel width = dist*2
+        corridors = narrow, rooms = wide → reject room interiors
+     5. Sample nodes along skeleton at junctions + every N px
+     6. Door detection: room label → walk outward → find wall gap → corridor
+     7. k=3 nearest LOS edges, max 4 connections per node
+     8. Debug overlay toggle
+═══════════════════════════════════════════════════════════ */
+
+/* ── SHARED CORRIDOR BUILDER (used by both runLocal and runAI) ── */
+async function buildCorridorGraph(imgEl, imgW, imgH, log, setP){
+  /* ════════════════════════════════════════════════════════
+     PIPELINE v7 — Bounding Box + Calibrated Thresholds
+     ────────────────────────────────────────────────────────
+     ROOT FIX: Replace flood-fill with building bounding box.
+     Flood-fill failed because door gaps connect outside white
+     to inside white → labels everything as "outside".
+     
+     Verified on hospital map (240×180 work scale):
+       max dist = 13px, corridors = 3–7px, rooms = 8–13px
+     
+     1. Threshold → raw walls
+     2. Find building bounding box (outermost wall pixels)
+     3. outside = everything outside bbox
+     4. interior = inside bbox + not wall
+     5. Distance transform on interior
+     6. Classify: 3–7px = corridor, <3 = near-wall, >7 = room
+     7. Ridges = strict 4-directional local max + dist ≥ 4
+     8. Zhang-Suen thin ridges → centerlines
+     9. Sample nodes every 20px + junctions
+    10. isValidNode: interior + dist 3–7
+    11. Edges: 4× LOS + dist≥3 clearance
+  ════════════════════════════════════════════════════════ */
+  const W=240, H=180;
+  const tick=()=>new Promise(r=>setTimeout(r,8));
+
+  // ── 1. Rasterize ──
+  const off=document.createElement('canvas');off.width=W;off.height=H;
+  const oc=off.getContext('2d');oc.drawImage(imgEl,0,0,W,H);
+  const raw=oc.getImageData(0,0,W,H).data;
+  const gray=new Uint8Array(W*H);
+  for(let i=0;i<W*H;i++)gray[i]=(raw[i*4]*77+raw[i*4+1]*150+raw[i*4+2]*29)>>8;
+  log('Rasterized');setP(4);await tick();
+
+  // ── 2. Wall mask ──
+  const WALL_THRESH=110;
+  const wallMask=new Uint8Array(W*H);
+  for(let i=0;i<W*H;i++)wallMask[i]=gray[i]<WALL_THRESH?1:0;
+
+  // ── 3. Building bounding box (replaces flood fill) ──
+  // Find outermost rows/cols that contain wall pixels
+  let bboxTop=H,bboxBottom=0,bboxLeft=W,bboxRight=0;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    if(wallMask[y*W+x]){
+      if(y<bboxTop)bboxTop=y;if(y>bboxBottom)bboxBottom=y;
+      if(x<bboxLeft)bboxLeft=x;if(x>bboxRight)bboxRight=x;
+    }
+  }
+  // Add 1px inset margin to exclude the boundary wall itself
+  const MARGIN=1;
+  bboxTop+=MARGIN;bboxBottom-=MARGIN;bboxLeft+=MARGIN;bboxRight-=MARGIN;
+  log(`Bounding box: x=${bboxLeft}-${bboxRight} y=${bboxTop}-${bboxBottom}`);setP(12);await tick();
+
+  // ── 4. Outside = everything outside bounding box ──
+  const outsideMask=new Uint8Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    if(y<bboxTop||y>bboxBottom||x<bboxLeft||x>bboxRight)outsideMask[y*W+x]=1;
+  }
+
+  // ── 5. Interior = inside bbox AND not wall ──
+  const interior=new Uint8Array(W*H);
+  let intCount=0;
+  for(let i=0;i<W*H;i++){
+    if(!wallMask[i]&&!outsideMask[i]){interior[i]=1;intCount++;}
+  }
+  log(`Interior: ${intCount} px`,'ok');setP(20);await tick();
+
+  // ── 6. Distance transform on interior ──
+  const dist=new Float32Array(W*H);
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+    if(!interior[y*W+x])continue;
+    dist[y*W+x]=1+Math.min(
+      dist[(y-1)*W+x-1],dist[(y-1)*W+x],dist[(y-1)*W+x+1],dist[y*W+x-1]
+    );
+  }
+  for(let y=H-2;y>=1;y--)for(let x=W-2;x>=1;x--){
+    if(!interior[y*W+x])continue;
+    dist[y*W+x]=Math.min(dist[y*W+x],1+Math.min(
+      dist[(y+1)*W+x+1],dist[(y+1)*W+x],dist[(y+1)*W+x-1],dist[y*W+x+1]
+    ));
+  }
+  log(`Distance transform done`);setP(28);await tick();
+
+  // ── 7. Classify: corridor = 3–7px, rooms = >7px ──
+  // Calibrated from histogram: corridors peak 3-7, rooms 8-13
+  const CORR_MIN=3.0, CORR_MAX=7.0, RIDGE_MIN=4.0;
+  const corridorMask=new Uint8Array(W*H);
+  for(let i=0;i<W*H;i++){
+    if(interior[i]&&dist[i]>=CORR_MIN&&dist[i]<=CORR_MAX)corridorMask[i]=1;
+  }
+  const cpx=corridorMask.reduce((s,v)=>s+v,0);
+  log(`Corridor mask: ${cpx} px (dist ${CORR_MIN}–${CORR_MAX})`,'ok');setP(36);await tick();
+
+  // ── 8. Ridge extraction — strict 4-directional + min dist ──
+  const ridgeMask=new Uint8Array(W*H);
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+    if(!corridorMask[y*W+x])continue;
+    const d=dist[y*W+x];
+    if(d<RIDGE_MIN)continue;
+    // Strict: must beat ALL 4 axis-aligned neighbours
+    if(d>dist[y*W+x-1]&&d>dist[y*W+x+1]&&d>dist[(y-1)*W+x]&&d>dist[(y+1)*W+x])
+      ridgeMask[y*W+x]=1;
+  }
+  log(`Ridges: ${ridgeMask.reduce((s,v)=>s+v,0)} px`);setP(44);await tick();
+
+  // ── 9. Zhang-Suen thinning ──
+  const skel=new Uint8Array(ridgeMask);
+  function ZSiter(pass){
+    const rm=[];
+    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+      if(!skel[y*W+x])continue;
+      const p2=skel[(y-1)*W+x],p3=skel[(y-1)*W+x+1],p4=skel[y*W+x+1];
+      const p5=skel[(y+1)*W+x+1],p6=skel[(y+1)*W+x],p7=skel[(y+1)*W+x-1];
+      const p8=skel[y*W+x-1],p9=skel[(y-1)*W+x-1];
+      const B=p2+p3+p4+p5+p6+p7+p8+p9;
+      if(B<2||B>6)continue;
+      const seq=[p2,p3,p4,p5,p6,p7,p8,p9,p2];
+      let A=0;for(let k=0;k<8;k++)if(!seq[k]&&seq[k+1])A++;
+      if(A!==1)continue;
+      if(pass===1){if(p2*p4*p6!==0||p4*p6*p8!==0)continue;}
+      else{if(p2*p4*p8!==0||p2*p6*p8!==0)continue;}
+      rm.push(y*W+x);
+    }
+    rm.forEach(i=>skel[i]=0);return rm.length;
+  }
+  let iters=0,ch=1;while(ch&&iters<80){ch=ZSiter(1)+ZSiter(2);iters++;}
+  const skelCorridor=skel;
+  log(`Skeleton: ${iters} iter, ${skel.reduce((s,v)=>s+v,0)} px`,'ok');setP(56);await tick();
+
+  // ── 10. isValidNode ──
+  function isValidNode(wx,wy){
+    const x=Math.round(wx),y=Math.round(wy);
+    if(x<1||x>=W-1||y<1||y>=H-1)return false;
+    if(outsideMask[y*W+x])return false;
+    const d=dist[y*W+x];
+    return interior[y*W+x]&&d>=CORR_MIN&&d<=CORR_MAX;
+  }
+
+  // ── 11. Junctions + endpoints ──
+  function skelN8(x,y){
+    let n=0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(!dy&&!dx)continue;
+      const nx=x+dx,ny=y+dy;
+      if(nx>=0&&nx<W&&ny>=0&&ny<H&&skel[ny*W+nx])n++;
+    }
+    return n;
+  }
+  const junctions=[],endpoints2=[];
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+    if(!skel[y*W+x])continue;
+    const n=skelN8(x,y);
+    if(n>=3)junctions.push({x,y,d:dist[y*W+x],priority:10,isJunction:true});
+    else if(n<=1)endpoints2.push({x,y,d:dist[y*W+x],priority:8,isJunction:false});
+  }
+  log(`Junctions: ${junctions.length}, Endpoints: ${endpoints2.length}`);setP(64);await tick();
+
+  // ── 12. Sample nodes ──
+  const STEP=20;
+  const candidates=[];
+  junctions.forEach(j=>{if(isValidNode(j.x,j.y))candidates.push({x:j.x,y:j.y,d:j.d,priority:10,isJunction:true});});
+  endpoints2.forEach(e=>{if(isValidNode(e.x,e.y))candidates.push({x:e.x,y:e.y,d:e.d,priority:8,isJunction:false});});
+
+  const vis=new Uint8Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    if(!skel[y*W+x]||vis[y*W+x])continue;
+    let cx=x,cy=y,d2n=0;
+    while(true){
+      vis[cy*W+cx]=1;d2n++;
+      if(d2n>=STEP&&isValidNode(cx,cy)){
+        candidates.push({x:cx,y:cy,d:dist[cy*W+cx],priority:5,isJunction:false});d2n=0;
+      }
+      const dx2=[-1,0,1,-1,1,-1,0,1],dy2=[-1,-1,-1,0,0,1,1,1];
+      let nx=-1,ny=-1;
+      for(let k=0;k<8;k++){
+        const ax=cx+dx2[k],ay=cy+dy2[k];
+        if(ax>=0&&ax<W&&ay>=0&&ay<H&&skel[ay*W+ax]&&!vis[ay*W+ax]){nx=ax;ny=ay;break;}
+      }
+      if(nx<0)break;cx=nx;cy=ny;
+    }
+  }
+  log(`${candidates.length} raw candidates`);setP(72);await tick();
+
+  // ── 13. Cluster ──
+  const CR=STEP*0.85;
+  const usedC=new Uint8Array(candidates.length);
+  const clustered=[];
+  candidates.sort((a,b)=>b.priority-a.priority);
+  for(let i=0;i<candidates.length;i++){
+    if(usedC[i])continue;
+    const c=candidates[i];usedC[i]=1;
+    let sx=c.x,sy=c.y,cnt=1;
+    for(let j=i+1;j<candidates.length;j++){
+      if(usedC[j])continue;
+      if(Math.hypot(candidates[j].x-c.x,candidates[j].y-c.y)<CR){
+        sx+=candidates[j].x;sy+=candidates[j].y;cnt++;usedC[j]=1;
+      }
+    }
+    const fx=sx/cnt,fy=sy/cnt;
+    if(isValidNode(fx,fy))clustered.push({x:fx,y:fy,d:c.d,isJunction:c.priority>=8});
+  }
+  log(`${clustered.length} nodes in corridor zone`,'ok');setP(82);await tick();
+
+  // ── LOS: 4× supersampled + clearance ──
+  function hasLOS(ax,ay,bx,by){
+    const steps=Math.ceil(Math.hypot(bx-ax,by-ay)*4)+8;
+    for(let t=0;t<=steps;t++){
+      const px2=Math.round(ax+(bx-ax)*t/steps);
+      const py2=Math.round(ay+(by-ay)*t/steps);
+      if(px2<0||px2>=W||py2<0||py2>=H)return false;
+      const i=py2*W+px2;
+      if(wallMask[i]||outsideMask[i]||!interior[i]||dist[i]<2.5)return false;
+    }
+    return true;
+  }
+
+  // ── snapToCorridor ──
+  function snapToCorridor(rx,ry,maxR=60){
+    const sx=Math.round(rx*W),sy=Math.round(ry*H);
+    if(isValidNode(sx,sy)&&skel[sy*W+sx])return{x:sx,y:sy};
+    for(let r=1;r<=maxR;r++){
+      let best=null,bd=0;
+      for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+        if(Math.abs(dx)!==r&&Math.abs(dy)!==r)continue;
+        const nx=sx+dx,ny=sy+dy;
+        if(nx<0||nx>=W||ny<0||ny>=H)continue;
+        const ni=ny*W+nx;
+        if(skel[ni]&&isValidNode(nx,ny)&&dist[ni]>bd){bd=dist[ni];best={x:nx,y:ny};}
+      }
+      if(best)return best;
+    }
+    for(let r=1;r<=maxR;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+      if(Math.abs(dx)!==r&&Math.abs(dy)!==r)continue;
+      const nx=sx+dx,ny=sy+dy;
+      if(nx>=0&&nx<W&&ny>=0&&ny<H&&corridorMask[ny*W+nx])return{x:nx,y:ny};
+    }
+    return{x:Math.max(bboxLeft+1,Math.min(bboxRight-1,sx)),y:Math.max(bboxTop+1,Math.min(bboxBottom-1,sy))};
+  }
+
+  log(`Pipeline v7 complete`,'ok');setP(90);await tick();
+
+  return{
+    W,H,bin:interior,dist,wallMask,outsideMask,interior,corridorMask,
+    skel,skelCorridor,clustered,isValidNode,hasLOS,snapToCorridor,
+    debugData:{W,H,skelCorridor,dist,interior,wallMask,outsideMask,corridorMask,CORRIDOR_MAX_HALF:CORR_MAX},
+  };
+}
+
+
+/* ── DETECT DOOR POINT for a room label ──
+   Walk outward from room center → find wall boundary → find gap → return corridor point */
+function detectDoor(rx,ry,corridorData){
+  const{W,H,bin,dist,skelCorridor,snapToCorridor}=corridorData;
+  const sx=Math.round(rx*W),sy=Math.round(ry*H);
+
+  // Walk radially outward to find first wall pixel
+  const ANGLES=16;
+  let bestGap=null,bestDist=0;
+
+  for(let a=0;a<ANGLES;a++){
+    const angle=(a/ANGLES)*Math.PI*2;
+    const dx=Math.cos(angle),dy=Math.sin(angle);
+    let hitWall=false,wallX=0,wallY=0;
+
+    // Walk outward
+    for(let r=1;r<Math.min(W,H)*0.4;r++){
+      const nx=Math.round(sx+dx*r),ny=Math.round(sy+dy*r);
+      if(nx<0||nx>=W||ny<0||ny>=H)break;
+      if(!bin[ny*W+nx]){
+        hitWall=true;wallX=nx-Math.round(dx);wallY=ny-Math.round(dy);break;
+      }
+    }
+    if(!hitWall)continue;
+
+    // Continue past wall to find if it opens into corridor
+    for(let r=2;r<12;r++){
+      const nx=Math.round(wallX+dx*r),ny=Math.round(wallY+dy*r);
+      if(nx<0||nx>=W||ny<0||ny>=H)break;
+      if(bin[ny*W+nx]){
+        // Found walkable space past wall — check if it's a corridor (narrow)
+        const d=dist[ny*W+nx];
+        if(d>=1.0&&d<=7){
+          // This is a door gap — the walkable point just outside the door
+          if(d>bestDist){bestDist=d;bestGap={x:nx,y:ny,wallX,wallY};}
+          break;
+        }
+      }
+    }
+  }
+
+  if(bestGap)return{x:bestGap.x,y:bestGap.y};
+  // Fallback to nearest corridor snap
+  return snapToCorridor(rx,ry);
+}
+
 async function runLocal(){
   if(!A.floorB64){toast('⚠️','Upload floor plan first','warn');return;}
   const btn=document.getElementById('analyzeBtn');btn.disabled=true;
@@ -1172,307 +1404,108 @@ async function runLocal(){
   logEl.classList.add('show');progEl.classList.add('show');logEl.innerHTML='';
   const log=(m,c='info')=>{const s={ok:'✓',err:'✗',warn:'⚠',info:'›'}[c]||'›';logEl.innerHTML+=`<span class="${c}">${s}  ${m}</span>\n`;logEl.scrollTop=logEl.scrollHeight;};
   const setP=p=>fillEl.style.width=p+'%';
-  const sens=parseInt(document.querySelector('input[name="sens"]:checked')?.value||'120');
 
   try{
-    log('Step 1: Loading image…');setP(4);await tick();
-    if(!A.imgEl){await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,700);});}
+    if(!A.imgEl&&A.floorB64){await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,700);});}
     if(!A.imgW||!A.imgH){A.imgW=800;A.imgH=600;}
 
-    // Work resolution — balance speed vs accuracy
-    const W=260,H=195;
-    const off=document.createElement('canvas');off.width=W;off.height=H;
-    const octx=off.getContext('2d');octx.drawImage(A.imgEl,0,0,W,H);
-    const raw=octx.getImageData(0,0,W,H).data;
-    const gray=new Uint8Array(W*H);
-    for(let i=0;i<W*H;i++)gray[i]=(raw[i*4]*77+raw[i*4+1]*150+raw[i*4+2]*29)>>8;
-    const walkable=new Uint8Array(W*H);
-    for(let i=0;i<W*H;i++)walkable[i]=gray[i]>sens?1:0;
-    setP(10);log(`Binary map: threshold=${sens}`);await tick();
-
-    /* ── STEP 2: Distance transform ── */
-    const dist=new Float32Array(W*H);
-    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
-      if(!walkable[y*W+x])continue;
-      dist[y*W+x]=1+Math.min(dist[(y-1)*W+x-1],dist[(y-1)*W+x],dist[(y-1)*W+x+1],dist[y*W+x-1]);
-    }
-    for(let y=H-2;y>=1;y--)for(let x=W-2;x>=1;x--){
-      if(!walkable[y*W+x])continue;
-      dist[y*W+x]=Math.min(dist[y*W+x],1+Math.min(
-        dist[(y+1)*W+x+1],dist[(y+1)*W+x],dist[(y+1)*W+x-1],dist[y*W+x+1]
-      ));
-    }
-    const maxDist=Math.max(...dist);
-    setP(18);log(`Distance transform done. Max dist=${maxDist.toFixed(1)}px`);await tick();
-
-    /* ── STEP 3: Zhang-Suen skeletonization ──
-       Morphological thinning → 1-pixel wide corridor centerlines
-       This is the KEY missing piece — gives us actual corridor topology */
-    log('Step 3: Skeletonizing (Zhang-Suen thinning)…');setP(22);await tick();
-
-    const skel=new Uint8Array(W*H);
-    // Copy walkable into skel (we'll thin it)
-    for(let i=0;i<W*H;i++)skel[i]=walkable[i];
-
-    // Zhang-Suen helper: count transitions 0→1 in ordered 8-neighborhood
-    function transitions(x,y){
-      const p=[
-        skel[y*W+x+1],skel[(y-1)*W+x+1],skel[(y-1)*W+x],skel[(y-1)*W+x-1],
-        skel[y*W+x-1],skel[(y+1)*W+x-1],skel[(y+1)*W+x],skel[(y+1)*W+x+1],
-        skel[y*W+x+1] // wrap
-      ];
-      let t=0;for(let i=0;i<8;i++)if(p[i]===0&&p[i+1]===1)t++;
-      return t;
-    }
-    function neighbors(x,y){
-      return skel[(y-1)*W+x]+skel[(y-1)*W+x+1]+skel[y*W+x+1]+skel[(y+1)*W+x+1]+
-             skel[(y+1)*W+x]+skel[(y+1)*W+x-1]+skel[y*W+x-1]+skel[(y-1)*W+x-1];
-    }
-
-    // Run Zhang-Suen iterations (max 25 passes — enough for most maps)
-    let changed=true,pass=0;
-    const toDelete=new Uint8Array(W*H);
-    while(changed&&pass<25){
-      changed=false;
-      // Sub-iteration 1
-      toDelete.fill(0);
-      for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
-        if(!skel[y*W+x])continue;
-        const nb=neighbors(x,y),tr=transitions(x,y);
-        if(nb>=2&&nb<=6&&tr===1&&
-           (skel[(y-1)*W+x]===0||skel[y*W+x+1]===0||skel[(y+1)*W+x]===0)&&
-           (skel[y*W+x+1]===0||skel[(y+1)*W+x]===0||skel[y*W+x-1]===0)
-        ){toDelete[y*W+x]=1;}
-      }
-      for(let i=0;i<W*H;i++)if(toDelete[i]){skel[i]=0;changed=true;}
-      // Sub-iteration 2
-      toDelete.fill(0);
-      for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
-        if(!skel[y*W+x])continue;
-        const nb=neighbors(x,y),tr=transitions(x,y);
-        if(nb>=2&&nb<=6&&tr===1&&
-           (skel[(y-1)*W+x]===0||skel[y*W+x+1]===0||skel[y*W+x-1]===0)&&
-           (skel[(y-1)*W+x]===0||skel[(y+1)*W+x]===0||skel[y*W+x-1]===0)
-        ){toDelete[y*W+x]=1;}
-      }
-      for(let i=0;i<W*H;i++)if(toDelete[i]){skel[i]=0;changed=true;}
-      pass++;
-    }
-    const skelCount=skel.reduce((s,v)=>s+v,0);
-    setP(38);log(`Skeleton: ${skelCount} centerline pixels (${pass} passes)`,'ok');await tick();
-
-    /* ── STEP 4: Width filter ──
-       skeleton pixel width = dist[pixel] * 2
-       - Small/medium width → corridor → KEEP
-       - Very large width → center of big room → REJECT
-       Threshold: reject if wider than ~3 average corridor widths */
-    log('Step 4: Width filtering (removing room centers)…');setP(42);await tick();
-
-    // Calculate median corridor width from skeleton pixels
-    const widths=[];
-    for(let i=0;i<W*H;i++)if(skel[i])widths.push(dist[i]*2);
-    widths.sort((a,b)=>a-b);
-    const medW=widths[Math.floor(widths.length/2)]||3;
-    // Reject skeleton pixels wider than 3× median (= inside large room, not corridor)
-    const MAX_WIDTH=Math.max(medW*3.5,8);
-    const corridorSkel=new Uint8Array(W*H);
-    let kept=0;
-    for(let i=0;i<W*H;i++){
-      if(skel[i]&&dist[i]*2<=MAX_WIDTH){corridorSkel[i]=1;kept++;}
-    }
-    setP(50);log(`Width filter: kept ${kept} corridor pixels (maxW=${MAX_WIDTH.toFixed(1)}px, medW=${medW.toFixed(1)}px)`,'ok');
-    if(kept<10)throw new Error(`Only ${kept} corridor pixels survived. Try different sensitivity.`);
-    await tick();
-
-    /* ── STEP 5: Sample nodes along skeleton ──
-       Walk skeleton, place node every STEP pixels
-       This guarantees nodes lie exactly on corridor centerlines */
-    log('Step 5: Sampling nodes along skeleton…');setP(55);await tick();
-
-    const STEP=14; // place node every 14px in work grid
+    log('Running corridor detection pipeline…');setP(4);
+    const cg=await buildCorridorGraph(A.imgEl,A.imgW,A.imgH,log,setP);
+    const{W,H,clustered,hasLOS,snapToCorridor,isValidNode}=cg;
     const scx=A.imgW/W,scy=A.imgH/H;
+    const mpp=A.calibration.mpp||0.033;
 
-    // BFS along skeleton to sample uniformly
-    const visited=new Uint8Array(W*H);
-    const skelNodes=[];
+    // Store debug data for overlay
+    A._debug=cg.debugData;
 
-    // Find all junction pixels (≥3 skeleton neighbors) and endpoints (1 neighbor)
-    function skelNeighborCount(x,y){
-      let c=0;
-      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
-        if(!dx&&!dy)continue;const nx=x+dx,ny=y+dy;
-        if(nx>=0&&nx<W&&ny>=0&&ny<H&&corridorSkel[ny*W+nx])c++;
-      }return c;
-    }
+    log(`Building node graph from ${clustered.length} corridor points…`);setP(75);
 
-    // First pass: collect junctions and endpoints (structural nodes)
-    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
-      if(!corridorSkel[y*W+x])continue;
-      const nc=skelNeighborCount(x,y);
-      if(nc===1||nc>=3){// endpoint or junction
-        skelNodes.push({x,y,d:dist[y*W+x],isJunction:nc>=3});
-        visited[y*W+x]=1;
-      }
-    }
-
-    // Second pass: sample remaining skeleton pixels at intervals
-    for(let y=1;y<H-1;y+=Math.max(1,Math.round(STEP/scx)))for(let x=1;x<W-1;x+=Math.max(1,Math.round(STEP/scy))){
-      if(!corridorSkel[y*W+x]||visited[y*W+x])continue;
-      // Snap to nearest skeleton pixel in vicinity
-      let bx=x,by=y,bd=Infinity;
-      for(let dy=-STEP;dy<=STEP;dy++)for(let dx=-STEP;dx<=STEP;dx++){
-        const nx=x+dx,ny=y+dy;if(nx<0||nx>=W||ny<0||ny>=H)continue;
-        if(corridorSkel[ny*W+nx]&&!visited[ny*W+nx]){
-          const d2=Math.hypot(dx,dy);if(d2<bd){bd=d2;bx=nx;by=ny;}
-        }
-      }
-      if(bd<=STEP){skelNodes.push({x:bx,y:by,d:dist[by*W+bx]});visited[by*W+bx]=1;}
-    }
-    setP(65);log(`${skelNodes.length} skeleton nodes sampled`,'ok');await tick();
-
-    /* ── STEP 6: Door detection ──
-       For each skeleton node, check if it's near a wall gap
-       (room boundary → gap in wall → door threshold)
-       This is where rooms connect to corridors */
-    log('Step 6: Detecting door positions…');setP(68);await tick();
-
-    // Find wall gaps: walkable pixel flanked by wall pixels on both sides
-    // in one axis — these are likely doorways
-    const doorPts=new Uint8Array(W*H);
-    for(let y=2;y<H-2;y++)for(let x=2;x<W-2;x++){
-      if(!walkable[y*W+x])continue;
-      // Horizontal door: wall above AND below, open left or right
-      const wallU=!walkable[(y-1)*W+x],wallD=!walkable[(y+1)*W+x];
-      // Vertical door: wall left AND right, open top or bottom
-      const wallL=!walkable[y*W+x-1],wallR=!walkable[y*W+x+1];
-      if((wallU&&wallD)||(wallL&&wallR))doorPts[y*W+x]=1;
-    }
-
-    setP(72);await tick();
-
-    /* ── STEP 7: Build final node list ──
-       Skeleton nodes form the corridor graph.
-       Door points nearby get labeled as room door nodes. */
-    const mpp=A.calibration?.mpp||0.033;
-    const nodes=[];let nIdx=1;
-
-    // Type assignment by position
-    const TYPES_W={stairs:5,elevator:3,entrance:1,exit:1,corridor:1,room:1,toilet:1,poi:1,junction:1};
-    skelNodes.forEach(sp=>{
-      const rx=sp.x/W,ry=sp.y/H;
-      const onEdge=rx<0.09||rx>0.91||ry<0.05||ry>0.91;
+    // Assign types based on position
+    const ROOM_N=['Room A','Room B','Room C','Room D','Room E','Room F','Waiting Area','Office'];
+    const POI_N=['Restroom','Info Desk','Café','Reception','Help Desk'];
+    let ri=0,pi=0;
+    const nodes=clustered.map((c,i)=>{
+      const rx=c.x/W,ry=c.y/H;
+      const onEdge=rx<0.09||rx>0.91||ry<0.05||ry>0.93;
       const corner=(rx<0.12||rx>0.88)&&(ry<0.12||ry>0.88);
-      // Is this near a door point?
-      let nearDoor=false;
-      for(let dy=-3;dy<=3&&!nearDoor;dy++)for(let dx=-3;dx<=3&&!nearDoor;dx++){
-        const nx=sp.x+dx,ny=sp.y+dy;
-        if(nx>=0&&nx<W&&ny>=0&&ny<H&&doorPts[ny*W+nx])nearDoor=true;
-      }
-      let type='corridor',label='Corridor',weight=1;
-      if(corner&&nIdx%5===0){type='stairs';label='Stairs';weight=5;}
-      else if(corner&&nIdx%5===1){type='elevator';label='Elevator';weight=3;}
-      else if(onEdge&&nIdx===1){type='entrance';label='Main Entrance';}
-      else if(onEdge&&nIdx===skelNodes.length){type='exit';label='Exit';}
+      let type,label,weight=1;
+      if(corner&&i%5===0){type='stairs';label='Stairs';weight=5;}
+      else if(corner&&i%5===1){type='elevator';label='Elevator';weight=3;}
+      else if(onEdge&&i===0){type='entrance';label='Main Entrance';}
+      else if(onEdge&&i===clustered.length-1){type='exit';label='Exit';}
       else if(onEdge){type='entrance';label='Entrance';}
-      else if(nearDoor){type='room';label=`Room ${String.fromCharCode(64+Math.min(26,(nIdx%26)+1))}`;weight=1;}
-      else if(sp.isJunction){type='junction';label='Junction';}
-      nodes.push({id:`n${nIdx++}`,x:sp.x*scx,y:sp.y*scy,label,type,floor:A.curFloor,weight,connections:[],_wx:sp.x,_wy:sp.y});
+      else if(c.isJunction){type='junction';label='Junction';}
+      else if(ri<ROOM_N.length&&i%4===0){type='room';label=ROOM_N[ri++];}
+      else if(pi<POI_N.length&&i%6===0){type='poi';label=POI_N[pi++];}
+      else{type='corridor';label='Corridor';}
+      return{id:`n${i+1}`,x:c.x*scx,y:c.y*scy,label,type,floor:A.curFloor,weight,connections:[],_wx:Math.round(c.x),_wy:Math.round(c.y)};
     });
 
-    if(!nodes.some(n=>n.type==='entrance')){nodes[0].type='entrance';nodes[0].label='Main Entrance';}
-    setP(78);log(`${nodes.length} nodes placed on skeleton`,'ok');await tick();
+    if(!nodes.some(n=>n.type==='entrance')&&nodes.length)
+      {nodes[0].type='entrance';nodes[0].label='Main Entrance';}
 
-    /* ── STEP 8: K-nearest + LOS edges (clean, no spaghetti) ──
-       Only connect if:
-       1. LOS along skeleton (not raw walkable — stricter)
-       2. Distance < threshold
-       3. Max k=3 neighbors per node (prevents spaghetti) */
-    log('Step 8: Building clean edges (k=3 + LOS)…');setP(82);await tick();
-
-    function skelLOS(ax,ay,bx,by){
-      // Path must stay on corridor skeleton (or very close to it)
-      const steps=Math.ceil(Math.hypot(bx-ax,by-ay)*1.3)+3;
-      for(let t=0;t<=steps;t++){
-        const px2=Math.round(ax+(bx-ax)*t/steps),py2=Math.round(ay+(by-ay)*t/steps);
-        if(px2<0||px2>=W||py2<0||py2>=H)return false;
-        // Must stay walkable (using corridorSkel would be too strict — use walkable with some tolerance)
-        if(!walkable[py2*W+px2])return false;
-      }
-      return true;
-    }
-
+    // ── Wall-aware edges with k=3 nearest + max 4 connections per node ──
+    log('Building wall-aware edges (k=3, max 4 per node)…');setP(85);
+    const MAX_CONN=4,K_NEAREST=3;
+    const MAX_EDGE_WX=22;
     const edges=[];const eSet=new Set();
-    const K=4;// max connections per node
-    const MAX_CONN_WX=STEP*4.5;
 
     for(let i=0;i<nodes.length;i++){
-      // Get K nearest that pass LOS
-      const candidates=[];
-      for(let j=0;j<nodes.length;j++){
-        if(i===j)continue;
-        const d=Math.hypot(nodes[i]._wx-nodes[j]._wx,nodes[i]._wy-nodes[j]._wy);
-        if(d<MAX_CONN_WX)candidates.push({j,d});
-      }
-      candidates.sort((a,b)=>a.d-b.d);
-      let added=0;
-      for(const{j}of candidates){
-        if(added>=K)break;
+      // Get k nearest neighbours sorted by distance
+      const ni=nodes[i];
+      const others=nodes
+        .map((n,j)=>({j,d:Math.hypot(ni._wx-n._wx,ni._wy-n._wy)}))
+        .filter(o=>o.j!==i&&o.d>0&&o.d<=MAX_EDGE_WX)
+        .sort((a,b)=>a.d-b.d)
+        .slice(0,K_NEAREST*2); // check more candidates
+
+      let conns=0;
+      for(const{j}of others){
+        if(conns>=MAX_CONN)break;
+        const nj=nodes[j];
+        // Max connections check on the other side too
+        if(nj.connections.length>=MAX_CONN)continue;
         const k=[i,j].sort().join('_');
         if(eSet.has(k))continue;
-        if(skelLOS(nodes[i]._wx,nodes[i]._wy,nodes[j]._wx,nodes[j]._wy)){
-          const dPx=Math.hypot(nodes[i].x-nodes[j].x,nodes[i].y-nodes[j].y);
-          const isStairs=['stairs','elevator'].includes(nodes[i].type)||['stairs','elevator'].includes(nodes[j].type);
-          edges.push({from:nodes[i].id,to:nodes[j].id,dist:dPx,distMeters:dPx*mpp,type:isStairs?nodes[i].type:'walk',bidirectional:true});
-          eSet.add(k);added++;
+        if(hasLOS(ni._wx,ni._wy,nj._wx,nj._wy)){
+          const dPx=Math.hypot(ni.x-nj.x,ni.y-nj.y);
+          edges.push({from:ni.id,to:nj.id,dist:dPx,distMeters:dPx*mpp,type:'walk',bidirectional:true});
+          eSet.add(k);conns++;
+          ni.connections.push(nj.id);
+          nj.connections.push(ni.id);
         }
       }
     }
 
-    // Ensure connectivity
+    // Ensure all nodes are connected
     nodes.forEach(n=>{
       if(!edges.some(e=>e.from===n.id||e.to===n.id)){
         let best=null,bd=Infinity;
-        nodes.forEach(m=>{if(m.id===n.id)return;const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);if(d<bd){bd=d;best=m;}});
-        if(best){const dp=Math.hypot(n.x-best.x,n.y-best.y);edges.push({from:n.id,to:best.id,dist:dp,distMeters:dp*mpp,type:'walk',bidirectional:true});}
+        nodes.forEach(m=>{if(m.id===n.id||m.connections.length>=MAX_CONN)return;const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);if(d<bd){bd=d;best=m;}});
+        if(best){
+          const dPx=Math.hypot(n.x-best.x,n.y-best.y);
+          edges.push({from:n.id,to:best.id,dist:dPx,distMeters:dPx*mpp,type:'walk',bidirectional:true});
+          n.connections.push(best.id);best.connections.push(n.id);
+        }
       }
     });
 
-    // Update connections arrays
-    nodes.forEach(n=>n.connections=[]);
-    edges.forEach(e=>{
-      const fn=nodes.find(n=>n.id===e.from),tn=nodes.find(n=>n.id===e.to);
-      if(fn&&!fn.connections.includes(e.to))fn.connections.push(e.to);
-      if(tn&&!tn.connections.includes(e.from))tn.connections.push(e.from);
-    });
-
-    // Recalc edge distances
-    edges.forEach(e=>{const f=nodes.find(n=>n.id===e.from),t=nodes.find(n=>n.id===e.to);if(f&&t){e.dist=Math.hypot(f.x-t.x,f.y-t.y);e.distMeters=e.dist*mpp;}});
-
-    // Clean up temp fields
     nodes.forEach(n=>{delete n._wx;delete n._wy;});
-
-    setP(95);
-    log(`✓ ${nodes.length} skeleton nodes, ${edges.length} clean edges`,'ok');
-    log('Nodes lie on corridor centerlines — rename rooms in Editor','info');
-    await tick();
+    setP(100);
+    log(`✓ ${nodes.length} corridor nodes, ${edges.length} wall-safe edges (max 4/node)`,'ok');
+    log('Skeleton-based: nodes are on corridor centrelines only','ok');
 
     A.nodes=nodes;A.edges=edges;
-    setP(100);
-    saveCur();
-    showDebugOverlay(W,H,corridorSkel,dist,A.nodes,scx,scy);
-    draw();renderNL();updateStats();
+    saveCur();draw();renderNL();updateStats();
     setTimeout(()=>{progEl.classList.remove('show');fillEl.style.width='0%';},1500);
-    toast('✅',`Skeleton: ${nodes.length} corridor nodes, ${edges.length} edges`,'ok');
+    toast('✅',`${nodes.length} corridor nodes, ${edges.length} edges`,'ok');
     gotoTab('editor');
-
   }catch(err){
     log(`Error: ${err.message}`,'err');setP(0);
-    log('→ Try different sensitivity or use Manual mode','warn');
     toast('❌',err.message.slice(0,60),'err');
+    console.error(err);
   }finally{btn.disabled=false;}
 }
-
-function tick(){return new Promise(r=>setTimeout(r,8));}
 
 
 /* ── SMART FIX ── */
@@ -1629,8 +1662,62 @@ function toggleDebug(){
   const btn=document.getElementById('debugToggle');
   const isOn=btn.classList.toggle('on');
   btn.textContent=`🔬 Debug: ${isOn?'ON':'OFF'}`;
-  if(!isOn&&_debugCanvas){_debugCanvas.getContext('2d').clearRect(0,0,_debugCanvas.width,_debugCanvas.height);}
-  toast(isOn?'🔬':'👁',isOn?'Debug overlay ON — run analysis to see skeleton':'Debug overlay OFF');
+  if(isOn)drawDebugOverlay();
+  else{
+    const ov=document.getElementById('debugOv');
+    if(ov)ov.remove();
+  }
+  toast(isOn?'🔬':'👁',isOn?'Debug: cyan=corridor skeleton, red=rejected(room interior)':'Debug overlay OFF');
+}
+
+function drawDebugOverlay(){
+  const dbg=A._debug;
+  if(!dbg){toast('⚠️','Run analysis first to generate skeleton data','warn');document.getElementById('debugToggle').classList.remove('on');document.getElementById('debugToggle').textContent='🔬 Debug: OFF';return;}
+  const{W,H,skelCorridor,dist,bin,CORRIDOR_MAX_HALF}=dbg;
+
+  // Remove old overlay
+  document.getElementById('debugOv')?.remove();
+
+  // Create overlay canvas on top of floor canvas
+  const fc=document.getElementById('fc');
+  const ov=document.createElement('canvas');
+  ov.id='debugOv';
+  ov.width=fc.width;ov.height=fc.height;
+  ov.style.cssText=`position:absolute;top:${fc.offsetTop}px;left:${fc.offsetLeft}px;pointer-events:none;z-index:8;`;
+  fc.parentElement.appendChild(ov);
+
+  const ctx=ov.getContext('2d');
+  ctx.save();
+  ctx.scale(A.scale,A.scale);ctx.translate(A.ox,A.oy);
+
+  const scx=A.imgW/W,scy=A.imgH/H;
+
+  // Draw skeleton pixels
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const i=y*W+x;
+    if(!bin[i])continue;
+    const d=dist[i];
+    if(d<=0)continue;
+    // Color: cyan = corridor skeleton, yellow = wider (room edge), red = rejected skeleton (room interior)
+    const isSkel=skelCorridor[i];
+    if(isSkel){
+      ctx.fillStyle='rgba(6,182,212,0.7)'; // cyan = good corridor skeleton
+    } else if(d>0&&d<=CORRIDOR_MAX_HALF){
+      ctx.fillStyle='rgba(16,185,129,0.2)'; // green tint = walkable corridor width
+    } else if(d>CORRIDOR_MAX_HALF){
+      ctx.fillStyle='rgba(239,68,68,0.25)'; // red = rejected (room interior, too wide)
+    } else continue;
+    ctx.fillRect(x*scx,y*scy,Math.ceil(scx)+0.5,Math.ceil(scy)+0.5);
+  }
+
+  // Legend
+  ctx.restore();
+  ctx.font='bold 11px JetBrains Mono';
+  ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(8,8,200,62);
+  ctx.fillStyle='rgba(6,182,212,1)';ctx.fillRect(12,14,10,10);ctx.fillStyle='#fff';ctx.fillText('Skeleton centerline',28,22);
+  ctx.fillStyle='rgba(16,185,129,.6)';ctx.fillRect(12,30,10,10);ctx.fillStyle='#fff';ctx.fillText('Corridor zone (valid)',28,38);
+  ctx.fillStyle='rgba(239,68,68,.6)';ctx.fillRect(12,46,10,10);ctx.fillStyle='#fff';ctx.fillText('Wall mask (dilated)',28,54);
+  ctx.fillStyle='rgba(245,158,11,.6)';ctx.fillRect(12,62,10,10);ctx.fillStyle='#fff';ctx.fillText('Outside building',28,70);
 }
 function toggleGrid(){
   A.gridSnap=!A.gridSnap;
@@ -1741,7 +1828,7 @@ function buildTypeGrid(){
   document.getElementById('typeGrid').innerHTML=TYPES.map(t=>`<div class="to" data-v="${t.v}" onclick="setNodeType('${t.v}')">${t.i} <span style="font-size:10px">${t.l}</span></div>`).join('');
   // Filter row in node list
   const fr=document.getElementById('filterRow');
-  if(fr)fr.innerHTML='<div class="filter-chip on" data-ft="all" onclick="filterNodes(this,'all')">All</div>'+
+  if(fr)fr.innerHTML='<div class="filter-chip on" data-ft="all" onclick="filterNodes(this,\'all\')">All</div>'+
     TYPES.map(t=>`<div class="filter-chip" data-ft="${t.v}" onclick="filterNodes(this,'${t.v}')">${t.i}</div>`).join('');
 }
 
@@ -1910,16 +1997,28 @@ async function doPublish(){
   const id=document.getElementById('fid').value;
   if(A.fbOk&&A.fbDb){
     try{
-      const{doc,setDoc}=window._fb;
-      await setDoc(doc(A.fbDb,'facilities',id),A.facs[id]);
-      A.facs[id].pub=true;saveStore();
-      // Share Firebase config with client
+      const{doc:d2,setDoc:s2}=window._fb;
+      await s2(d2(A.fbDb,'facilities',id),A.facs[id]);
+      // Also write config doc so client can self-initialise Firebase with just project ID
       const savedCfg=JSON.parse(localStorage.getItem('wp_fb')||'null');
-      if(savedCfg){localStorage.setItem('wp_client_fb',JSON.stringify(savedCfg));localStorage.setItem('wp_fb_config',JSON.stringify(savedCfg));}
+      if(savedCfg){
+        localStorage.setItem('wp_client_fb',JSON.stringify(savedCfg));
+        localStorage.setItem('wp_fb_config',JSON.stringify(savedCfg));
+        try{
+          await s2(d2(A.fbDb,'_config','client'),{
+            projectId:savedCfg.projectId,
+            apiKey:savedCfg.apiKey,
+            authDomain:savedCfg.authDomain||savedCfg.projectId+'.firebaseapp.com',
+            storageBucket:(savedCfg.projectId||'')+'.appspot.com',
+            t:Date.now()
+          });
+        }catch(_e){}
+      }
+      A.facs[id].pub=true;saveStore();
       document.getElementById('depStatus').style.display='block';
       document.getElementById('depFid').textContent=id;
       gotoTab('deploy');
-      toast('🚀',`Deployed to Firebase! Share ID: ${id}`,'ok');
+      toast('🚀',`Live on Firebase! ID: ${id}`,'ok');
       return;
     }catch(e){toast('⚠️',`Firebase: ${e.message.slice(0,40)} — saved locally`,'warn');}
   }
@@ -1937,35 +2036,21 @@ function exportJSON(){
   toast('⬇️','Downloaded','ok');
 }
 function copyId(){const id=document.getElementById('pubFid').textContent;navigator.clipboard.writeText(id).then(()=>toast('📋','Copied!','ok'));}
-function copyClientURL(){
+function copyNavURL(){
   const id=document.getElementById('fid').value;
   const base=window.location.href.replace('indoor-admin.html','indoor-nav.html').split('?')[0];
-  const url=`${base}?fid=${id}`;
-  navigator.clipboard.writeText(url).then(()=>toast('🔗',`Copied: ${url}`,'ok'));
+  // Include project ID so client auto-fetches Firebase config from Firestore REST
+  const fbCfg=JSON.parse(localStorage.getItem('wp_fb')||localStorage.getItem('wp_fb_config')||'null');
+  const pid=fbCfg?.projectId||'';
+  const url=pid?`${base}?fid=${id}&pid=${pid}`:`${base}?fid=${id}`;
+  navigator.clipboard.writeText(url).then(()=>{
+    toast('🔗','Link copied! Share it — works on any device','ok');
+  });
 }
+// Keep aliases
+function copyClientURL(){ copyNavURL(); }
+function generateShareLink(){ copyNavURL(); }
 
-function generateShareLink(){
-  const id=document.getElementById('fid').value;
-  if(!id||id==='—'){toast('⚠️','Deploy first','warn');return;}
-  const base=window.location.href.replace('indoor-admin.html','indoor-nav.html').split('?')[0];
-  const url=`${base}?fid=${id}`;
-  // Simple overlay
-  const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:20px';
-  ov.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--rim);border-radius:18px;padding:24px;max-width:460px;width:100%">
-    <div style="font-size:16px;font-weight:800;margin-bottom:10px">📱 Share with Visitors</div>
-    <p style="font-size:12.5px;color:var(--t2);margin-bottom:14px;line-height:1.7">
-      Send this link to anyone. They open the <strong style="color:var(--green)">navigation app</strong> — your admin panel is at a completely separate URL and is never shared.
-    </p>
-    <div style="background:var(--bg3);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:12px;font-family:var(--mono);font-size:11px;color:var(--a2);word-break:break-all;margin-bottom:14px">${url}</div>
-    <div style="display:flex;gap:8px">
-      <button id="slcpbtn" onclick="navigator.clipboard.writeText('${url}').then(()=>{this.textContent='✓ Copied!';this.style.background='rgba(16,185,129,.18)';})" style="flex:1;padding:11px;border-radius:10px;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.12);color:var(--a2);font-family:var(--f);font-size:13px;font-weight:700;cursor:pointer">📋 Copy Link</button>
-      <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:11px 16px;border-radius:10px;border:1px solid var(--rim);background:var(--bg3);color:var(--t2);font-family:var(--f);font-size:13px;cursor:pointer">✕</button>
-    </div>
-  </div>`;
-  document.body.appendChild(ov);
-  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
-}
 
 /* ── TABS ── */
 function gotoTab(t){
