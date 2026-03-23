@@ -1488,7 +1488,9 @@ window.addEventListener('DOMContentLoaded',()=>{
   // Show saved facilities from localStorage
   (function showRecentFacs(){
     try{
-      const facs=JSON.parse(localStorage.getItem('wp_v3')||'{}');
+      let facs={};
+      try{Object.assign(facs,JSON.parse(localStorage.getItem('wp_v2')||'{}'));}catch(e){}
+      try{Object.assign(facs,JSON.parse(localStorage.getItem('wp_v3')||'{}'));}catch(e){}
       const ids=Object.keys(facs).filter(id=>facs[id]?.name||facs[id]?.nodes?.length||facs[id]?.floors?.length);
       const box=document.getElementById('recentFacs');
       if(!box||!ids.length)return;
@@ -1512,6 +1514,10 @@ window.addEventListener('DOMContentLoaded',()=>{
         }).join('');
     }catch(e){}
   })();
+
+  // Auto-fill last used facility ID
+  const lastId=localStorage.getItem('wp_last_id');
+  if(lastId){const inp=document.getElementById('fidInp');if(inp&&!inp.value)inp.value=lastId;}
 
   // Auto-configure from URL params
   // URL format: indoor-nav.html?fid=ABC123&fb=BASE64_FIREBASE_CONFIG

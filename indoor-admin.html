@@ -2249,21 +2249,37 @@ function generateShareLink(){ copyNavURL(); }
 
 /* ── TABS ── */
 function refreshFacList(){
-  const facs=A.facs||{};
+  // Read from ALL storage keys and merge
+  let facs={};
+  for(const k of['wp_v3','wp_v2']){
+    try{const v=JSON.parse(localStorage.getItem(k)||'{}');Object.assign(facs,v);}catch(e){}
+  }
+  // Merge with in-memory A.facs (may have unsaved changes)
+  Object.assign(facs,A.facs||{});
   const ids=Object.keys(facs);
   const grid=document.getElementById('facListGrid');
   const empty=document.getElementById('facListEmpty');
   if(!grid)return;
   if(!ids.length){grid.innerHTML='';if(empty)empty.style.display='block';return;}
   if(empty)empty.style.display='none';
-  grid.innerHTML=ids.map(id=>{
+  const validIds=ids.filter(id=>{
+    const f=facs[id];
+    return f&&typeof f==='object'&&id.length>=4;
+  });
+  if(!validIds.length){
+    grid.innerHTML='';
+    if(empty){empty.style.display='block';empty.textContent='No valid facilities found. Create one in Setup tab.';}
+    return;
+  }
+  if(empty)empty.style.display='none';
+  grid.innerHTML=validIds.map(id=>{
     const f=facs[id];
     if(!f)return'';
     const floors=f.floors?f.floors.length:1;
     const nodes=f.floors?f.floors.reduce((s,fl)=>s+(fl.nodes?.length||0),0):(f.nodes?.length||0);
     const edges=f.floors?f.floors.reduce((s,fl)=>s+(fl.edges?.length||0),0):(f.edges?.length||0);
     const updated=f.updatedAt?new Date(f.updatedAt).toLocaleString():'—';
-    const isActive=A.curId===id;
+    const isActive=id===A.curId||id===document.getElementById('fid')?.value;
     return`<div style="background:${isActive?'rgba(99,102,241,.08)':'var(--bg3)'};border:1.5px solid ${isActive?'rgba(99,102,241,.35)':'var(--rim)'};
       border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;transition:all .15s">
       <div style="flex:1;min-width:0">
