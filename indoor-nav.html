@@ -239,6 +239,8 @@ html,body{height:100%;height:100dvh;background:var(--bg);color:var(--t1);font-fa
       <input id="fbak" placeholder="Firebase API Key (AIzaSy…)"/>
       <button onclick="saveFBConfig()" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,160,0,.3);background:rgba(255,160,0,.1);color:#FFA500;font-family:var(--f);font-size:12.5px;font-weight:700;cursor:pointer">🔥 Save Firebase Config</button>
     </div>
+    <!-- Recent facilities from localStorage -->
+    <div id="recentFacs" style="display:none;margin-bottom:10px"></div>
     <span class="eclbl">Facility ID</span>
     <input type="text" class="finp" id="fidInp" maxlength="8" placeholder="ABC12345" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')enterFac()"/>
     <button class="ebtn ebtn-p" onclick="enterFac()">🏢 Enter Facility</button>
@@ -618,20 +620,15 @@ async function initFB(){
 
   if(!cfg){console.log('[WayPoint] No Firebase config');return false;}
 
-  // Init using modular SDK (_fbc) or legacy (firebase global)
-  let tries=0;while(!window._fbc&&tries++<15)await new Promise(r=>setTimeout(r,200));
+  // Use compat SDK (firebase global) — matches what admin uses
+  if(typeof firebase==='undefined'){console.warn('[WayPoint] Firebase SDK not loaded');return false;}
   try{
-    if(window._fbc){
-      Nav.fbApp=window._fbc.initializeApp(cfg,'wpc'+Date.now());
-      Nav.fbDb=window._fbc.getFirestore(Nav.fbApp);
-    } else if(typeof firebase!=='undefined'){
-      try{const ex=firebase.apps.find(a=>a.name==='wpc');if(ex)await ex.delete();}catch(e){}
-      Nav.fbApp=firebase.initializeApp(cfg,'wpc');
-      Nav.fbDb=Nav.fbApp.firestore();
-    } else {return false;}
-    console.log('[WayPoint] Firebase connected:',cfg.projectId);
+    try{const ex=firebase.apps.find(a=>a.name==='wpc');if(ex)await ex.delete();}catch(_e){}
+    Nav.fbApp=firebase.initializeApp(cfg,'wpc');
+    Nav.fbDb=Nav.fbApp.firestore();
+    console.log('[WayPoint] Firebase compat connected:',cfg.projectId);
     return true;
-  }catch(e){console.warn('FB init:',e);return false;}
+  }catch(e){console.warn('[WayPoint] FB init failed:',e);return false;}
 }
 function saveFBConfig(){
   const pid=document.getElementById('fbpid').value.trim(),ak=document.getElementById('fbak').value.trim();
@@ -658,7 +655,10 @@ async function enterFac(){
     try{
       const snap=await Nav.fbDb.collection('facilities').doc(id).get();
       if(snap.exists){initFacility(snap.data());return;}
-      toast('⚠️',`Facility "${id}" not in Firebase yet — deploy it first`);
+      // Show the helpful not-found screen with manual Firebase form
+      hideLoad();
+      showNotFoundHelp(id);
+      return;
     }catch(e){
       console.warn('Firestore error:',e);
       toast('⚠️','Firebase error: '+e.message.slice(0,40));
@@ -947,12 +947,22 @@ function redraw(){
 }
 
 function drawSynth(ctx){
-  ctx.fillStyle='#151923';ctx.fillRect(0,0,Nav.imgW,Nav.imgH);
-  // Draw node connection areas as corridor blocks
-  for(const e of Nav.edges){const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);const f=nm[e.from],t=nm[e.to];if(!f||!t)continue;ctx.beginPath();ctx.moveTo(f.x,f.y);ctx.lineTo(t.x,t.y);ctx.strokeStyle='#1E2335';ctx.lineWidth=28;ctx.lineCap='square';ctx.stroke();}
-  ctx.strokeStyle='#2A3050';ctx.lineWidth=2;ctx.strokeRect(15,15,Nav.imgW-30,Nav.imgH-30);
-  ctx.fillStyle='#3A4060';ctx.font='bold 11px Outfit';ctx.textAlign='center';ctx.textBaseline='top';
-  ctx.fillText(Nav.facility?.name||'FACILITY',Nav.imgW/2,20);
+  const W=Nav.imgW,H=Nav.imgH;
+  ctx.fillStyle='#0F1320';ctx.fillRect(0,0,W,H);
+  // Draw edges as wide corridor blocks (visual map)
+  const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);
+  for(const e of Nav.edges){
+    const f=nm[e.from],t=nm[e.to];if(!f||!t)continue;
+    ctx.beginPath();ctx.moveTo(f.x,f.y);ctx.lineTo(t.x,t.y);
+    ctx.strokeStyle='#1A2040';ctx.lineWidth=30;ctx.lineCap='round';ctx.stroke();
+    ctx.strokeStyle='#1E2845';ctx.lineWidth=26;ctx.stroke();
+  }
+  // Draw outer building border
+  ctx.strokeStyle='#2A3358';ctx.lineWidth=3;ctx.strokeRect(12,12,W-24,H-24);
+  // Facility name watermark
+  ctx.fillStyle='rgba(129,140,248,.12)';ctx.font=`bold ${Math.min(W/10,22)}px Outfit`;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(Nav.facility?.name?.toUpperCase()||'FACILITY MAP',W/2,H/2);
 }
 
 /* ── MAP EVENTS ── */
@@ -1475,6 +1485,34 @@ window.addEventListener('DOMContentLoaded',()=>{
   document.querySelector('.aich-head').insertAdjacentHTML('beforeend',
     '<button onclick="Nav.voiceEnabled=!Nav.voiceEnabled;toast(Nav.voiceEnabled?\'🔊\':\'🔇\',Nav.voiceEnabled?\'Voice ON\':\'Voice OFF\')" style="padding:5px 10px;border-radius:8px;border:1px solid var(--rim);background:rgba(6,182,212,.1);border-color:rgba(6,182,212,.25);color:var(--cyan);font-family:var(--f);font-size:11px;font-weight:600;cursor:pointer;margin-left:6px">🔊 Voice</button>'
   );
+  // Show saved facilities from localStorage
+  (function showRecentFacs(){
+    try{
+      const facs=JSON.parse(localStorage.getItem('wp_v3')||'{}');
+      const ids=Object.keys(facs).filter(id=>facs[id]?.name||facs[id]?.nodes?.length||facs[id]?.floors?.length);
+      const box=document.getElementById('recentFacs');
+      if(!box||!ids.length)return;
+      box.style.display='block';
+      box.innerHTML=`<div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:6px">Saved on this device</div>`+
+        ids.map(id=>{
+          const f=facs[id];
+          const nodes=f.floors?f.floors.reduce((s,fl)=>s+(fl.nodes?.length||0),0):(f.nodes?.length||0);
+          return`<div onclick="document.getElementById('fidInp').value='${id}';enterFac()"
+            style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:11px;
+            background:var(--bg3);border:1px solid var(--rim);cursor:pointer;margin-bottom:5px;
+            transition:all .15s" onmouseover="this.style.borderColor='rgba(99,102,241,.4)'"
+            onmouseout="this.style.borderColor='var(--rim)'">
+            <span style="font-size:18px">🏢</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name||'Unnamed'}</div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">${id} · ${nodes} nodes</div>
+            </div>
+            <span style="font-size:11px;color:var(--a2);font-weight:700">→</span>
+          </div>`;
+        }).join('');
+    }catch(e){}
+  })();
+
   // Auto-configure from URL params
   // URL format: indoor-nav.html?fid=ABC123&fb=BASE64_FIREBASE_CONFIG
   const p=new URLSearchParams(location.search);
@@ -1502,11 +1540,4 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
 </script>
 </body>
-</html>async function fetchFromFirebase(facId){
-  if(!Nav.fbDb)return null;
-  try{
-    const snap=await Nav.fbDb.collection('facilities').doc(facId).get();
-    if(snap.exists)return snap.data();
-    return null;
-  }catch(e){console.warn('Firestore fetch:',e);return null;}
-}
+</html>

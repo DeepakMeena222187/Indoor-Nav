@@ -218,6 +218,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
   <div class="si" id="sn-qr" onclick="gotoTab('qr')"><span class="si-i">📱</span>4. QR Codes</div>
   <div class="si" id="sn-deploy" onclick="gotoTab('deploy')"><span class="si-i">🚀</span>5. Deploy</div>
   <div class="sdiv"></div>
+  <div class="si" id="sn-facilities" onclick="gotoTab('facilities')"><span class="si-i">🗂️</span>Facilities</div>
   <div class="si" onclick="window.open('indoor-nav.html','_blank')"><span class="si-i">📱</span>Client App</div>
 </aside>
 
@@ -228,6 +229,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
   <div class="tab" id="tab-connect" onclick="gotoTab('connect')">🔗 Floor Links</div>
   <div class="tab" id="tab-qr" onclick="gotoTab('qr')">📱 QR</div>
   <div class="tab" id="tab-deploy" onclick="gotoTab('deploy')">🚀 Deploy</div>
+  <div class="tab" id="tab-facilities" onclick="gotoTab('facilities')">🗂️ Facilities</div>
 </div>
 
 <!-- SETUP -->
@@ -332,7 +334,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
       <canvas id="fc"></canvas>
       <button class="grid-btn" id="gridBtn" onclick="toggleGrid()">⊞ Grid: OFF</button>
       <button class="grid-btn" id="debugToggle" onclick="toggleDebug()" style="right:52px" title="Show skeleton overlay">🔬 Debug: OFF</button>
-      <div class="ch" id="ch">Select — click to edit, drag to move</div>
+      <div class="ch" id="ch">Select — click to edit, drag to move | Q=Corridor W=Junction E=Door R=Room T=Stairs V=Lift L=Link D=Del Space=Toggle</div>
       <div id="activeTypeHint" style="position:absolute;top:52px;left:50%;transform:translateX(-50%);
         display:none;background:rgba(9,12,21,.9);border:1px solid rgba(99,102,241,.4);
         border-radius:9px;padding:5px 14px;font-size:12px;font-weight:700;color:var(--a2);
@@ -349,87 +351,76 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
     </div>
     <div class="esb">
 
-      <!-- Stats row -->
+      <!-- Stats -->
       <div class="stats">
         <div class="sb"><div class="sv" id="sn">0</div><div class="sk">Nodes</div></div>
         <div class="sb"><div class="sv" id="se">0</div><div class="sk">Edges</div></div>
         <div class="sb"><div class="sv" id="sv" style="color:var(--amber)">—</div><div class="sk">Valid</div></div>
       </div>
 
-      <!-- ── NODE PLACEMENT PANEL ── -->
+      <!-- ── NODE TYPE PALETTE ── -->
       <div class="es">
-        <div class="el">Place Node As</div>
-        <!-- Type picker — shows before placing; also updates selected node -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px" id="placerGrid"></div>
-        <div style="background:var(--bg3);border:1px solid var(--rim);border-radius:8px;padding:7px 9px;font-size:11px;color:var(--t2);line-height:1.7">
-          Active: <strong id="activePlaceType" style="color:var(--a2)">Junction</strong><br>
-          <span style="color:var(--t3)">Click map in Node mode to place</span>
-        </div>
+        <div class="el">Place Node As — <span style="color:var(--a2)" id="activePlaceType">Corridor</span></div>
+        <div id="typePalette" style="display:flex;flex-direction:column;gap:5px"></div>
       </div>
 
       <!-- ── SELECTED NODE EDITOR ── -->
+      <div class="ne" id="ne">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:9px">
+          <div id="neColorDot" style="width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0"></div>
+          <span style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--t3)">SELECTED NODE</span>
+          <div class="ne-btns" style="margin:0;margin-left:auto">
+            <button class="ne-btn ne-del" onclick="delSelNode()" style="padding:4px 8px">🗑</button>
+          </div>
+        </div>
+        <div class="nr" style="margin-bottom:8px">
+          <input class="ni2" id="nelbl" placeholder="Label (e.g. Room 101)" style="font-size:13px;font-weight:600" onchange="nodeChange()"/>
+        </div>
+        <!-- Compact type grid for selected node -->
+        <div id="typeGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:8px"></div>
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+          <span style="font-size:10px;color:var(--t3);white-space:nowrap">Weight</span>
+          <input type="range" min="1" max="10" step="0.5" value="1" id="neWeight" style="flex:1;accent-color:var(--accent)" oninput="document.getElementById('neWeightVal').textContent=this.value;nodeChange()">
+          <span id="neWeightVal" style="font-family:var(--mono);font-size:11px;color:var(--a2);min-width:22px;text-align:right">1</span>
+        </div>
+        <!-- Edge manager for selected node -->
+        <div style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:5px">CONNECTIONS</div>
+        <div id="nodeEdgesList" style="display:flex;flex-direction:column;gap:3px;max-height:100px;overflow-y:auto;margin-bottom:8px"></div>
+        <div style="display:flex;gap:5px">
+          <button class="ne-btn ne-save" onclick="saveNode()" style="flex:1">💾 Save</button>
+          <button onclick="setTool('edge');A.edgeFrom=A.sel;updateEdgePanelFrom(A.sel)" style="flex:1;padding:5px;border-radius:7px;border:1px solid rgba(99,102,241,.28);background:rgba(99,102,241,.1);color:var(--a2);font-family:var(--f);font-size:11.5px;font-weight:600;cursor:pointer">🔗 Link</button>
+        </div>
+      </div>
+      <div class="no-sel" id="noSel">Click a node to edit</div>
+
+      <!-- Scale info -->
+      <div class="es" style="margin-top:6px">
+        <div class="cal-bar"><div class="cal-row">📏 <span id="calInfo" style="font-family:var(--mono);font-size:10px;color:var(--a2)">—</span></div></div>
+      </div>
+
+      <!-- Node list with filter -->
       <div class="es">
-        <div class="el">Selected Node</div>
-        <div class="ne" id="ne">
-          <div class="nr">
-            <span class="nl">Label</span>
-            <input class="ni2" id="nelbl" placeholder="e.g. Patient Room 1" onchange="nodeChange()"/>
-          </div>
-          <div class="nr">
-            <span class="nl">Type</span>
-            <div class="tg" id="typeGrid"></div>
-          </div>
-          <div class="nr">
-            <span class="nl">Cost Weight <span style="color:var(--t3);font-weight:400">(stairs=5, lift=3, corridor=1)</span></span>
-            <div class="w-row">
-              <input type="range" min="1" max="10" step="0.5" value="1" id="neWeight" oninput="document.getElementById('neWeightVal').textContent=this.value;nodeChange()">
-              <span id="neWeightVal" style="font-family:var(--mono);font-size:11px;color:var(--a2);min-width:20px">1</span>
-            </div>
-          </div>
-          <div class="ne-btns">
-            <button class="ne-btn ne-save" onclick="saveNode()">💾 Save</button>
-            <button class="ne-btn ne-del" onclick="delSelNode()">🗑 Del</button>
-          </div>
-        </div>
-        <div class="no-sel" id="noSel">Click a node to select & edit</div>
-      </div>
-
-      <!-- ── LINK / EDGE PANEL ── -->
-      <div class="es" id="linkPanel" style="display:none">
-        <div class="el">🔗 Linking Nodes</div>
-        <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);border-radius:9px;padding:9px 11px;font-size:11.5px;line-height:1.9">
-          <div style="color:var(--t2)">Step 1: <strong style="color:var(--t1)" id="linkStep1">Click first node</strong></div>
-          <div style="color:var(--t2)">Step 2: <strong style="color:var(--t1)" id="linkStep2">—</strong></div>
-          <div style="margin-top:6px;color:var(--t3);font-size:10.5px">Click same node again to cancel</div>
-        </div>
-        <div id="fromNodeBadge" style="display:none;margin-top:7px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:8px;padding:8px 10px;font-size:12px">
-          From: <strong id="fromNodeName" style="color:var(--green)">—</strong>
-        </div>
-        <button onclick="A.edgeFrom=null;document.getElementById('fromNodeBadge').style.display='none';document.getElementById('linkStep1').textContent='Click first node';document.getElementById('linkStep2').textContent='—';document.getElementById('ch').textContent='Edge mode: click first node';" style="width:100%;margin-top:8px;padding:7px;border-radius:8px;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.08);color:var(--red);font-family:var(--f);font-size:12px;font-weight:600;cursor:pointer">✕ Cancel Link</button>
-      </div>
-
-      <!-- ── EDGES OF SELECTED NODE ── -->
-      <div class="es" id="nodeEdgesPanel" style="display:none">
-        <div class="el">Connected Edges</div>
-        <div id="nodeEdgesList" style="display:flex;flex-direction:column;gap:3px;max-height:110px;overflow-y:auto"></div>
-      </div>
-
-      <!-- ── CALIBRATION ── -->
-      <div class="es">
-        <div class="el">Scale</div>
-        <div class="cal-bar">
-          <div class="cal-row">📏 <span id="calInfo" style="font-family:var(--mono);font-size:10px;color:var(--a2)">—</span></div>
-        </div>
-      </div>
-
-      <!-- ── NODE LIST ── -->
-      <div class="es">
-        <div class="el">All Nodes (<span id="nlc">0</span>)</div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px" id="filterRow"></div>
+        <div class="el">Nodes (<span id="nlc">0</span>) <span id="filterActive" style="color:var(--amber);font-size:9px"></span></div>
+        <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px" id="filterRow"></div>
         <div class="nl2" id="nl2"></div>
       </div>
     </div>
   </div>
+</div>
+
+<!-- FACILITIES MANAGER -->
+<div class="pane" id="pane-facilities" style="flex-direction:column">
+<div class="sp">
+  <div class="card" style="max-width:900px">
+    <div class="ct" style="justify-content:space-between">
+      <span>🗂️ All Facilities</span>
+      <button onclick="refreshFacList()" style="padding:5px 12px;border-radius:8px;border:1px solid var(--rim);background:var(--bg3);color:var(--t2);font-family:var(--f);font-size:12px;cursor:pointer">🔄 Refresh</button>
+    </div>
+    <p style="font-size:12px;color:var(--t2);margin-bottom:14px;line-height:1.7">All facilities saved in this browser. Click to load, or delete.</p>
+    <div id="facListGrid" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div id="facListEmpty" style="font-size:13px;color:var(--t3);padding:20px;text-align:center">No facilities saved yet.</div>
+  </div>
+</div>
 </div>
 
 <!-- FLOOR LINKS -->
@@ -476,14 +467,15 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
     <button class="btn btn-green" style="margin-bottom:8px" onclick="doPublish()">🚀 Deploy to Firebase Firestore</button>
     <button class="btn btn-ghost" onclick="exportJSON()">⬇️ Download JSON Backup</button>
     <div id="depStatus" style="display:none;margin-top:12px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:16px">
-      <div style="font-size:14px;font-weight:800;color:var(--green);margin-bottom:6px">✅ Live on Firebase!</div>
-      <div style="font-size:12px;color:var(--t2);line-height:2;margin-bottom:12px">
-        Facility ID: <strong id="depFid" style="color:var(--a2);font-family:var(--mono);font-size:18px;letter-spacing:2px">—</strong><br>
-        Anyone with this ID can load your map from <strong style="color:var(--t1)">any device, anywhere</strong>.
+      <div style="font-size:14px;font-weight:800;color:var(--green);margin-bottom:10px">✅ Deployed to Firebase!</div>
+      <div style="background:var(--bg3);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:3px;letter-spacing:1px">FACILITY ID</div>
+          <div id="depFid" style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--a2);letter-spacing:3px">—</div>
+        </div>
+        <button onclick="copyDepId()" style="padding:8px 14px;border-radius:9px;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.12);color:var(--a2);font-family:var(--f);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">📋 Copy ID</button>
       </div>
-      <button onclick="copyNavURL()" style="width:100%;padding:12px;border-radius:11px;border:none;background:linear-gradient(135deg,var(--accent),#4F46E5);color:#fff;font-family:var(--f);font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(99,102,241,.4)">
-        🔗 Copy Client App Link
-      </button>
+      <div style="font-size:11.5px;color:var(--t2);margin-top:10px;line-height:1.7">Share this ID with visitors → they open the <strong style="color:var(--t1)">Client App</strong> → enter ID → navigate</div>
     </div>
   </div>
   <div class="card">
@@ -522,16 +514,35 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f);
 
 /* ── ENHANCED NODE + EDGE MODEL ── */
 const TYPES=[
-  {v:'entrance',l:'Entrance',c:'#10B981',i:'🚪',w:1},
-  {v:'exit',    l:'Exit',    c:'#EF4444',i:'🚪',w:1},
-  {v:'corridor',l:'Corridor',c:'#6366F1',i:'🛣️',w:1},
-  {v:'room',    l:'Room',    c:'#06B6D4',i:'🏠',w:1},
-  {v:'stairs',  l:'Stairs',  c:'#F59E0B',i:'🪜',w:5},  // penalty
-  {v:'elevator',l:'Elevator',c:'#8B5CF6',i:'🛗',w:3},
-  {v:'toilet',  l:'Toilet',  c:'#EC4899',i:'🚻',w:1},
-  {v:'poi',     l:'POI',     c:'#F97316',i:'⭐',w:1},
-  {v:'junction',l:'Junction',c:'#94A3B8',i:'✦',w:1},
+  // Navigation spine
+  {v:'corridor', l:'Corridor',   c:'#6366F1',i:'●',w:1,  cat:'nav'},
+  {v:'junction', l:'Junction',   c:'#818CF8',i:'✦',w:1,  cat:'nav'},
+  {v:'door',     l:'Door',       c:'#06B6D4',i:'🚪',w:1, cat:'nav'},
+  // Entry/Exit
+  {v:'entrance', l:'Entrance',   c:'#10B981',i:'🟢',w:1, cat:'entry'},
+  {v:'exit',     l:'Exit',       c:'#EF4444',i:'🔴',w:1, cat:'entry'},
+  // Rooms
+  {v:'room',     l:'Room',       c:'#0EA5E9',i:'🏠',w:1, cat:'room'},
+  {v:'ward',     l:'Ward',       c:'#0284C7',i:'🛏️',w:1, cat:'room'},
+  {v:'icu',      l:'ICU',        c:'#DC2626',i:'🏥',w:1, cat:'room'},
+  {v:'office',   l:'Office',     c:'#7C3AED',i:'🏢',w:1, cat:'room'},
+  {v:'reception',l:'Reception',  c:'#9333EA',i:'💼',w:1, cat:'room'},
+  // Facilities
+  {v:'toilet',   l:'Toilet',     c:'#EC4899',i:'🚻',w:1, cat:'facility'},
+  {v:'pharmacy', l:'Pharmacy',   c:'#84CC16',i:'💊',w:1, cat:'facility'},
+  {v:'cafeteria',l:'Cafeteria',  c:'#F97316',i:'🍽️',w:1,cat:'facility'},
+  {v:'waiting',  l:'Waiting',    c:'#F59E0B',i:'🪑',w:1, cat:'facility'},
+  {v:'poi',      l:'POI',        c:'#F97316',i:'⭐',w:1, cat:'facility'},
+  // Vertical
+  {v:'stairs',   l:'Stairs',     c:'#F59E0B',i:'🪜',w:5, cat:'vertical'},
+  {v:'elevator', l:'Elevator',   c:'#8B5CF6',i:'🛗',w:3, cat:'vertical'},
+  {v:'ramp',     l:'Ramp',       c:'#A78BFA',i:'♿',w:2, cat:'vertical'},
+  // Emergency
+  {v:'emergency',l:'Emergency',  c:'#EF4444',i:'🚨',w:1, cat:'emergency'},
+  {v:'fire_exit',l:'Fire Exit',  c:'#FF6B35',i:'🔥',w:1, cat:'emergency'},
+  {v:'assembly', l:'Assembly Pt',c:'#FCD34D',i:'🔶',w:1, cat:'emergency'},
 ];
+const TYPE_CATS={nav:'Navigation',entry:'Entry/Exit',room:'Rooms',facility:'Facilities',vertical:'Vertical',emergency:'Emergency'};
 
 /* ── STATE ── */
 const A={
@@ -634,8 +645,15 @@ async function connectFB(silent=false){
     setFBStatus('ok','Firebase ✓');
     if(!silent)toast('🔥','Firebase connected!','ok');
   }catch(e){
-    A.fbOk=false;setFBStatus('off','Failed: '+e.message.slice(0,30));
-    if(!silent)toast('❌',e.message.slice(0,60),'err');
+    A.fbOk=false;
+    const msg=e.message||'Unknown error';
+    const hint=msg.includes('not defined')||msg.includes('firebase')?
+      'Firebase SDK not loaded — check internet' :
+      msg.includes('permission')||msg.includes('PERMISSION')?
+      'Firestore rules blocked write — set rules to allow read,write:if true' :
+      msg.slice(0,50);
+    setFBStatus('off','Failed');
+    if(!silent)toast('❌',hint,'err');
     console.error('Firebase error:',e);
   }
 }
@@ -855,7 +873,13 @@ async function runAI(){
     if(!A.imgEl&&A.floorB64){await new Promise(r=>{loadImgEl(A.floorB64);setTimeout(r,700);});}
     if(!A.imgEl)throw new Error('Could not load floor plan image. Try re-uploading.');
     if(!A.imgW||!A.imgH){A.imgW=800;A.imgH=600;}
-    const cg=await buildCorridorGraph(A.imgEl,A.imgW,A.imgH,log,setP);
+    // Convert sensitivity radio to wall threshold
+    // sens=60 (light walls) → walls are grey → higher threshold catches them
+    // sens=120 (normal)     → typical black walls
+    // sens=180 (dark walls) → only very dark pixels are walls
+    const sensVal=parseInt(document.querySelector('input[name="sens"]:checked')?.value||'120');
+    const wallThresh=sensVal===60?160:sensVal===180?75:110;
+    const cg=await buildCorridorGraph(A.imgEl,A.imgW,A.imgH,log,setP,wallThresh);
     const{W,H,clustered:spineNodes,hasLOS,snapToCorridor}=cg;
     A._debug=cg.debugData;
     log('Corridor skeleton ready — using skeleton snap for room labels','ok');setP(20);await tick();
@@ -986,7 +1010,7 @@ Return 8-25 items.`;
     /* Phase 4: Wall-aware edges — k=3 nearest, max 4 per node */
     log('Phase 4: Wall-aware edges (k=3, max 4 per node)…');setP(84);await tick();
 
-    const MAX_CONN=4, K=3, MAX_WX=22;
+    const MAX_CONN=4, K=3, MAX_WX=14; // ~2.8m max edge at hospital scale
     const edges=[];const eSet=new Set();
 
     for(let i=0;i<nodes.length;i++){
@@ -1102,7 +1126,90 @@ function clearDebugOverlay(){if(_debugCanvas){_debugCanvas.getContext('2d').clea
 ═══════════════════════════════════════════════════════════ */
 
 /* ── SHARED CORRIDOR BUILDER (used by both runLocal and runAI) ── */
-async function buildCorridorGraph(imgEl, imgW, imgH, log, setP){
+/* ── DOOR DETECTION ──────────────────────────────────────
+   Scans for wall gaps (3–9px) in both axes.
+   For each gap: places a node at the threshold position
+   (1-2px inside the corridor side of the gap).
+   Returns array of {x, y, axis, width} in work-grid coords.
+───────────────────────────────────────────────────────── */
+function detectDoors(wallMask, interior, dist, W, H, bboxLeft, bboxTop, bboxRight, bboxBottom){
+  const raw=[];
+
+  // Horizontal wall scan: find column gaps in each row
+  for(let y=bboxTop+2;y<bboxBottom-2;y++){
+    let i=bboxLeft;
+    while(i<bboxRight-1){
+      if(!wallMask[y*W+i]){i++;continue;}
+      // Skip wall pixels
+      let we=i;while(we<bboxRight&&wallMask[y*W+we])we++;
+      // Scan gap
+      let gs=we;while(gs<bboxRight&&!wallMask[y*W+gs])gs++;
+      const gapW=gs-we;
+      const hasRightWall=gs<bboxRight&&wallMask[y*W+gs];
+      if(hasRightWall&&gapW>=3&&gapW<=9){
+        const mx=(we+gs)>>1;
+        // Check both sides are interior
+        const abOk=y>1&&interior[(y-2)*W+mx];
+        const belOk=y<H-2&&interior[(y+2)*W+mx];
+        if(abOk||belOk){
+          // Place on the side with lower dist = corridor side
+          const da=abOk?dist[(y-2)*W+mx]:0;
+          const db=belOk?dist[(y+2)*W+mx]:0;
+          const bestY=(da>0&&(da<=db||db===0))?(y-2):(y+2);
+          if(bestY>=0&&bestY<H&&interior[bestY*W+mx]&&dist[bestY*W+mx]>=1.5)
+            raw.push({x:mx,y:bestY,w:gapW,axis:'H'});
+        }
+      }
+      i=gs>i?gs:i+1;
+    }
+  }
+
+  // Vertical wall scan: find row gaps in each column
+  for(let x=bboxLeft+2;x<bboxRight-2;x++){
+    let i=bboxTop;
+    while(i<bboxBottom-1){
+      if(!wallMask[i*W+x]){i++;continue;}
+      let we=i;while(we<bboxBottom&&wallMask[we*W+x])we++;
+      let gs=we;while(gs<bboxBottom&&!wallMask[gs*W+x])gs++;
+      const gapW=gs-we;
+      const hasBotWall=gs<bboxBottom&&wallMask[gs*W+x];
+      if(hasBotWall&&gapW>=3&&gapW<=9){
+        const my=(we+gs)>>1;
+        const lOk=x>1&&interior[my*W+(x-2)];
+        const rOk=x<W-2&&interior[my*W+(x+2)];
+        if(lOk||rOk){
+          const dl=lOk?dist[my*W+(x-2)]:0;
+          const dr=rOk?dist[my*W+(x+2)]:0;
+          const bestX=(dl>0&&(dl<=dr||dr===0))?(x-2):(x+2);
+          if(bestX>=0&&bestX<W&&interior[my*W+bestX]&&dist[my*W+bestX]>=1.5)
+            raw.push({x:bestX,y:my,w:gapW,axis:'V'});
+        }
+      }
+      i=gs>i?gs:i+1;
+    }
+  }
+
+  // Cluster duplicates within 8px radius
+  const used=new Uint8Array(raw.length);
+  const clustered=[];
+  for(let i=0;i<raw.length;i++){
+    if(used[i])continue;
+    used[i]=1;
+    let gx=raw[i].x,gy=raw[i].y,cnt=1;
+    for(let j=i+1;j<raw.length;j++){
+      if(used[j])continue;
+      if(Math.abs(raw[j].x-raw[i].x)<=8&&Math.abs(raw[j].y-raw[i].y)<=8){
+        gx+=raw[j].x;gy+=raw[j].y;cnt++;used[j]=1;
+      }
+    }
+    const fx=(gx/cnt)|0, fy=(gy/cnt)|0;
+    if(interior[fy*W+fx]&&dist[fy*W+fx]>=1.5)
+      clustered.push({x:fx,y:fy,w:raw[i].w,axis:raw[i].axis});
+  }
+  return clustered;
+}
+
+async function buildCorridorGraph(imgEl, imgW, imgH, log, setP, wallThresh=110){
   /* ════════════════════════════════════════════════════════
      PIPELINE v7 — Bounding Box + Calibrated Thresholds
      ────────────────────────────────────────────────────────
@@ -1119,9 +1226,9 @@ async function buildCorridorGraph(imgEl, imgW, imgH, log, setP){
      4. interior = inside bbox + not wall
      5. Distance transform on interior
      6. Classify: 3–7px = corridor, <3 = near-wall, >7 = room
-     7. Ridges = strict 4-directional local max + dist ≥ 4
-     8. Zhang-Suen thin ridges → centerlines
-     9. Sample nodes every 20px + junctions
+     7. Skeletonize corridorMask directly (Zhang-Suen)
+        — no ridge pre-filter (kills flat corridors)
+     8. Sample nodes at junctions + every 20px along skeleton
     10. isValidNode: interior + dist 3–7
     11. Edges: 4× LOS + dist≥3 clearance
   ════════════════════════════════════════════════════════ */
@@ -1137,9 +1244,10 @@ async function buildCorridorGraph(imgEl, imgW, imgH, log, setP){
   log('Rasterized');setP(4);await tick();
 
   // ── 2. Wall mask ──
-  const WALL_THRESH=110;
+  // wallThresh passed from caller — adapts to image type
   const wallMask=new Uint8Array(W*H);
-  for(let i=0;i<W*H;i++)wallMask[i]=gray[i]<WALL_THRESH?1:0;
+  for(let i=0;i<W*H;i++)wallMask[i]=gray[i]<wallThresh?1:0;
+  log(`Wall threshold: ${wallThresh} (${wallThresh<90?'dark walls':wallThresh>140?'light walls':'normal'})`);
 
   // ── 3. Building bounding box (replaces flood fill) ──
   // Find outermost rows/cols that contain wall pixels
@@ -1150,8 +1258,9 @@ async function buildCorridorGraph(imgEl, imgW, imgH, log, setP){
       if(x<bboxLeft)bboxLeft=x;if(x>bboxRight)bboxRight=x;
     }
   }
-  // Add 1px inset margin to exclude the boundary wall itself
-  const MARGIN=1;
+  // 3px inset — excludes boundary wall + 2px safety buffer
+  // Prevents nodes appearing just outside the building edge
+  const MARGIN=3;
   bboxTop+=MARGIN;bboxBottom-=MARGIN;bboxLeft+=MARGIN;bboxRight-=MARGIN;
   log(`Bounding box: x=${bboxLeft}-${bboxRight} y=${bboxTop}-${bboxBottom}`);setP(12);await tick();
 
@@ -1185,30 +1294,22 @@ async function buildCorridorGraph(imgEl, imgW, imgH, log, setP){
   }
   log(`Distance transform done`);setP(28);await tick();
 
-  // ── 7. Classify: corridor = 3–7px, rooms = >7px ──
-  // Calibrated from histogram: corridors peak 3-7, rooms 8-13
-  const CORR_MIN=3.0, CORR_MAX=7.0, RIDGE_MIN=4.0;
+  // ── 7. Walkable band: 2–10px from wall ──
+  // Measured on hospital map: corridors 3-7px, open areas (nurses station) up to 10px
+  // Rooms max at 11-13px — safe upper bound is 10px
+  const CORR_MIN=2.0, CORR_MAX=10.0;
   const corridorMask=new Uint8Array(W*H);
   for(let i=0;i<W*H;i++){
     if(interior[i]&&dist[i]>=CORR_MIN&&dist[i]<=CORR_MAX)corridorMask[i]=1;
   }
   const cpx=corridorMask.reduce((s,v)=>s+v,0);
-  log(`Corridor mask: ${cpx} px (dist ${CORR_MIN}–${CORR_MAX})`,'ok');setP(36);await tick();
+  log(`Walkable mask: ${cpx} px (dist ${CORR_MIN}–${CORR_MAX})`,'ok');setP(36);await tick();
 
-  // ── 8. Ridge extraction — strict 4-directional + min dist ──
-  const ridgeMask=new Uint8Array(W*H);
-  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
-    if(!corridorMask[y*W+x])continue;
-    const d=dist[y*W+x];
-    if(d<RIDGE_MIN)continue;
-    // Strict: must beat ALL 4 axis-aligned neighbours
-    if(d>dist[y*W+x-1]&&d>dist[y*W+x+1]&&d>dist[(y-1)*W+x]&&d>dist[(y+1)*W+x])
-      ridgeMask[y*W+x]=1;
-  }
-  log(`Ridges: ${ridgeMask.reduce((s,v)=>s+v,0)} px`);setP(44);await tick();
-
-  // ── 9. Zhang-Suen thinning ──
-  const skel=new Uint8Array(ridgeMask);
+  // ── 8. Skeletonize corridor mask directly ──
+  // KEY FIX: no ridge pre-filter — it kills flat corridors where neighbors are equal.
+  // Instead, run Zhang-Suen directly on the full corridorMask.
+  // This produces a 1px-wide centerline for EVERY corridor segment.
+  const skel=new Uint8Array(corridorMask);
   function ZSiter(pass){
     const rm=[];
     for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
@@ -1229,7 +1330,13 @@ async function buildCorridorGraph(imgEl, imgW, imgH, log, setP){
   }
   let iters=0,ch=1;while(ch&&iters<80){ch=ZSiter(1)+ZSiter(2);iters++;}
   const skelCorridor=skel;
-  log(`Skeleton: ${iters} iter, ${skel.reduce((s,v)=>s+v,0)} px`,'ok');setP(56);await tick();
+  log(`Skeleton: ${iters} iter, ${skel.reduce((s,v)=>s+v,0)} px`,'ok');setP(50);await tick();
+
+  // ── 9b. Detect door threshold nodes ──
+  // Scan wall gaps 3-9px → place node at corridor side of each door
+  const MARGIN_VAL=bboxTop; // reuse bbox vars
+  const doorNodes=detectDoors(wallMask,interior,dist,W,H,bboxLeft,bboxTop,bboxRight,bboxBottom);
+  log(`Door detection: ${doorNodes.length} door thresholds found`,'ok');await tick();
 
   // ── 10. isValidNode ──
   function isValidNode(wx,wy){
@@ -1237,7 +1344,9 @@ async function buildCorridorGraph(imgEl, imgW, imgH, log, setP){
     if(x<1||x>=W-1||y<1||y>=H-1)return false;
     if(outsideMask[y*W+x])return false;
     const d=dist[y*W+x];
-    return interior[y*W+x]&&d>=CORR_MIN&&d<=CORR_MAX;
+    // Must be inside building interior, dist ≥ 2 (not hugging walls)
+    // dist ≤ 10 excludes room centers (>11px) but allows open corridors
+    return interior[y*W+x]&&!outsideMask[y*W+x]&&d>=2.0&&d<=10.0;
   }
 
   // ── 11. Junctions + endpoints ──
@@ -1303,7 +1412,18 @@ async function buildCorridorGraph(imgEl, imgW, imgH, log, setP){
     const fx=sx/cnt,fy=sy/cnt;
     if(isValidNode(fx,fy))clustered.push({x:fx,y:fy,d:c.d,isJunction:c.priority>=8});
   }
-  log(`${clustered.length} nodes in corridor zone`,'ok');setP(82);await tick();
+  log(`${clustered.length} corridor spine nodes`,'ok');setP(82);await tick();
+
+  // Add door threshold nodes to clustered list
+  // These become type='door_junction' and connect to nearest corridor spine node
+  doorNodes.forEach(d=>{
+    // Only add if not already too close to a spine node
+    const nearSpine=clustered.some(c=>Math.hypot(c.x-d.x,c.y-d.y)<10);
+    if(!nearSpine&&interior[Math.round(d.y)*W+Math.round(d.x)]){
+      clustered.push({x:d.x,y:d.y,d:dist[d.y*W+d.x],isJunction:false,isDoor:true});
+    }
+  });
+  log(`Total nodes: ${clustered.length} (spine + ${doorNodes.length} door thresholds)`,'ok');
 
   // ── LOS: 4× supersampled + clearance ──
   function hasLOS(ax,ay,bx,by){
@@ -1313,7 +1433,7 @@ async function buildCorridorGraph(imgEl, imgW, imgH, log, setP){
       const py2=Math.round(ay+(by-ay)*t/steps);
       if(px2<0||px2>=W||py2<0||py2>=H)return false;
       const i=py2*W+px2;
-      if(wallMask[i]||outsideMask[i]||!interior[i]||dist[i]<2.5)return false;
+      if(wallMask[i]||outsideMask[i]||!interior[i]||dist[i]<2.0)return false;
     }
     return true;
   }
@@ -1410,7 +1530,13 @@ async function runLocal(){
     if(!A.imgW||!A.imgH){A.imgW=800;A.imgH=600;}
 
     log('Running corridor detection pipeline…');setP(4);
-    const cg=await buildCorridorGraph(A.imgEl,A.imgW,A.imgH,log,setP);
+    // Convert sensitivity radio to wall threshold
+    // sens=60 (light walls) → walls are grey → higher threshold catches them
+    // sens=120 (normal)     → typical black walls
+    // sens=180 (dark walls) → only very dark pixels are walls
+    const sensVal=parseInt(document.querySelector('input[name="sens"]:checked')?.value||'120');
+    const wallThresh=sensVal===60?160:sensVal===180?75:110;
+    const cg=await buildCorridorGraph(A.imgEl,A.imgW,A.imgH,log,setP,wallThresh);
     const{W,H,clustered,hasLOS,snapToCorridor,isValidNode}=cg;
     const scx=A.imgW/W,scy=A.imgH/H;
     const mpp=A.calibration.mpp||0.033;
@@ -1429,14 +1555,16 @@ async function runLocal(){
       const onEdge=rx<0.09||rx>0.91||ry<0.05||ry>0.93;
       const corner=(rx<0.12||rx>0.88)&&(ry<0.12||ry>0.88);
       let type,label,weight=1;
-      if(corner&&i%5===0){type='stairs';label='Stairs';weight=5;}
+      // Door threshold nodes
+      if(c.isDoor){type='junction';label='Junction';}
+      // Perimeter special nodes
+      else if(corner&&i%5===0){type='stairs';label='Stairs';weight=5;}
       else if(corner&&i%5===1){type='elevator';label='Elevator';weight=3;}
       else if(onEdge&&i===0){type='entrance';label='Main Entrance';}
       else if(onEdge&&i===clustered.length-1){type='exit';label='Exit';}
       else if(onEdge){type='entrance';label='Entrance';}
+      // Corridor nodes
       else if(c.isJunction){type='junction';label='Junction';}
-      else if(ri<ROOM_N.length&&i%4===0){type='room';label=ROOM_N[ri++];}
-      else if(pi<POI_N.length&&i%6===0){type='poi';label=POI_N[pi++];}
       else{type='corridor';label='Corridor';}
       return{id:`n${i+1}`,x:c.x*scx,y:c.y*scy,label,type,floor:A.curFloor,weight,connections:[],_wx:Math.round(c.x),_wy:Math.round(c.y)};
     });
@@ -1477,12 +1605,25 @@ async function runLocal(){
       }
     }
 
-    // Ensure all nodes are connected
+    // Force-connect door nodes to nearest corridor/junction spine node
     nodes.forEach(n=>{
-      if(!edges.some(e=>e.from===n.id||e.to===n.id)){
+      // Door nodes must connect to at least one corridor spine node
+      const isDoor=clustered.find(c=>Math.round(c.x*scx)===Math.round(n.x)&&Math.round(c.y*scy)===Math.round(n.y)&&c.isDoor);
+      const needsConn=isDoor||!edges.some(e=>e.from===n.id||e.to===n.id);
+      if(needsConn){
+        // Find nearest corridor/junction (not another door)
+        const candidates=nodes.filter(m=>m.id!==n.id&&m.type==='corridor'||m.type==='junction'&&!clustered.find(c=>Math.round(c.x*scx)===Math.round(m.x)&&c.isDoor));
         let best=null,bd=Infinity;
-        nodes.forEach(m=>{if(m.id===n.id||m.connections.length>=MAX_CONN)return;const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);if(d<bd){bd=d;best=m;}});
-        if(best){
+        candidates.forEach(m=>{
+          if(m.connections.length>=MAX_CONN)return;
+          const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);
+          if(d<bd&&d<30){bd=d;best=m;}
+        });
+        if(!best){
+          // Fallback: any nearest node
+          nodes.forEach(m=>{if(m.id===n.id||m.connections.length>=MAX_CONN)return;const d=Math.hypot(n._wx-m._wx,n._wy-m._wy);if(d<bd){bd=d;best=m;}});
+        }
+        if(best&&!edges.some(e=>(e.from===n.id&&e.to===best.id)||(e.from===best.id&&e.to===n.id))){
           const dPx=Math.hypot(n.x-best.x,n.y-best.y);
           edges.push({from:n.id,to:best.id,dist:dPx,distMeters:dPx*mpp,type:'walk',bidirectional:true});
           n.connections.push(best.id);best.connections.push(n.id);
@@ -1760,6 +1901,44 @@ function recalcEdgeDists(){
   const mpp=A.calibration.mpp||0.033;
   A.edges.forEach(e=>{const f=A.nodes.find(n=>n.id===e.from),t=A.nodes.find(n=>n.id===e.to);if(f&&t){e.dist=Math.hypot(f.x-t.x,f.y-t.y);e.distMeters=e.dist*mpp;}});
 }
+
+function updateEdgePanel(n){
+  const list=document.getElementById('nodeEdgesList');if(!list)return;
+  const myEdges=A.edges.filter(e=>e.from===n.id||e.to===n.id);
+  if(!myEdges.length){list.innerHTML='<div style="font-size:11px;color:var(--t3);padding:3px">No connections yet — use 🔗 Link or Edge tool</div>';return;}
+  list.innerHTML=myEdges.map(e=>{
+    const otherId=e.from===n.id?e.to:e.from;
+    const other=A.nodes.find(x=>x.id===otherId);
+    const td=TYPES.find(t=>t.v===other?.type)||TYPES[0];
+    const dist=e.distMeters?(e.distMeters.toFixed(1)+'m'):(e.dist?(e.dist*( A.calibration?.mpp||0.033)).toFixed(1)+'m':'?');
+    return`<div style="display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:7px;
+      background:var(--bg3);border:1px solid var(--rim);font-size:11.5px">
+      <span style="font-size:12px">${td.i}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)">${other?.label||otherId}</span>
+      <span style="font-family:var(--mono);font-size:9.5px;color:var(--t3)">${dist}</span>
+      <button onclick="removeEdge('${e.from}','${e.to}')"
+        style="width:18px;height:18px;border-radius:4px;border:1px solid rgba(239,68,68,.25);
+        background:rgba(239,68,68,.08);color:var(--red);cursor:pointer;font-size:10px;
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">✕</button>
+    </div>`;
+  }).join('');
+}
+function clearEdgePanel(){const l=document.getElementById('nodeEdgesList');if(l)l.innerHTML='';}
+function removeEdge(fromId,toId){
+  pushH();
+  A.edges=A.edges.filter(e=>!(e.from===fromId&&e.to===toId)&&!(e.from===toId&&e.to===fromId));
+  A.nodes.forEach(n=>{n.connections=n.connections.filter(c=>c!==fromId&&c!==toId);});
+  if(A.sel)updateEdgePanel(A.sel);
+  updateStats();draw();saveCur();toast('✂️','Edge removed','ok');
+}
+function updateEdgePanelFrom(n){
+  if(n){
+    document.getElementById('linkStep1').textContent=`From: ${n.label}`;
+    document.getElementById('fromNodeName').textContent=n.label;
+    const fb=document.getElementById('fromNodeBadge');if(fb)fb.style.display='block';
+  }
+}
+
 function selNode(n){
   A.sel=n;
   const ne=document.getElementById('ne'),ns=document.getElementById('noSel');
@@ -1769,24 +1948,11 @@ function selNode(n){
     document.getElementById('nelbl').value=n.label;
     document.getElementById('neWeight').value=n.weight||1;
     document.getElementById('neWeightVal').textContent=n.weight||1;
+    const td2=TYPES.find(t=>t.v===n.type)||TYPES[0];
+    const dot=document.getElementById('neColorDot');if(dot)dot.style.background=td2.c;
     document.querySelectorAll('.to').forEach(o=>o.classList.toggle('on',o.dataset.v===n.type));
-    // Show edges panel
-    const connEdges=A.edges.filter(e=>e.from===n.id||e.to===n.id);
-    if(ep&&connEdges.length){
-      ep.style.display='block';
-      const nm={};A.nodes.forEach(x=>nm[x.id]=x);
-      document.getElementById('nodeEdgesList').innerHTML=connEdges.map((e,i)=>{
-        const other=nm[e.from===n.id?e.to:e.from];
-        const td=TYPES.find(t=>t.v===other?.type)||TYPES[8];
-        const dm=(e.distMeters||0).toFixed(1);
-        return`<div class="edge-item">
-          <span style="color:${td?.c||'#888'}">${td?.i||'•'}</span>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${other?.label||'?'}</span>
-          <span style="font-family:var(--mono);font-size:9px;color:var(--t3)">${dm}m</span>
-          <button onclick="delEdge('${e.from}','${e.to}')">✕</button>
-        </div>`;
-      }).join('');
-    } else if(ep) ep.style.display='none';
+    if(ep)ep.style.display='none';
+    updateEdgePanel(n);
   }else{
     ne.classList.remove('show');ns.style.display='block';
     if(ep)ep.style.display='none';
@@ -1817,32 +1983,55 @@ function setNodeType(v){
   renderNL();draw();
 }
 function buildTypeGrid(){
-  // Placer grid — for choosing type before placing new nodes
-  const pg=document.getElementById('placerGrid');
-  if(pg)pg.innerHTML=TYPES.map(t=>`
-    <div class="placer-btn" id="pb_${t.v}" data-v="${t.v}"
-      style="border-color:${t.c}22;--pc:${t.c}"
-      onclick="setPlacerType('${t.v}')">${t.i} <span>${t.l}</span></div>`).join('');
-  setPlacerType('junction');
-  // Type grid — for editing selected node
-  document.getElementById('typeGrid').innerHTML=TYPES.map(t=>`<div class="to" data-v="${t.v}" onclick="setNodeType('${t.v}')">${t.i} <span style="font-size:10px">${t.l}</span></div>`).join('');
-  // Filter row in node list
+  // ── Grouped type palette for placement ──
+  const pal=document.getElementById('typePalette');
+  if(pal){
+    const cats={};
+    TYPES.forEach(t=>{if(!cats[t.cat])cats[t.cat]=[];cats[t.cat].push(t);});
+    pal.innerHTML=Object.entries(cats).map(([cat,types])=>`
+      <div style="margin-bottom:5px">
+        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1.2px;text-transform:uppercase;
+          color:var(--t3);margin-bottom:4px;padding-left:2px">${TYPE_CATS[cat]||cat}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px">
+          ${types.map(t=>`
+            <div class="placer-btn" data-v="${t.v}" onclick="setPlacerType('${t.v}')"
+              style="display:flex;align-items:center;gap:4px;padding:5px 9px;border-radius:8px;
+                cursor:pointer;font-size:11.5px;font-weight:600;border:1.5px solid var(--rim);
+                background:var(--bg3);color:var(--t2);transition:all .15s;user-select:none"
+              title="${t.l} (weight ${t.w})">
+              <span style="font-size:13px">${t.i}</span>${t.l}
+            </div>`).join('')}
+        </div>
+      </div>`).join('');
+  }
+  // ── Compact type grid for selected-node editor ──
+  const tg=document.getElementById('typeGrid');
+  if(tg)tg.innerHTML=TYPES.map(t=>`
+    <div class="to" data-v="${t.v}" onclick="setNodeType('${t.v}')"
+      style="display:flex;align-items:center;gap:3px;padding:4px 5px;justify-content:flex-start"
+      title="${t.l}">
+      <span style="font-size:13px">${t.i}</span>
+      <span style="font-size:9.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.l}</span>
+    </div>`).join('');
+  // ── Filter chips ──
   const fr=document.getElementById('filterRow');
   if(fr)fr.innerHTML='<div class="filter-chip on" data-ft="all" onclick="filterNodes(this,\'all\')">All</div>'+
-    TYPES.map(t=>`<div class="filter-chip" data-ft="${t.v}" onclick="filterNodes(this,'${t.v}')">${t.i}</div>`).join('');
+    TYPES.map(t=>`<div class="filter-chip" data-ft="${t.v}" onclick="filterNodes(this,'${t.v}')" title="${t.l}">${t.i}</div>`).join('');
+  setPlacerType('corridor');
 }
 
-let _activePlaceType='junction';
+let _activePlaceType='corridor';
 function setPlacerType(v){
   _activePlaceType=v;
   document.querySelectorAll('.placer-btn').forEach(b=>{
-    const td=TYPES.find(t=>t.v===b.dataset.v)||TYPES[8];
-    b.classList.toggle('active',b.dataset.v===v);
-    b.style.background=b.dataset.v===v?td.c+'22':'var(--bg3)';
-    b.style.borderColor=b.dataset.v===v?td.c:'var(--rim)';
-    b.style.color=b.dataset.v===v?td.c:'var(--t2)';
+    const td=TYPES.find(t=>t.v===b.dataset.v);if(!td)return;
+    const on=b.dataset.v===v;
+    b.style.background=on?td.c+'28':'var(--bg3)';
+    b.style.borderColor=on?td.c:'rgba(255,255,255,.07)';
+    b.style.color=on?td.c:'var(--t2)';
+    b.style.transform=on?'scale(1.04)':'scale(1)';
   });
-  const td=TYPES.find(t=>t.v===v)||TYPES[8];
+  const td=TYPES.find(t=>t.v===v)||TYPES[0];
   const el=document.getElementById('activePlaceType');
   if(el){el.textContent=`${td.i} ${td.l}`;el.style.color=td.c;}
   const ath=document.getElementById('activeTypeHintText');
@@ -1997,19 +2186,18 @@ async function doPublish(){
   const id=document.getElementById('fid').value;
   if(A.fbOk&&A.fbDb){
     try{
-      const{doc:d2,setDoc:s2}=window._fb;
-      await s2(d2(A.fbDb,'facilities',id),A.facs[id]);
-      // Also write config doc so client can self-initialise Firebase with just project ID
+      // Use compat SDK — same instance as connectFB uses
+      await A.fbDb.collection('facilities').doc(id).set(A.facs[id]);
+      // Write config so any client can self-initialise with just ?pid= param
       const savedCfg=JSON.parse(localStorage.getItem('wp_fb')||'null');
       if(savedCfg){
         localStorage.setItem('wp_client_fb',JSON.stringify(savedCfg));
         localStorage.setItem('wp_fb_config',JSON.stringify(savedCfg));
         try{
-          await s2(d2(A.fbDb,'_config','client'),{
+          await A.fbDb.collection('_config').doc('client').set({
             projectId:savedCfg.projectId,
             apiKey:savedCfg.apiKey,
             authDomain:savedCfg.authDomain||savedCfg.projectId+'.firebaseapp.com',
-            storageBucket:(savedCfg.projectId||'')+'.appspot.com',
             t:Date.now()
           });
         }catch(_e){}
@@ -2018,9 +2206,12 @@ async function doPublish(){
       document.getElementById('depStatus').style.display='block';
       document.getElementById('depFid').textContent=id;
       gotoTab('deploy');
-      toast('🚀',`Live on Firebase! ID: ${id}`,'ok');
+      toast('🚀',`Deployed! ID: ${id}`,'ok');
       return;
-    }catch(e){toast('⚠️',`Firebase: ${e.message.slice(0,40)} — saved locally`,'warn');}
+    }catch(e){
+      console.error('Firebase deploy error:',e);
+      toast('❌',`Upload failed: ${e.message.slice(0,50)}`,'err');
+    }
   }
   A.facs[id].pub=true;saveStore();
   document.getElementById('depStatus').style.display='block';
@@ -2036,6 +2227,10 @@ function exportJSON(){
   toast('⬇️','Downloaded','ok');
 }
 function copyId(){const id=document.getElementById('pubFid').textContent;navigator.clipboard.writeText(id).then(()=>toast('📋','Copied!','ok'));}
+function copyDepId(){
+  const id=document.getElementById('depFid')?.textContent||document.getElementById('fid').value;
+  navigator.clipboard.writeText(id).then(()=>toast('📋',`ID ${id} copied!`,'ok'));
+}
 function copyNavURL(){
   const id=document.getElementById('fid').value;
   const base=window.location.href.replace('indoor-admin.html','indoor-nav.html').split('?')[0];
@@ -2053,8 +2248,76 @@ function generateShareLink(){ copyNavURL(); }
 
 
 /* ── TABS ── */
+function refreshFacList(){
+  const facs=A.facs||{};
+  const ids=Object.keys(facs);
+  const grid=document.getElementById('facListGrid');
+  const empty=document.getElementById('facListEmpty');
+  if(!grid)return;
+  if(!ids.length){grid.innerHTML='';if(empty)empty.style.display='block';return;}
+  if(empty)empty.style.display='none';
+  grid.innerHTML=ids.map(id=>{
+    const f=facs[id];
+    if(!f)return'';
+    const floors=f.floors?f.floors.length:1;
+    const nodes=f.floors?f.floors.reduce((s,fl)=>s+(fl.nodes?.length||0),0):(f.nodes?.length||0);
+    const edges=f.floors?f.floors.reduce((s,fl)=>s+(fl.edges?.length||0),0):(f.edges?.length||0);
+    const updated=f.updatedAt?new Date(f.updatedAt).toLocaleString():'—';
+    const isActive=A.curId===id;
+    return`<div style="background:${isActive?'rgba(99,102,241,.08)':'var(--bg3)'};border:1.5px solid ${isActive?'rgba(99,102,241,.35)':'var(--rim)'};
+      border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;transition:all .15s">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <strong style="font-size:14px;font-weight:700">${f.name||'Unnamed'}</strong>
+          ${f.pub?'<span style="font-size:9.5px;padding:2px 7px;border-radius:5px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);color:var(--green);font-family:var(--mono)">LIVE</span>':''}
+          ${isActive?'<span style="font-size:9.5px;padding:2px 7px;border-radius:5px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:var(--a2);font-family:var(--mono)">ACTIVE</span>':''}
+        </div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--t3);margin-bottom:5px">${id}</div>
+        <div style="display:flex;gap:12px;font-size:11px;color:var(--t2)">
+          <span>🏢 ${floors} floor${floors>1?'s':''}</span>
+          <span>📍 ${nodes} nodes</span>
+          <span>〰️ ${edges} edges</span>
+          <span>🕒 ${updated}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button onclick="loadFacById('${id}')" style="padding:7px 12px;border-radius:8px;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.1);color:var(--a2);font-family:var(--f);font-size:12px;font-weight:700;cursor:pointer">✏️ Load</button>
+        <button onclick="dupFac('${id}')" style="padding:7px 12px;border-radius:8px;border:1px solid var(--rim);background:var(--bg3);color:var(--t2);font-family:var(--f);font-size:12px;font-weight:600;cursor:pointer" title="Duplicate">⧉</button>
+        <button onclick="deleteFac('${id}')" style="padding:7px 12px;border-radius:8px;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.07);color:var(--red);font-family:var(--f);font-size:12px;font-weight:700;cursor:pointer">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function loadFacById(id){
+  if(A.facs[id]){
+    loadFac(id);
+    gotoTab('setup');
+    toast('📂',`Loaded: ${A.facs[id].name||id}`,'ok');
+  }
+}
+
+function dupFac(id){
+  const src=A.facs[id];if(!src)return;
+  const newId=genId();
+  const copy=JSON.parse(JSON.stringify(src));
+  copy.id=newId;copy.name=(src.name||'Unnamed')+' (copy)';copy.pub=false;copy.updatedAt=Date.now();
+  A.facs[newId]=copy;saveStore();
+  refreshFacList();
+  toast('⧉',`Duplicated as ${newId}`,'ok');
+}
+
+function deleteFac(id){
+  if(!confirm(`Delete "${A.facs[id]?.name||id}"? This cannot be undone.`))return;
+  delete A.facs[id];
+  saveStore();
+  if(A.curId===id)newFac();
+  refreshFacList();
+  toast('🗑️','Facility deleted','warn');
+}
+
 function gotoTab(t){
-  ['setup','editor','connect','qr','deploy'].forEach(x=>{
+  ['setup','editor','connect','qr','deploy','facilities'].forEach(x=>{
     document.getElementById('tab-'+x)?.classList.toggle('on',x===t);
     document.getElementById('pane-'+x)?.classList.toggle('on',x===t);
     document.getElementById('sn-'+x)?.classList.toggle('on',x===t);
@@ -2071,7 +2334,32 @@ function gotoTab(t){
   if(t==='qr'){setTimeout(()=>{const qfb=document.getElementById('qrFloorBar');if(qfb&&A.floors.length>1)qfb.innerHTML=A.floors.map((fl,i)=>`<div onclick="switchFloor(${i});setTimeout(genQRs,80)" style="padding:5px 10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;border:1px solid ${i===A.curFloor?'rgba(99,102,241,.4)':'var(--rim)'};background:${i===A.curFloor?'rgba(99,102,241,.12)':'var(--bg3)'};color:${i===A.curFloor?'var(--a2)':'var(--t2)'}">🗺️ ${fl.label}</div>`).join('');if(A.nodes.length&&!document.querySelector('.qrc'))genQRs();},100);}
   if(t==='connect'){renderFCList();}
   if(t==='deploy')saveCur();
+  if(t==='facilities'){saveCur();refreshFacList();}
 }
+
+
+// ── Keyboard shortcuts for rapid node placement ──
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  const map={
+    'q':'corridor','w':'junction','e':'door','r':'room','t':'stairs',
+    'v':'elevator','b':'entrance','n':'exit','m':'toilet',
+    'Escape':()=>{setTool('sel');A.edgeFrom=null;},
+    'Delete':()=>{if(A.sel)delSelNode();},
+    'Backspace':()=>{if(A.sel)delSelNode();},
+    'z':()=>{if(e.ctrlKey||e.metaKey){e.preventDefault();undo();}},
+    ' ':()=>{e.preventDefault();if(A.tool==='node')setTool('sel');else setTool('node');},
+    'l':()=>setTool('edge'),
+    'd':()=>setTool('del'),
+    's':()=>{if(e.ctrlKey||e.metaKey){e.preventDefault();saveCur();toast('💾','Saved','ok');}},
+    '+':()=>zBy(1.2),'-':()=>zBy(1/1.2),
+  };
+  const action=map[e.key];
+  if(action){
+    if(typeof action==='function')action();
+    else{setTool('node');setPlacerType(action);}
+  }
+});
 
 /* ── TOAST ── */
 let tt;
