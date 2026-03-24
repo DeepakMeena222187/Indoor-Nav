@@ -202,7 +202,21 @@ canvas#fc{touch-action:none;}
   .facility-grid{grid-template-columns:1fr;}
   .editor-layout{grid-template-columns:1fr;grid-template-rows:400px 1fr;height:auto;}
 }
+
+@media print {
+  .topbar, .editor-sidebar, .toolbar, .zoom-btns, .canvas-hint, .place-hint { display:none!important; }
+  .modal-overlay#qr-modal { position:static!important; background:white!important; display:block!important; }
+  .modal-overlay.open { position:static; background:transparent; padding:0; }
+  .modal { max-width:100%!important; box-shadow:none!important; border:none!important; background:white!important; color:#000!important; }
+  #qr-grid { display:grid!important; grid-template-columns:repeat(4,1fr)!important; gap:10px!important; }
+  body { background:white!important; }
+}
+
+/* QR Grid */
+#qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:12px;}
+#qr-modal .modal{max-width:720px;max-height:88vh;overflow-y:auto;}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -286,6 +300,7 @@ const FS_BASE = () => `https://firestore.googleapis.com/v1/projects/${FB.project
         <h2 id="editor-title">New Facility</h2>
         <span class="editor-fid" id="editor-fid"></span>
         <button class="btn btn-ghost btn-sm" onclick="runLocalAnalysis()">🔬 Auto-detect</button>
+        <button class="btn btn-ghost btn-sm" onclick="generateQRSheet()" style="font-size:12px">📱 QR Codes</button>
         <button class="btn btn-success" onclick="saveFacility()">☁ Save to Firebase</button>
       </div>
       <div class="editor-layout">
@@ -401,6 +416,13 @@ const FS_BASE = () => `https://firestore.googleapis.com/v1/projects/${FB.project
             <button class="btn btn-ghost btn-full" id="analyze-btn" onclick="runLocalAnalysis()">🔬 Detect Corridor Nodes</button>
             <div class="progress-bar" id="analysis-progress"><div class="progress-fill" id="analysis-fill"></div></div>
             <div class="analysis-log" id="analysis-log"></div>
+          </div>
+
+          <!-- QR Codes Panel -->
+          <div class="panel">
+            <div class="panel-title">📱 QR Codes</div>
+            <p style="font-size:11.5px;color:var(--text3);margin-bottom:10px;line-height:1.6">Generate printable QR codes for every node. Place them at each location — users scan to set their exact position.</p>
+            <button class="btn btn-ghost btn-full" onclick="generateQRSheet()">📱 Generate QR Sheet</button>
           </div>
         </div>
       </div>
@@ -1400,6 +1422,94 @@ window.addEventListener('DOMContentLoaded',()=>{
     }
   });
 });
+
+// ── QR CODE GENERATION ──────────────────────────────────────────
+function generateQRSheet() {
+  if (!state.nodes || !state.nodes.length) { toast('⚠','No nodes — add or detect nodes first','warn'); return; }
+  if (!state.facilityId) { toast('⚠','Save facility first to get the Facility ID','warn'); return; }
+  
+  const grid = document.getElementById('qr-grid');
+  grid.innerHTML = '';
+  
+  // Include facility QR as first item
+  const allItems = [
+    { id: null, label: state.facilityId, type: 'facility', 
+      payload: JSON.stringify({ fid: state.facilityId, type: 'facility' }) }
+  ];
+  state.nodes.forEach(n => {
+    allItems.push({
+      id: n.id, label: n.label || n.type, type: n.type,
+      payload: JSON.stringify({ fid: state.facilityId, nid: n.id, label: n.label || n.type, type: n.type })
+    });
+  });
+  
+  allItems.forEach((item, idx) => {
+    const td = TYPE_MAP[item.type] || { c:'#6366F1', i:'🏢', l:'Facility' };
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:10px;padding:12px;text-align:center;break-inside:avoid;border:1px solid #eee;';
+    
+    const qrDiv = document.createElement('div');
+    qrDiv.id = 'qrc-' + idx;
+    qrDiv.style.cssText = 'margin:0 auto 8px;display:flex;align-items:center;justify-content:center;';
+    card.appendChild(qrDiv);
+    
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-family:Inter,sans-serif;font-size:11px;font-weight:700;color:#0A0C14;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    lbl.textContent = item.label;
+    card.appendChild(lbl);
+    
+    const sub = document.createElement('div');
+    sub.style.cssText = 'font-family:monospace;font-size:9px;color:#475569;margin-bottom:3px;';
+    sub.textContent = item.id ? (state.facilityId + ' · ' + item.id) : ('Facility: ' + state.facilityId);
+    card.appendChild(sub);
+    
+    if (item.type !== 'facility') {
+      const tag = document.createElement('div');
+      tag.style.cssText = `display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:600;background:${td.c}22;color:${td.c};border:1px solid ${td.c}44;`;
+      tag.textContent = (td.i || '') + ' ' + (td.l || item.type);
+      card.appendChild(tag);
+    }
+    
+    grid.appendChild(card);
+    
+    // Generate QR code
+    setTimeout(() => {
+      try {
+        new QRCode(qrDiv, {
+          text: item.payload,
+          width: 128, height: 128,
+          colorDark: '#000000', colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } catch(e) {
+        // API fallback
+        const img = document.createElement('img');
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=' + encodeURIComponent(item.payload);
+        img.style.cssText = 'width:128px;height:128px;';
+        qrDiv.appendChild(img);
+      }
+    }, idx * 30);
+  });
+  
+  document.getElementById('qr-modal').classList.add('open');
+  toast('📱', `${allItems.length} QR codes generated`, 'ok');
+}
+
 </script>
+
+<!-- QR SHEET MODAL -->
+<div class="modal-overlay" id="qr-modal">
+  <div class="modal">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <h3>📱 QR Code Sheet</h3>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('qr-modal').classList.remove('open')">✕</button>
+      </div>
+    </div>
+    <p>Print, cut, and laminate each QR code. Place at the corresponding location in your facility so users can scan to set their position.</p>
+    <div id="qr-grid"></div>
+  </div>
+</div>
 </body>
 </html>
