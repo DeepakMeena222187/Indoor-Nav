@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#07090F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<title>WayPoint</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+:root{
+  --bg:#07090F;--s1:#0D1018;--s2:#131622;--s3:#1A1F2E;
+  --b1:#1E2438;--b2:#2A3050;--b3:#374069;
+  --accent:#5B5FED;--accent2:#818CF8;--accentg:rgba(91,95,237,.2);
+  --go:#10B981;--stop:#EF4444;--warn:#F59E0B;--cyan:#06B6D4;
+  --text:#EEF2FF;--t2:#94A3B8;--t3:#475569;--t4:#2D3748;
+  --f:'Sora',sans-serif;--m:'JetBrains Mono',monospace;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;height:100dvh;background:var(--bg);color:var(--text);font-family:var(--f);overflow:hidden;-webkit-font-smoothing:antialiased;touch-action:none;user-select:none;}
+
+/* ── SCREENS ── */
+.scr{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+.scr.off{display:none!important;}
+
+/* ── ENTRY ── */
+#se{background:radial-gradient(ellipse 70% 50% at 30% 15%,rgba(91,95,237,.18),transparent),radial-gradient(ellipse 50% 40% at 80% 85%,rgba(6,182,212,.1),transparent),var(--bg);}
+.logo-mark{width:84px;height:84px;border-radius:28px;background:linear-gradient(145deg,#6366F1,#4338CA);display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 12px 48px rgba(99,102,241,.5),inset 0 1px 0 rgba(255,255,255,.15);animation:levitate 5s ease-in-out infinite;}
+@keyframes levitate{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-10px) rotate(1deg)}}
+.wordmark{font-size:38px;font-weight:800;letter-spacing:-1px;background:linear-gradient(135deg,#818CF8 0%,#06B6D4 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.tagline{font-size:13px;color:var(--t2);text-align:center;line-height:1.8;max-width:260px;font-weight:500;}
+.card{width:100%;max-width:400px;background:var(--s1);border:1px solid var(--b1);border-radius:24px;padding:22px;box-shadow:0 32px 80px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.04);}
+
+/* FB config */
+.cfg-box{background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:16px;margin-bottom:14px;}
+.cfg-title{font-size:13px;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:7px;}
+.cfg-sub{font-size:11.5px;color:var(--t3);margin-bottom:12px;line-height:1.6;}
+.fi{width:100%;padding:9px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--b2);color:var(--text);font-family:var(--m);font-size:12px;outline:none;margin-bottom:7px;transition:border .2s;}
+.fi:focus{border-color:var(--accent);}
+.cfg-save{width:100%;padding:10px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:var(--f);transition:opacity .15s;}
+.cfg-save:active{opacity:.8;}
+.cfg-ok{display:flex;align-items:center;gap:8px;padding:9px 13px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:12px;font-size:12px;color:var(--go);font-weight:600;margin-bottom:12px;}
+.cfg-ok button{margin-left:auto;background:none;border:none;color:var(--t3);cursor:pointer;font-size:11px;font-family:var(--f);}
+.rec-hdr{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--t3);margin-bottom:8px;font-weight:700;}
+.rec-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--s2);border:1px solid var(--b1);cursor:pointer;margin-bottom:6px;transition:border-color .15s;}
+.rec-row:hover{border-color:var(--b3);}
+.or-div{display:flex;align-items:center;gap:10px;margin:10px 0;}
+.or-line{flex:1;height:1px;background:var(--b1);}
+.or-t{font-size:11px;color:var(--t3);}
+.fid{width:100%;padding:14px 16px;border-radius:12px;background:var(--s2);border:1px solid var(--b1);color:var(--text);font-family:var(--m);font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:3px;text-align:center;outline:none;transition:all .2s;margin-bottom:10px;}
+.fid:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accentg);}
+.fid::placeholder{color:var(--t4);letter-spacing:2px;font-size:13px;font-weight:400;}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;font-family:var(--f);font-size:14px;font-weight:700;transition:all .2s;margin-bottom:8px;}
+.btn:last-child{margin-bottom:0;}
+.btn-a{background:linear-gradient(135deg,var(--accent),#4338CA);color:#fff;box-shadow:0 4px 20px rgba(91,95,237,.45);}
+.btn-a:active{transform:scale(.98);}
+.btn-g{background:rgba(255,255,255,.04);border:1px solid var(--b2);color:var(--t2);}
+.btn-g:hover{background:rgba(255,255,255,.07);color:var(--text);}
+.btn-go{background:linear-gradient(135deg,var(--go),#047857);color:#fff;}
+
+/* ── LOADING / ERROR ── */
+#sl,#serr{gap:16px;}
+.spin{width:48px;height:48px;border:3px solid rgba(91,95,237,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err-c{width:100%;max-width:360px;background:var(--s1);border:1px solid var(--b1);border-radius:18px;padding:20px;}
+
+/* ── NAV SCREEN ── */
+#sn{padding:0;justify-content:flex-end;background:var(--bg);}
+#map-wrap{position:absolute;inset:0;overflow:hidden;}
+#mc{display:block;touch-action:none;}
+
+/* ── LIVE COMPASS OVERLAY ── */
+/* Full-screen compass shown during active navigation */
+#compass-overlay{
+  position:absolute;inset:0;z-index:100;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  pointer-events:none;
+}
+#compass-overlay.active{display:flex;}
+/* Semi-transparent backdrop at top for compass */
+.compass-backdrop{
+  position:absolute;top:0;left:0;right:0;
+  height:240px;
+  background:linear-gradient(to bottom,rgba(7,9,15,.92) 60%,transparent);
+  pointer-events:none;
+}
+#compass-canvas{
+  position:absolute;top:calc(var(--safe-top) + 10px);left:50%;
+  transform:translateX(-50%);
+  width:200px;height:200px;
+  filter:drop-shadow(0 4px 24px rgba(91,95,237,.6));
+}
+
+/* ── DIRECTION HUD (top bar during nav) ── */
+#dir-hud{
+  position:absolute;top:0;left:0;right:0;z-index:60;
+  transform:translateY(-100%);transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+  padding-top:calc(var(--safe-top) + 8px);
+}
+#dir-hud.show{transform:translateY(0);}
+.hud-inner{margin:0 10px;padding:12px 16px;border-radius:20px;background:rgba(7,9,15,.95);backdrop-filter:blur(28px);border:1px solid rgba(91,95,237,.35);box-shadow:0 8px 40px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.04) inset;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;}
+.hud-arrow-ring{width:54px;height:54px;border-radius:50%;background:rgba(91,95,237,.12);border:1.5px solid rgba(91,95,237,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;}
+#hud-svg{width:38px;height:38px;transition:transform .2s ease;}
+.hud-text{min-width:0;}
+.hud-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent2);margin-bottom:3px;font-family:var(--m);}
+.hud-main{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;}
+.hud-sub{font-size:11px;color:var(--t2);margin-top:3px;}
+.hud-close{width:30px;height:30px;border-radius:50%;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--stop);font-size:13px;flex-shrink:0;pointer-events:auto;}
+
+/* ── SEARCH ── */
+#sw{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:calc(100% - 24px);max-width:460px;z-index:50;transition:all .3s;}
+#sw.hide{top:-100px;opacity:0;pointer-events:none;}
+.sp{display:flex;align-items:center;gap:10px;padding:0 14px;height:52px;border-radius:999px;background:rgba(7,9,15,.93);border:1px solid var(--b2);backdrop-filter:blur(20px);box-shadow:0 4px 24px rgba(0,0,0,.6);}
+.sp:focus-within{border-color:rgba(91,95,237,.5);}
+#si{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--f);font-size:15px;font-weight:500;}
+#si::placeholder{color:var(--t3);}
+.qb{width:36px;height:36px;border-radius:50%;background:var(--accentg);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--accent2);font-size:16px;}
+#sr{margin-top:6px;border-radius:16px;background:rgba(7,9,15,.97);border:1px solid var(--b1);overflow:hidden;display:none;backdrop-filter:blur(20px);box-shadow:0 16px 48px rgba(0,0,0,.7);}
+#sr.show{display:block;}
+.ri{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;border-top:1px solid var(--b1);}
+.ri:first-child{border-top:none;}
+.ri:active{background:var(--accentg);}
+.ric{width:34px;height:34px;border-radius:9px;background:var(--s2);border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;font-size:14px;}
+
+/* ── MAP CONTROLS ── */
+.mc-bar{position:absolute;bottom:210px;left:14px;z-index:55;display:flex;flex-direction:column;gap:5px;}
+.mcb{width:38px;height:38px;border-radius:10px;background:rgba(7,9,15,.9);border:1px solid var(--b2);color:var(--t2);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;cursor:pointer;pointer-events:auto;}
+.mcb:active{background:var(--s2);}
+
+/* ── SENSOR STATUS BADGES ── */
+#sensor-status{position:absolute;top:14px;right:14px;z-index:55;display:flex;flex-direction:column;gap:5px;align-items:flex-end;}
+.ss-pill{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(7,9,15,.9);border:1px solid var(--b2);font-size:11px;font-weight:600;font-family:var(--m);backdrop-filter:blur(12px);}
+.sd{width:6px;height:6px;border-radius:50%;}
+.sd.on{background:var(--go);box-shadow:0 0 6px var(--go);animation:pulse 2s infinite;}
+.sd.off{background:var(--stop);}
+.sd.sim{background:var(--warn);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+#pos-chip{display:none;}
+#pos-chip.show{display:flex;}
+
+/* ── OFF-ROUTE ALERT ── */
+#offroute-banner{
+  position:absolute;top:80px;left:12px;right:12px;z-index:70;
+  display:none;animation:slideDown .3s ease;
+}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+#offroute-banner.show{display:block;}
+.ob-inner{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);border-radius:14px;padding:10px 14px;display:flex;align-items:center;gap:10px;}
+.ob-text{flex:1;font-size:12.5px;color:#FCA5A5;font-weight:600;}
+.ob-btn{padding:6px 14px;border-radius:8px;border:none;background:var(--stop);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f);pointer-events:auto;}
+
+/* ── iOS MOTION BANNER ── */
+#motion-banner{position:absolute;bottom:190px;left:12px;right:12px;z-index:70;display:none;}
+#motion-banner.show{display:block;}
+.mb{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:10px;}
+.mb-t{flex:1;font-size:12px;color:#FCD34D;font-weight:600;line-height:1.4;}
+.mb-btn{padding:7px 14px;border-radius:8px;border:none;background:var(--warn);color:#000;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f);pointer-events:auto;white-space:nowrap;}
+
+/* ── ROUTE PROGRESS ── */
+#rp{position:absolute;bottom:176px;left:12px;right:12px;z-index:50;height:3px;background:rgba(255,255,255,.04);border-radius:2px;display:none;}
+#rp.show{display:block;}
+#rf{height:100%;background:linear-gradient(90deg,var(--accent),var(--go));border-radius:2px;width:0%;transition:width 1.2s ease;}
+
+/* ── BOTTOM PANEL ── */
+#bp{position:absolute;bottom:0;left:0;right:0;z-index:50;background:rgba(7,9,15,.97);border-top:1px solid var(--b1);backdrop-filter:blur(24px);padding-bottom:var(--safe-bot);}
+.dh{width:36px;height:3px;background:var(--b1);border-radius:2px;margin:10px auto 0;}
+
+/* Idle */
+#idle{padding:10px 16px 20px;}
+.modes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.mchip{display:flex;align-items:center;gap:5px;padding:7px 12px;border-radius:10px;background:var(--s2);border:1.5px solid var(--b1);cursor:pointer;font-size:12px;font-weight:600;color:var(--t2);transition:all .15s;}
+.mchip.on{border-color:var(--accent);background:var(--accentg);color:var(--accent2);}
+.scan-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:12px;cursor:pointer;margin-bottom:10px;pointer-events:auto;}
+.scan-row:active{background:rgba(16,185,129,.12);}
+.qc{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+.qc::-webkit-scrollbar{display:none;}
+.qchip{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);cursor:pointer;font-size:12.5px;font-weight:600;color:var(--t2);}
+.qchip:active{border-color:var(--accent);color:var(--accent2);}
+
+/* Route */
+#route-panel{display:none;padding:12px 16px 20px;}
+#route-panel.show{display:block;}
+.dr{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.di{width:36px;height:36px;border-radius:9px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);display:flex;align-items:center;justify-content:center;font-size:15px;}
+.dc{width:28px;height:28px;border-radius:50%;background:transparent;border:1px solid var(--b2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t3);font-size:12px;}
+.rr{display:flex;gap:8px;margin-bottom:14px;}
+.rib{flex:1;padding:12px 6px;border-radius:12px;background:var(--s2);border:1px solid var(--b1);text-align:center;}
+.rv{font-size:22px;font-weight:800;line-height:1;}
+.rv sub{font-size:10px;color:var(--t2);font-weight:500;}
+.rl{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-top:3px;font-family:var(--m);}
+.go-btn{width:100%;padding:15px;border-radius:13px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--accent),#4338CA);font-family:var(--f);font-size:15px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 24px rgba(91,95,237,.5);}
+.go-btn:active{transform:scale(.98);}
+
+/* Navigating */
+#nav-panel{display:none;padding:8px 14px 18px;}
+#nav-panel.show{display:block;}
+.ns-row{display:flex;}
+.ns{flex:1;text-align:center;position:relative;padding:10px 0;}
+.ns+.ns::before{content:'';position:absolute;left:0;top:15%;bottom:15%;width:1px;background:var(--b1);}
+.nv{font-size:22px;font-weight:800;line-height:1;}
+.nv .u{font-size:11px;font-weight:500;color:var(--t2);}
+.nl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);font-family:var(--m);margin-top:3px;}
+
+/* ── ARRIVAL ── */
+#arr{position:absolute;inset:0;z-index:200;background:rgba(7,9,15,.95);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;}
+#arr.show{display:flex;}
+.arr-emoji{font-size:72px;animation:pop .6s cubic-bezier(.34,1.56,.64,1);}
+@keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
+
+/* ── QR SCANNER ── */
+#sqr{position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.97);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+#sqr.show{display:flex;}
+#qv{position:relative;width:270px;height:270px;border-radius:22px;overflow:hidden;border:2px solid var(--accent);box-shadow:0 0 48px rgba(91,95,237,.5);}
+video#qvid{width:100%;height:100%;object-fit:cover;}
+canvas#qcv{display:none;}
+.qrc{position:absolute;width:26px;height:26px;border-color:var(--go);border-style:solid;}
+.qrc.tl{top:8px;left:8px;border-width:3px 0 0 3px;}
+.qrc.tr{top:8px;right:8px;border-width:3px 3px 0 0;}
+.qrc.bl{bottom:8px;left:8px;border-width:0 0 3px 3px;}
+.qrc.br{bottom:8px;right:8px;border-width:0 3px 3px 0;}
+.qsl{position:absolute;left:8%;right:8%;height:2px;background:linear-gradient(90deg,transparent,var(--go),transparent);animation:qsl 2s ease-in-out infinite;}
+@keyframes qsl{0%,100%{top:10%}50%{top:88%}}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:160px;left:50%;transform:translateX(-50%) translateY(8px);z-index:1000;opacity:0;pointer-events:none;transition:all .25s;background:rgba(7,9,15,.96);border:1px solid var(--accentg);border-radius:999px;padding:10px 18px;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.7);backdrop-filter:blur(16px);}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── CALIBRATION ── */
+#cal-screen{position:fixed;inset:0;z-index:900;background:rgba(7,9,15,.97);display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;}
+#cal-screen.show{display:flex;}
+.cal-card{background:var(--s1);border:1px solid var(--b1);border-radius:22px;padding:28px;width:100%;max-width:340px;text-align:center;}
+#cal-canvas{border-radius:50%;border:2px solid var(--b2);}
+</style>
+</head>
+<body>
+
+<script>
+const FB={projectId:'',apiKey:''};
+const FSB=()=>`https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
+</script>
+
+<!-- ENTRY SCREEN -->
+<div class="scr" id="se">
+  <div class="logo-mark">🧭</div>
+  <div class="wordmark">WayPoint</div>
+  <div class="tagline">Sensor-fusion indoor navigation — step counter, gyroscope & compass</div>
+  <div class="card">
+    <div class="cfg-box" id="cfg-box">
+      <div class="cfg-title">🔥 Firebase <span style="font-size:10px;color:var(--t3);font-weight:400">— saved permanently on device</span></div>
+      <div class="cfg-sub">Enter once. WayPoint stores this so you never need to again.</div>
+      <input class="fi" id="cpid" placeholder="Project ID" autocomplete="off">
+      <input class="fi" id="cak" placeholder="API Key (AIzaSy…)" type="password" autocomplete="off">
+      <button class="cfg-save" onclick="saveCfg()">Save & Continue →</button>
+    </div>
+    <div id="cfg-ok" style="display:none" class="cfg-ok">
+      <span>⚡</span><span id="cfg-proj">Connected</span><button onclick="resetCfg()">change</button>
+    </div>
+    <div id="rec-sec"></div>
+    <input type="text" class="fid" id="fid-inp" maxlength="8" placeholder="FACILITY ID"
+      oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')go()"/>
+    <button class="btn btn-a" onclick="go()">🏢 Enter Facility</button>
+    <button class="btn btn-g" onclick="openQR(true)">📷 Scan Facility QR</button>
+    <button class="btn btn-g" onclick="window.location.href='admin.html'" style="margin-top:2px;font-size:12px;padding:10px">⚙ Admin Panel</button>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="scr off" id="sl"><div class="spin"></div><div id="lt" style="font-size:14px;font-weight:500;color:var(--t2)">Loading…</div></div>
+
+<!-- ERROR -->
+<div class="scr off" id="serr">
+  <div style="font-size:52px">🔍</div>
+  <div style="font-size:20px;font-weight:800">Not Found</div>
+  <div style="font-size:13px;color:var(--t2);text-align:center;max-width:300px;line-height:1.7" id="em">Check ID.</div>
+  <div class="err-c"><button class="btn btn-g" onclick="S('se')" style="margin-bottom:0">← Try again</button></div>
+</div>
+
+<!-- NAV SCREEN -->
+<div class="scr off" id="sn" style="justify-content:flex-end">
+  <div id="map-wrap">
+    <canvas id="mc"></canvas>
+
+    <!-- ── LIVE COMPASS OVERLAY ── -->
+    <div id="compass-overlay">
+      <div class="compass-backdrop"></div>
+      <canvas id="compass-canvas" width="200" height="200"></canvas>
+    </div>
+
+    <!-- Map controls -->
+    <div class="mc-bar" style="pointer-events:auto">
+      <div class="mcb" onclick="zm(1.25)">+</div>
+      <div class="mcb" onclick="zm(1/1.25)">−</div>
+      <div class="mcb" onclick="fitMap()">⊞</div>
+    </div>
+
+    <!-- Sensor status -->
+    <div id="sensor-status">
+      <div class="ss-pill"><div class="sd off" id="sd-step"></div><span id="st-step" style="color:var(--t2)">Steps</span></div>
+      <div class="ss-pill"><div class="sd off" id="sd-hdg"></div><span id="st-hdg" style="color:var(--t2)">Compass</span></div>
+      <div class="ss-pill"><div class="sd off" id="sd-gyro"></div><span id="st-gyro" style="color:var(--t2)">Gyro</span></div>
+      <div class="ss-pill" id="pos-chip"><div class="sd on"></div><span id="pos-name" style="color:var(--go)">—</span></div>
+    </div>
+
+    <!-- Off-route alert -->
+    <div id="offroute-banner">
+      <div class="ob-inner">
+        <span style="font-size:20px">⚠️</span>
+        <div class="ob-text">Off route — recalculating…</div>
+        <button class="ob-btn" onclick="rerouteNow()">Reroute</button>
+      </div>
+    </div>
+
+    <!-- iOS motion banner -->
+    <div id="motion-banner">
+      <div class="mb">
+        <div class="mb-t">📱 Enable motion sensors for live step tracking and compass</div>
+        <button class="mb-btn" onclick="reqSensors()">Enable</button>
+      </div>
+    </div>
+
+    <!-- Route progress -->
+    <div id="rp"><div id="rf"></div></div>
+
+    <!-- Arrival -->
+    <div id="arr">
+      <div class="arr-emoji">🎯</div>
+      <div style="font-size:28px;font-weight:800;text-align:center">You've Arrived!</div>
+      <div style="font-size:14px;color:var(--t2);text-align:center" id="arr-dest"></div>
+      <div style="font-family:var(--m);font-size:13px;color:var(--go);margin-top:6px" id="arr-stats"></div>
+      <button class="btn btn-go" style="width:auto;padding:12px 28px;margin-top:12px" onclick="clearNav()">Navigate Again</button>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div id="sw">
+    <div class="sp">
+      <div style="color:var(--t3);font-size:16px">🔍</div>
+      <input type="text" id="si" placeholder="Search destination…" autocomplete="off"/>
+      <button class="qb" onclick="openQR(false)">📷</button>
+    </div>
+    <div id="sr"></div>
+  </div>
+
+  <!-- Direction HUD -->
+  <div id="dir-hud">
+    <div class="hud-inner">
+      <div class="hud-arrow-ring">
+        <svg id="hud-svg" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg">
+          <!-- North/direction arrow — rotates to show direction to next waypoint -->
+          <defs>
+            <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#818CF8"/>
+              <stop offset="100%" stop-color="#5B5FED"/>
+            </linearGradient>
+          </defs>
+          <!-- Arrow pointing up (North) by default -->
+          <polygon id="ha-north" points="19,3 23,19 19,15 15,19" fill="url(#ag)"/>
+          <polygon id="ha-south" points="19,35 23,19 19,23 15,19" fill="#2A3050"/>
+          <circle cx="19" cy="19" r="4" fill="#EEF2FF"/>
+          <!-- Turn arc (drawn dynamically) -->
+          <path id="turn-arc" d="" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" opacity="0"/>
+        </svg>
+      </div>
+      <div class="hud-text">
+        <div class="hud-tag" id="hud-dist">CONTINUE</div>
+        <div class="hud-main" id="hud-main">Head to destination</div>
+        <div class="hud-sub" id="hud-sub"></div>
+      </div>
+      <div class="hud-close" onclick="stopNav()">✕</div>
+    </div>
+  </div>
+
+  <!-- Bottom panel -->
+  <div id="bp">
+    <div class="dh"></div>
+
+    <!-- Idle -->
+    <div id="idle">
+      <div class="modes">
+        <div class="mchip on" id="m-normal" onclick="setMode('normal')">🚶 Normal</div>
+        <div class="mchip" id="m-accessible" onclick="setMode('accessible')">♿ Accessible</div>
+        <div class="mchip" id="m-emergency" onclick="setMode('emergency')">🚨 Emergency</div>
+        <div class="mchip" id="m-nostair" onclick="setMode('no-stairs')">🚫🪜 No Stairs</div>
+      </div>
+      <div class="scan-row" onclick="openQR(false)">
+        <div style="font-size:22px">📷</div>
+        <div>
+          <div style="font-size:12.5px;font-weight:700;color:var(--go)">Scan QR to pinpoint your location</div>
+          <div style="font-size:10.5px;color:var(--t3)">QR codes at key points — corrects sensor drift instantly</div>
+        </div>
+      </div>
+      <div style="font-size:18px;font-weight:800;margin-bottom:3px" id="greet">Where to?</div>
+      <div style="font-size:12.5px;color:var(--t2);margin-bottom:10px" id="fac-disp"></div>
+      <div class="qc" id="quick-chips"></div>
+    </div>
+
+    <!-- Route -->
+    <div id="route-panel">
+      <div class="dr">
+        <div class="di">📍</div>
+        <div style="font-size:15px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="dn">—</div>
+        <div class="dc" onclick="clearNav()">✕</div>
+      </div>
+      <div class="rr">
+        <div class="rib"><div class="rv" id="r-steps">—</div><div class="rl">Steps</div></div>
+        <div class="rib"><div class="rv" id="r-dist">—<sub>m</sub></div><div class="rl">Distance</div></div>
+        <div class="rib"><div class="rv" id="r-eta">—<sub>min</sub></div><div class="rl">ETA</div></div>
+      </div>
+      <button class="go-btn" onclick="startNav()">▶ Start Navigation</button>
+    </div>
+
+    <!-- Navigating -->
+    <div id="nav-panel">
+      <div class="ns-row">
+        <div class="ns" style="color:var(--go)"><div class="nv" id="n-steps">0</div><div class="nl">Steps</div></div>
+        <div class="ns"><div class="nv" id="n-rem">—<span class="u">m</span></div><div class="nl">Remaining</div></div>
+        <div class="ns"><div class="nv" id="n-wp">—</div><div class="nl">Waypoints</div></div>
+        <div class="ns"><div class="nv" id="n-eta">—<span class="u">min</span></div><div class="nl">ETA</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QR SCANNER -->
+<div id="sqr">
+  <div style="font-size:16px;font-weight:700">📷 Scan QR Code</div>
+  <div id="qv"><video id="qvid" autoplay playsinline muted></video><canvas id="qcv"></canvas><div class="qrc tl"></div><div class="qrc tr"></div><div class="qrc bl"></div><div class="qrc br"></div><div class="qsl"></div></div>
+  <div style="font-size:13px;color:var(--t2);text-align:center;max-width:250px;line-height:1.6">Scan a facility QR to load map, or a location QR to set position</div>
+  <button class="btn btn-g" style="width:auto;padding:10px 24px" onclick="closeQR()">✕ Cancel</button>
+</div>
+
+<!-- CALIBRATION SCREEN -->
+<div id="cal-screen">
+  <div class="cal-card">
+    <div style="font-size:28px;margin-bottom:10px">🧭</div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:8px">Compass Calibration</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:20px;line-height:1.6">Wave your phone in a figure-8 motion to calibrate the compass. The arrow will stabilize when ready.</div>
+    <canvas id="cal-canvas" width="160" height="160" style="margin:0 auto 16px;display:block;"></canvas>
+    <div style="font-family:var(--m);font-size:15px;color:var(--accent2);margin-bottom:16px" id="cal-hdg">—°</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:16px" id="cal-quality">Calibrating…</div>
+    <button class="btn btn-a" onclick="closeCal()">✓ Use this heading</button>
+    <button class="btn btn-g" style="margin-top:6px" onclick="closeCal()">Skip</button>
+  </div>
+</div>
+
+<div id="toast"><span id="ti"></span> <span id="tm"></span></div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FIREBASE
+// ═══════════════════════════════════════════════════════════════════════════
+function loadCfg(){const s=JSON.parse(localStorage.getItem('wp_fb')||'null');if(s?.p&&s?.a){FB.projectId=s.p;FB.apiKey=s.a;return true;}return false;}
+function saveCfg(){const p=document.getElementById('cpid').value.trim(),a=document.getElementById('cak').value.trim();if(!p||!a){toast('⚠','Enter Project ID and API Key');return;}FB.projectId=p;FB.apiKey=a;localStorage.setItem('wp_fb',JSON.stringify({p,a}));showCfgOk();toast('✅','Firebase saved!');}
+function showCfgOk(){document.getElementById('cfg-box').style.display='none';document.getElementById('cfg-ok').style.display='flex';document.getElementById('cfg-proj').textContent='⚡ '+FB.projectId;}
+function resetCfg(){localStorage.removeItem('wp_fb');FB.projectId='';FB.apiKey='';document.getElementById('cfg-box').style.display='block';document.getElementById('cfg-ok').style.display='none';}
+async function fsGet(id){if(!FB.projectId||!FB.apiKey)throw new Error('Configure Firebase first');const r=await fetch(`${FSB()}/facilities/${id}?key=${FB.apiKey}`,{signal:AbortSignal.timeout(12000)});if(r.status===404)return null;if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||'Failed');}const doc=await r.json();const s=doc.fields?.data?.stringValue;return s?JSON.parse(s):null;}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A* PATHFINDER
+// ═══════════════════════════════════════════════════════════════════════════
+class MinHeap{constructor(f){this.d=[];this.f=f;}push(x){this.d.push(x);this._up(this.d.length-1);}pop(){const r=this.d[0],e=this.d.pop();if(this.d.length){this.d[0]=e;this._dn(0);}return r;}get size(){return this.d.length;}_up(n){while(n>0){const p=((n+1)>>1)-1;if(this.f(this.d[n])>=this.f(this.d[p]))break;[this.d[n],this.d[p]]=[this.d[p],this.d[n]];n=p;}}_dn(n){const L=this.d.length;while(true){let sw=null;const c1=(n<<1)+1,c2=c1+1;if(c1<L&&this.f(this.d[c1])<this.f(this.d[sw??n]))sw=c1;if(c2<L&&this.f(this.d[c2])<this.f(this.d[sw??n]))sw=c2;if(sw===null)break;[this.d[n],this.d[sw]]=[this.d[sw],this.d[n]];n=sw;}}
+}
+function astar(nodes,edges,s,e,mw={}){
+  if(s===e)return[s];
+  const nm={};nodes.forEach(n=>nm[n.id]=n);
+  const adj={};nodes.forEach(n=>adj[n.id]=[]);
+  edges.forEach(e2=>{const f=nm[e2.from],t=nm[e2.to];if(!f||!t)return;const d=e2.dist||Math.hypot(f.x-t.x,f.y-t.y);const w=((f.weight||1)+(t.weight||1))/2*(mw[f.type]||mw[t.type]||1);adj[e2.from].push({to:e2.to,c:d*w});if(e2.bidirectional!==false)adj[e2.to].push({to:e2.from,c:d*w});});
+  const en=nm[e],h=id=>{const n=nm[id];return n?Math.hypot(n.x-en.x,n.y-en.y):0;};
+  const D={[s]:0},P={},V=new Set(),pq=new MinHeap(x=>x.f);
+  pq.push({id:s,g:0,f:h(s)});
+  while(pq.size){const{id,g}=pq.pop();if(V.has(id))continue;V.add(id);if(id===e)break;for(const nb of(adj[id]||[])){if(V.has(nb.to))continue;const ng=g+nb.c;if(ng<(D[nb.to]??Infinity)){D[nb.to]=ng;P[nb.to]=id;pq.push({id:nb.to,g:ng,f:ng+h(nb.to)});}}}
+  if(!P[e])return null;const path=[];let c=e;while(c){path.unshift(c);c=P[c];}return path;
+}
+function getMW(){switch(Nav.mode){case'accessible':return{stairs:9999,elevator:1};case'emergency':return{};case'no-stairs':return{stairs:9999};default:return{stairs:5,elevator:2};}}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════
+const Nav={
+  fac:null, nodes:[], edges:[],
+  imgEl:null, imgW:800, imgH:600,
+  cal:{mpp:.033, walkSpd:80, stepLen:.72},
+  canvas:null, ctx:null, scale:1, ox:0, oy:0,
+  // live position
+  userPos:null, userNodeId:null,
+  // route
+  dest:null, route:[], step:0, totalM:0,
+  isNav:false, mode:'normal',
+  stepCount:0,
+  // === SENSOR FUSION STATE ===
+  // Heading (absolute from compass/orientation)
+  hdg:0,           // smoothed heading degrees (0=North, CW)
+  hdgRaw:0,
+  hdgReady:false,
+  hdgSamples:0,
+  // Gyroscope (relative rotation)
+  gyroZ:0,         // deg/s around Z axis (yaw rate)
+  gyroActive:false,
+  gyroLastT:0,
+  // Kalman state for heading fusion
+  kalHdg:0, kalHdgVar:100,   // estimated heading + variance
+  // Accelerometer / step detection
+  accBuf:[], lastAccMag:0, lastPeak:false, lastStepT:0,
+  stepThr:1.2, calBuf:[], calDone:false,
+  // Step length adaptation
+  stepLenAdapt:.72, lastStepInterval:0, stepIntervals:[],
+  // Off-route detection
+  offRouteSamples:0, offRouteThreshold:40,
+  // QR
+  qrStream:null, qrTimer:null,
+  // Debug
+  debug:false
+};
+const NC={corridor:'#5B5FED',junction:'#818CF8',door:'#06B6D4',entrance:'#10B981',exit:'#EF4444',room:'#0EA5E9',ward:'#0284C7',icu:'#DC2626',office:'#7C3AED',toilet:'#EC4899',pharmacy:'#84CC16',cafeteria:'#F97316',waiting:'#F59E0B',stairs:'#F59E0B',elevator:'#8B5CF6',ramp:'#A78BFA',emergency:'#EF4444',fire_exit:'#FF6B35'};
+const NI={entrance:'🟢',exit:'🔴',room:'🏠',ward:'🛏',icu:'🏥',office:'🏢',toilet:'🚻',pharmacy:'💊',cafeteria:'🍽',waiting:'🪑',stairs:'🪜',elevator:'🛗',ramp:'♿',emergency:'🚨',fire_exit:'🔥',door:'🚪',corridor:'',junction:'✦'};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCREEN MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════
+function S(id){document.querySelectorAll('.scr').forEach(s=>s.classList.toggle('off',s.id!==id));}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENTRY / FACILITY LOAD
+// ═══════════════════════════════════════════════════════════════════════════
+async function go(){
+  const id=document.getElementById('fid-inp').value.trim().toUpperCase();
+  if(id.length<4){toast('⚠','Enter at least 4 characters');return;}
+  if(!FB.projectId){toast('⚠','Set up Firebase first');return;}
+  document.getElementById('lt').textContent='Loading facility…';S('sl');
+  try{
+    const fac=await fsGet(id);
+    if(!fac){S('serr');document.getElementById('em').textContent=`"${id}" not found.`;return;}
+    saveRecent(id,fac.name||id,fac.nodes?.length||0);
+    loadFac(fac);
+  }catch(e){S('serr');document.getElementById('em').textContent=e.message;}
+}
+function saveRecent(id,name,n){try{const l=JSON.parse(localStorage.getItem('wp_rec')||'[]').filter(x=>x.id!==id);l.unshift({id,name,n});localStorage.setItem('wp_rec',JSON.stringify(l.slice(0,5)));renderRecent();}catch(e){}}
+function renderRecent(){
+  const l=JSON.parse(localStorage.getItem('wp_rec')||'[]');
+  const el=document.getElementById('rec-sec');if(!l.length){el.innerHTML='';return;}
+  el.innerHTML=`<div class="rec-hdr">Recent</div>`+l.map(f=>`<div class="rec-row" onclick="document.getElementById('fid-inp').value='${f.id}';go()"><span style="font-size:18px">🏢</span><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${f.name}</div><div style="font-family:var(--m);font-size:10px;color:var(--t3)">${f.id} · ${f.n} nodes</div></div><span style="color:var(--t3)">→</span></div>`).join('')+`<div class="or-div"><div class="or-line"></div><div class="or-t">OR ENTER ID</div><div class="or-line"></div></div>`;
+}
+
+function loadFac(fac){
+  Nav.fac=fac;
+  const c=fac.calibration||{};
+  Nav.cal.mpp=c.mpp||.033;
+  Nav.cal.walkSpd=c.walkSpd||80;
+  Nav.cal.stepLen=c.stepLen||.72;
+  Nav.stepLenAdapt=Nav.cal.stepLen;
+  Nav.nodes=JSON.parse(JSON.stringify(fac.nodes||[]));
+  Nav.edges=fac.edges||[];
+  const ent=Nav.nodes.find(n=>n.type==='entrance')||Nav.nodes[0];
+  if(ent){Nav.userPos={x:ent.x,y:ent.y};Nav.userNodeId=ent.id;}
+  // Ensure edge distances
+  const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);
+  Nav.edges.forEach(e=>{if(!e.dist&&nm[e.from]&&nm[e.to])e.dist=Math.hypot(nm[e.from].x-nm[e.to].x,nm[e.from].y-nm[e.to].y);});
+  S('sn');
+  setupCanvas(fac);
+  setupSearch();
+  buildChips();
+  initAllSensors();
+  const h=new Date().getHours();
+  document.getElementById('greet').textContent=h<12?'Good morning 👋':h<17?'Good afternoon 👋':'Good evening 👋';
+  document.getElementById('fac-disp').textContent=fac.name||'Indoor Navigation';
+  // Register SW
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════════════════════════════════════════════
+function setupCanvas(fac){
+  Nav.canvas=document.getElementById('mc');
+  Nav.ctx=Nav.canvas.getContext('2d');
+  const w=document.getElementById('map-wrap');
+  Nav.canvas.width=w.clientWidth||window.innerWidth;
+  Nav.canvas.height=w.clientHeight||window.innerHeight-150;
+  if(fac.floorImage||fac.img){
+    const img=new Image();
+    img.onload=()=>{
+      const sc=Math.min(Nav.canvas.width/img.naturalWidth,Nav.canvas.height/img.naturalHeight,1);
+      Nav.imgW=Math.round(img.naturalWidth*sc);Nav.imgH=Math.round(img.naturalHeight*sc);Nav.imgEl=img;
+      // Scale node coords from admin space → display space
+      const sx=Nav.imgW/(fac.imgW||Nav.imgW),sy=Nav.imgH/(fac.imgH||Nav.imgH);
+      if(Math.abs(sx-1)>.005||Math.abs(sy-1)>.005){
+        Nav.nodes.forEach(n=>{n.x*=sx;n.y*=sy;});
+        if(Nav.userPos){Nav.userPos.x*=sx;Nav.userPos.y*=sy;}
+        const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);
+        Nav.edges.forEach(e=>{if(nm[e.from]&&nm[e.to]){e.dist=Math.hypot(nm[e.from].x-nm[e.to].x,nm[e.from].y-nm[e.to].y);}});
+      }
+      fitMap();draw();
+    };
+    img.src=fac.floorImage||fac.img;
+  }else{Nav.imgW=800;Nav.imgH=500;fitMap();draw();}
+  setupMapEvents();
+}
+
+function fitMap(){const wx=(Nav.canvas.width-Nav.imgW)/2,wy=(Nav.canvas.height-Nav.imgH)/2;Nav.scale=1;Nav.ox=wx>0?wx:0;Nav.oy=wy>0?wy:0;}
+function zm(f){Nav.scale=Math.max(.15,Math.min(10,Nav.scale*f));draw();}
+
+function draw(){
+  const c=Nav.canvas,ctx=Nav.ctx;if(!c)return;
+  ctx.clearRect(0,0,c.width,c.height);ctx.save();ctx.translate(Nav.ox,Nav.oy);ctx.scale(Nav.scale,Nav.scale);
+
+  // Background / floor plan
+  if(Nav.imgEl){ctx.drawImage(Nav.imgEl,0,0,Nav.imgW,Nav.imgH);}
+  else{
+    ctx.fillStyle='#0D1018';ctx.fillRect(0,0,Nav.imgW,Nav.imgH);
+    ctx.fillStyle='rgba(91,95,237,.08)';ctx.font=`700 ${Math.min(Nav.imgW/10,18)}px Sora`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText((Nav.fac?.name||'MAP').toUpperCase(),Nav.imgW/2,Nav.imgH/2);
+  }
+
+  const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);
+
+  // All edges (very dim)
+  Nav.edges.forEach(e=>{
+    const f=nm[e.from],t=nm[e.to];if(!f||!t)return;
+    ctx.beginPath();ctx.moveTo(f.x,f.y);ctx.lineTo(t.x,t.y);
+    ctx.strokeStyle='rgba(91,95,237,.09)';ctx.lineWidth=2;ctx.stroke();
+  });
+
+  // Route
+  if(Nav.route.length>1){
+    // Completed portion
+    if(Nav.step>0){
+      ctx.beginPath();
+      for(let i=0;i<=Math.min(Nav.step,Nav.route.length-1);i++){const n=nm[Nav.route[i]];if(!n)continue;i===0?ctx.moveTo(n.x,n.y):ctx.lineTo(n.x,n.y);}
+      ctx.strokeStyle='rgba(91,95,237,.2)';ctx.lineWidth=7;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
+    }
+    // Remaining — outer glow
+    ctx.beginPath();let st=false;
+    for(let i=Nav.step;i<Nav.route.length;i++){const n=nm[Nav.route[i]];if(!n)continue;if(!st){ctx.moveTo(n.x,n.y);st=true;}else ctx.lineTo(n.x,n.y);}
+    ctx.strokeStyle='rgba(91,95,237,.25)';ctx.lineWidth=18;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
+    // Remaining — main line
+    ctx.beginPath();st=false;
+    for(let i=Nav.step;i<Nav.route.length;i++){const n=nm[Nav.route[i]];if(!n)continue;if(!st){ctx.moveTo(n.x,n.y);st=true;}else ctx.lineTo(n.x,n.y);}
+    ctx.strokeStyle='#5B5FED';ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.shadowColor='rgba(91,95,237,.8)';ctx.shadowBlur=14;ctx.stroke();ctx.shadowBlur=0;
+
+    // Dashes on remaining route
+    const nextN=nm[Nav.route[Math.min(Nav.step+1,Nav.route.length-1)]];
+    if(nextN&&Nav.isNav){
+      ctx.beginPath();ctx.arc(nextN.x,nextN.y,16,0,Math.PI*2);
+      ctx.strokeStyle='rgba(245,158,11,.65)';ctx.lineWidth=2.5;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
+    }
+
+    // Destination pin
+    const dest=nm[Nav.route[Nav.route.length-1]];
+    if(dest){
+      ctx.save();ctx.translate(dest.x,dest.y-28);
+      // Pin shadow
+      ctx.shadowColor='rgba(239,68,68,.6)';ctx.shadowBlur=12;
+      ctx.beginPath();ctx.moveTo(0,-14);ctx.bezierCurveTo(10,-14,14,-4,0,10);ctx.bezierCurveTo(-14,-4,-10,-14,0,-14);
+      ctx.fillStyle='#EF4444';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();ctx.shadowBlur=0;
+      ctx.beginPath();ctx.arc(0,-4,4,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // Nodes
+  for(const n of Nav.nodes){
+    const col=NC[n.type]||'#6B7280';
+    const isNext=Nav.isNav&&Nav.route[Nav.step+1]===n.id;
+    const isDest=Nav.dest?.id===n.id;
+    const r=isNext||isDest?10:6;
+    if(isNext||isDest){ctx.beginPath();ctx.arc(n.x,n.y,r+7,0,Math.PI*2);ctx.fillStyle=col+'18';ctx.fill();}
+    ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+    ctx.strokeStyle=isNext||isDest?'#fff':'rgba(255,255,255,.15)';ctx.lineWidth=isNext||isDest?2:1.2;ctx.stroke();
+    if(['entrance','exit','stairs','elevator','toilet','pharmacy','cafeteria','emergency'].includes(n.type)||isNext||isDest){
+      const lbl=n.label||n.type;const fs=isNext?11:9;
+      ctx.font=`700 ${fs}px Sora`;ctx.textAlign='center';ctx.textBaseline='top';
+      const tw=ctx.measureText(lbl).width+6,lx=n.x-tw/2,ly=n.y+r+2;
+      ctx.fillStyle='rgba(7,9,15,.92)';if(ctx.roundRect)ctx.roundRect(lx,ly,tw,12,3);else ctx.rect(lx,ly,tw,12);ctx.fill();
+      ctx.fillStyle='#EEF2FF';ctx.fillText(lbl,n.x,ly+2);
+    }
+  }
+
+  // User position — animated beacon
+  if(Nav.userPos){
+    const{x,y}=Nav.userPos;
+    // Outer pulse ring
+    ctx.beginPath();ctx.arc(x,y,24,0,Math.PI*2);ctx.fillStyle='rgba(91,95,237,.07)';ctx.fill();
+    ctx.beginPath();ctx.arc(x,y,16,0,Math.PI*2);ctx.fillStyle='rgba(91,95,237,.12)';ctx.fill();
+    // Main dot
+    ctx.beginPath();ctx.arc(x,y,9,0,Math.PI*2);ctx.fillStyle='#5B5FED';ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.stroke();
+    ctx.shadowColor='rgba(91,95,237,.9)';ctx.shadowBlur=16;ctx.fill();ctx.shadowBlur=0;
+
+    // Heading arrow (drawn on user dot, rotates with sensor)
+    if(Nav.hdgReady){
+      const hRad=Nav.hdg*Math.PI/180; // 0=North
+      ctx.save();ctx.translate(x,y);ctx.rotate(hRad);
+      // Arrow head
+      ctx.beginPath();ctx.moveTo(0,-19);ctx.lineTo(4,-10);ctx.lineTo(-4,-10);ctx.closePath();
+      ctx.fillStyle='rgba(91,95,237,.75)';ctx.fill();
+      // Arrow shaft
+      ctx.beginPath();ctx.moveTo(0,-10);ctx.lineTo(0,6);ctx.strokeStyle='rgba(91,95,237,.5)';ctx.lineWidth=2;ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  ctx.restore();
+
+  // Draw compass overlay if navigating
+  if(Nav.isNav)drawCompass();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LIVE COMPASS CANVAS — The key feature
+// ═══════════════════════════════════════════════════════════════════════════
+function drawCompass(){
+  const cc=document.getElementById('compass-canvas');
+  if(!cc||!cc.getContext)return;
+  const ctx=cc.getContext('2d');
+  const W=200,H=200,cx=100,cy=100,R=88;
+  ctx.clearRect(0,0,W,H);
+
+  // ── Background ring ──────────────────────────────────────────
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+  const bg=ctx.createRadialGradient(cx,cy,R*0.3,cx,cy,R);
+  bg.addColorStop(0,'rgba(13,16,24,.95)');
+  bg.addColorStop(1,'rgba(7,9,15,.98)');
+  ctx.fillStyle=bg;ctx.fill();
+  ctx.strokeStyle='rgba(91,95,237,.4)';ctx.lineWidth=2;ctx.stroke();
+
+  // ── Tick marks ───────────────────────────────────────────────
+  for(let i=0;i<360;i+=10){
+    const isCard=i%90===0,isMin=i%45===0;
+    const rad=i*Math.PI/180;
+    const inner=isCard?R-14:isMin?R-9:R-6;
+    const x1=cx+R*Math.sin(rad),y1=cy-R*Math.cos(rad);
+    const x2=cx+inner*Math.sin(rad),y2=cy-inner*Math.cos(rad);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+    ctx.strokeStyle=isCard?'rgba(91,95,237,.8)':isMin?'rgba(91,95,237,.4)':'rgba(91,95,237,.2)';
+    ctx.lineWidth=isCard?2:1;ctx.stroke();
+  }
+
+  // ── Cardinal labels ───────────────────────────────────────────
+  const cards=[['N',0,'#818CF8'],['E',90,'#818CF8'],['S',180,'#818CF8'],['W',270,'#818CF8']];
+  ctx.font='700 11px Sora';ctx.textAlign='center';ctx.textBaseline='middle';
+  cards.forEach(([l,deg,col])=>{
+    const rad=deg*Math.PI/180;
+    const lx=cx+(R-26)*Math.sin(rad),ly=cy-(R-26)*Math.cos(rad);
+    ctx.fillStyle=col;ctx.fillText(l,lx,ly);
+  });
+
+  // ── North indicator (always points North in fixed ring) ───────
+  const nRad=0; // North = up
+  ctx.save();ctx.translate(cx,cy);
+  ctx.beginPath();ctx.moveTo(0,-(R-5));ctx.lineTo(4,-(R-20));ctx.lineTo(-4,-(R-20));
+  ctx.fillStyle='#818CF8';ctx.fill();ctx.restore();
+
+  // ── DIRECTION TO NEXT WAYPOINT ────────────────────────────────
+  // This is the core navigation arrow
+  const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);
+  const curr=Nav.userPos;
+  const nextId=Nav.route[Math.min(Nav.step+1,Nav.route.length-1)];
+  const nextN=nm[nextId];
+  const destN=nm[Nav.route[Nav.route.length-1]];
+
+  if(curr&&nextN){
+    // Bearing to next node (degrees from North, CW)
+    const dx=nextN.x-curr.x,dy=nextN.y-curr.y;
+    const bearingToNext=(Math.atan2(dx,-dy)*180/Math.PI+360)%360;
+
+    // Relative turn = bearing - current heading
+    // This tells user: if this is 0 = go straight, +90 = turn right, -90 = turn left
+    let turnAngle=bearingToNext-Nav.hdg;
+    if(turnAngle>180)turnAngle-=360;
+    if(turnAngle<-180)turnAngle+=360;
+
+    // Draw the nav arrow — rotated to show direction relative to user's facing
+    const arrowRad=turnAngle*Math.PI/180;
+
+    // Arrow glow
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(arrowRad);
+    const grd=ctx.createLinearGradient(0,-R*.55,0,R*.55);
+    grd.addColorStop(0,'rgba(91,95,237,0)');
+    grd.addColorStop(.4,'rgba(91,95,237,.15)');
+    grd.addColorStop(1,'rgba(91,95,237,0)');
+    ctx.fillStyle=grd;
+    ctx.fillRect(-20,-R*.55,40,R*1.1);
+
+    // Main navigation arrow (go arrow)
+    const aLen=R*.65;
+    ctx.beginPath();
+    ctx.moveTo(0,-aLen);
+    ctx.lineTo(14,-aLen+28);
+    ctx.lineTo(6,-aLen+22);
+    ctx.lineTo(6,aLen*.4);
+    ctx.lineTo(-6,aLen*.4);
+    ctx.lineTo(-6,-aLen+22);
+    ctx.lineTo(-14,-aLen+28);
+    ctx.closePath();
+    const arrowGrd=ctx.createLinearGradient(0,-aLen,0,aLen*.4);
+    arrowGrd.addColorStop(0,'#818CF8');
+    arrowGrd.addColorStop(1,'#5B5FED');
+    ctx.fillStyle=arrowGrd;ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=1;ctx.stroke();
+    ctx.restore();
+
+    // ── Turn angle indicator arc ────────────────────────────────
+    if(Math.abs(turnAngle)>20){
+      const arcStart=-Math.PI/2; // top
+      const arcEnd=arcStart+(turnAngle*Math.PI/180);
+      ctx.beginPath();
+      ctx.arc(cx,cy,R*.42,arcStart,arcEnd,turnAngle<0);
+      ctx.strokeStyle=Math.abs(turnAngle)<45?'rgba(245,158,11,.7)':'rgba(239,68,68,.7)';
+      ctx.lineWidth=3;ctx.stroke();
+      // Arc arrowhead
+      const headR=R*.42;
+      const headAngle=arcEnd-(turnAngle>0?.15:-.15);
+      const hx=cx+headR*Math.cos(headAngle),hy=cy+headR*Math.sin(headAngle);
+      ctx.save();ctx.translate(hx,hy);ctx.rotate(headAngle+(turnAngle>0?Math.PI/2:-Math.PI/2));
+      ctx.beginPath();ctx.moveTo(0,-5);ctx.lineTo(3,2);ctx.lineTo(-3,2);
+      ctx.fillStyle=Math.abs(turnAngle)<45?'rgba(245,158,11,.8)':'rgba(239,68,68,.8)';ctx.fill();
+      ctx.restore();
+    }
+
+    // ── Center info ───────────────────────────────────────────────
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    // Distance
+    const distM=(Math.hypot(dx,dy)*Nav.cal.mpp).toFixed(0);
+    ctx.font='700 14px JetBrains Mono';
+    ctx.fillStyle='#EEF2FF';
+    ctx.fillText(distM+'m',cx,cy-6);
+    // Turn label
+    let tlabel='AHEAD';
+    if(Math.abs(turnAngle)<15)tlabel='GO STRAIGHT';
+    else if(turnAngle>0&&turnAngle<60)tlabel='BEAR RIGHT';
+    else if(turnAngle>=60)tlabel='TURN RIGHT';
+    else if(turnAngle<0&&turnAngle>-60)tlabel='BEAR LEFT';
+    else tlabel='TURN LEFT';
+    ctx.font='600 9px Sora';ctx.fillStyle='rgba(129,140,248,.9)';
+    ctx.fillText(tlabel,cx,cy+10);
+
+    // ── Heading readout ───────────────────────────────────────────
+    const dirs=['N','NE','E','SE','S','SW','W','NW'];
+    const dir=dirs[Math.round(Nav.hdg/45)%8];
+    ctx.font='500 9px JetBrains Mono';ctx.fillStyle='rgba(71,85,105,.9)';
+    ctx.fillText(`${Nav.hdg.toFixed(0)}° ${dir}`,cx,cy+26);
+
+    // Update HUD arrow SVG (same rotation)
+    document.getElementById('hud-svg').style.transform=`rotate(${turnAngle}deg)`;
+
+    // ── Turn arc in HUD ───────────────────────────────────────────
+    const harc=document.getElementById('turn-arc');
+    if(Math.abs(turnAngle)>20){
+      const r2=16,hcx=19,hcy=19;
+      const sa=-Math.PI/2;const ea=sa+(turnAngle*Math.PI/180);
+      const x1=hcx+r2*Math.cos(sa),y1=hcy+r2*Math.sin(sa);
+      const x2=hcx+r2*Math.cos(ea),y2=hcy+r2*Math.sin(ea);
+      const lg=Math.abs(turnAngle)>180?1:0,sw=turnAngle>0?1:0;
+      harc.setAttribute('d',`M${x1.toFixed(2)},${y1.toFixed(2)} A${r2},${r2},0,${lg},${sw},${x2.toFixed(2)},${y2.toFixed(2)}`);
+      harc.setAttribute('opacity','0.85');
+    }else{harc.setAttribute('opacity','0');}
+
+    // Update HUD text
+    const instrMap={'GO STRAIGHT':'Go straight ahead','BEAR RIGHT':'Bear right','TURN RIGHT':'Turn right →','TURN LEFT':'Turn left ←','BEAR LEFT':'Bear left','AHEAD':'Continue ahead'};
+    document.getElementById('hud-dist').textContent=`IN ${distM}m`;
+    document.getElementById('hud-main').textContent=`${instrMap[tlabel]||tlabel} → ${nextN.label||nextN.type}`;
+    document.getElementById('hud-sub').textContent=destN?`Dest: ${destN.label||destN.type}`:'';
+  }
+
+  // ── Calibration compass (in cal screen) ──────────────────────
+  const calC=document.getElementById('cal-canvas');
+  if(calC){
+    const cc2=calC.getContext('2d');const cW=160,cH=160,ccx=80,ccy=80,cR=70;
+    cc2.clearRect(0,0,cW,cH);
+    cc2.beginPath();cc2.arc(ccx,ccy,cR,0,Math.PI*2);cc2.strokeStyle='rgba(91,95,237,.3)';cc2.lineWidth=2;cc2.stroke();
+    // Needle
+    cc2.save();cc2.translate(ccx,ccy);cc2.rotate(Nav.hdg*Math.PI/180);
+    cc2.beginPath();cc2.moveTo(0,-cR*.7);cc2.lineTo(4,-8);cc2.lineTo(-4,-8);cc2.fillStyle='#818CF8';cc2.fill();
+    cc2.beginPath();cc2.moveTo(0,cR*.7);cc2.lineTo(4,8);cc2.lineTo(-4,8);cc2.fillStyle='#374069';cc2.fill();
+    cc2.restore();
+    cc2.beginPath();cc2.arc(ccx,ccy,5,0,Math.PI*2);cc2.fillStyle='#EEF2FF';cc2.fill();
+    document.getElementById('cal-hdg').textContent=`${Nav.hdg.toFixed(0)}°`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAP EVENTS
+// ═══════════════════════════════════════════════════════════════════════════
+let _ts=null,_pinch=0,_dm=false;
+function toMap(cx,cy){const r=Nav.canvas.getBoundingClientRect();return{x:(cx-r.left)/Nav.scale-Nav.ox,y:(cy-r.top)/Nav.scale-Nav.oy};}
+function setupMapEvents(){
+  const c=Nav.canvas;
+  c.addEventListener('click',e=>{if(Nav.isNav||_dm)return;const p=toMap(e.clientX,e.clientY);let b=null,bd=Infinity;Nav.nodes.forEach(n=>{const d=Math.hypot(n.x-p.x,n.y-p.y);if(d<bd){bd=d;b=n;}});if(b&&bd<36/Nav.scale)setDest(b);});
+  c.addEventListener('mousedown',e=>{_dm=false;_ts={x:e.clientX-Nav.ox*Nav.scale,y:e.clientY-Nav.oy*Nav.scale};});
+  c.addEventListener('mousemove',e=>{if(!_ts)return;_dm=true;Nav.ox=(e.clientX-_ts.x)/Nav.scale;Nav.oy=(e.clientY-_ts.y)/Nav.scale;draw();});
+  c.addEventListener('mouseup',()=>_ts=null);
+  c.addEventListener('wheel',e=>{e.preventDefault();zm(e.deltaY>0?.88:1.13);},{passive:false});
+  c.addEventListener('touchstart',e=>{e.preventDefault();_dm=false;if(e.touches.length===1)_ts={x:e.touches[0].clientX-Nav.ox*Nav.scale,y:e.touches[0].clientY-Nav.oy*Nav.scale};else if(e.touches.length===2)_pinch=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);},{passive:false});
+  c.addEventListener('touchmove',e=>{e.preventDefault();_dm=true;if(e.touches.length===2&&_pinch){const d=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);zm(d/_pinch);_pinch=d;}else if(e.touches.length===1&&_ts){Nav.ox=(e.touches[0].clientX-_ts.x)/Nav.scale;Nav.oy=(e.touches[0].clientY-_ts.y)/Nav.scale;draw();}},{passive:false});
+  c.addEventListener('touchend',()=>{_ts=null;_pinch=0;});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════════════════════════════════════════
+function setupSearch(){
+  document.getElementById('si').addEventListener('input',e=>doSearch(e.target.value));
+  document.addEventListener('click',e=>{if(!document.getElementById('sw').contains(e.target))document.getElementById('sr').classList.remove('show');});
+}
+let _sT;
+function doSearch(q){
+  clearTimeout(_sT);const list=document.getElementById('sr');
+  if(!q.trim()){list.classList.remove('show');return;}
+  _sT=setTimeout(()=>{
+    const res=Nav.nodes.filter(n=>(n.label||'').toLowerCase().includes(q.toLowerCase())||(n.type||'').includes(q.toLowerCase())).slice(0,8);
+    if(!res.length){list.innerHTML='<div style="padding:12px 14px;font-size:13px;color:var(--t3)">No results</div>';list.classList.add('show');return;}
+    const mpp=Nav.cal.mpp;
+    list.innerHTML=res.map(n=>{const ico=NI[n.type]||'📍';const d=Nav.userPos?(Math.hypot(n.x-Nav.userPos.x,n.y-Nav.userPos.y)*mpp).toFixed(0)+'m':'';return`<div class="ri" onclick="selRes('${n.id}')"><div class="ric">${ico||n.type[0]}</div><div style="flex:1"><div style="font-size:13.5px;font-weight:700">${n.label||n.type}</div><div style="font-size:11px;color:var(--t3)">${n.type}</div></div>${d?`<div style="font-family:var(--m);font-size:11px;color:var(--accent2)">${d}</div>`:''}</div>`;}).join('');
+    list.classList.add('show');
+  },140);
+}
+function selRes(id){document.getElementById('sr').classList.remove('show');document.getElementById('si').value='';const n=Nav.nodes.find(x=>x.id===id);if(n)setDest(n);}
+function buildChips(){
+  const imp=Nav.nodes.filter(n=>['entrance','exit','stairs','elevator','toilet','pharmacy','cafeteria','emergency'].includes(n.type)).slice(0,8);
+  document.getElementById('quick-chips').innerHTML=imp.map(n=>`<div class="qchip" onclick="setDest(Nav.nodes.find(x=>x.id==='${n.id}'))">${NI[n.type]||'📍'} ${n.label||n.type}</div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODE
+// ═══════════════════════════════════════════════════════════════════════════
+function setMode(m){Nav.mode=m;document.querySelectorAll('.mchip').forEach(c=>c.classList.remove('on'));document.getElementById(`m-${m}`)?.classList.add('on');const ls={normal:'Normal routing',accessible:'Wheelchair friendly',emergency:'Emergency fastest','no-stairs':'Avoiding stairs'};toast({normal:'🚶',accessible:'♿',emergency:'🚨','no-stairs':'🚫'}[m]||'ℹ',ls[m]);if(Nav.dest&&Nav.userNodeId)setDest(Nav.dest);}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTING
+// ═══════════════════════════════════════════════════════════════════════════
+function setDest(node){
+  Nav.dest=node;
+  const start=Nav.userNodeId?Nav.nodes.find(n=>n.id===Nav.userNodeId):Nav.nodes.find(n=>n.type==='entrance')||Nav.nodes[0];
+  if(!start){toast('⚠','Scan a QR code to set your starting position');return;}
+  const path=astar(Nav.nodes,Nav.edges,start.id,node.id,getMW());
+  if(!path){toast('⚠','No route found — check node connections');return;}
+  Nav.route=path;Nav.step=0;Nav.offRouteSamples=0;
+
+  const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);
+  const mpp=Nav.cal.mpp;
+  let td=0;for(let i=0;i<Nav.route.length-1;i++){const a=nm[Nav.route[i]],b=nm[Nav.route[i+1]];if(a&&b)td+=Math.hypot(a.x-b.x,a.y-b.y);}
+  Nav.totalM=td*mpp;
+  const steps=Math.round(Nav.totalM/Nav.stepLenAdapt);
+  const eta=Math.max(1,Math.round(Nav.totalM/Nav.cal.walkSpd));
+
+  document.getElementById('idle').style.display='none';document.getElementById('route-panel').classList.add('show');document.getElementById('nav-panel').classList.remove('show');
+  document.getElementById('dn').textContent=node.label||node.type;
+  document.getElementById('r-steps').textContent=steps;
+  document.getElementById('r-dist').innerHTML=`${Nav.totalM.toFixed(0)}<sub>m</sub>`;
+  document.getElementById('r-eta').innerHTML=`${eta}<sub>min</sub>`;
+
+  // Fit route
+  const coords=Nav.route.map(id=>nm[id]).filter(Boolean);
+  if(coords.length>1){
+    const xs=coords.map(n=>n.x),ys=coords.map(n=>n.y);
+    const pad=60,scX=(Nav.canvas.width-2*pad)/Math.max(Math.max(...xs)-Math.min(...xs),1);
+    const scY=(Nav.canvas.height-2*pad)/Math.max(Math.max(...ys)-Math.min(...ys),1);
+    Nav.scale=Math.min(scX,scY,3)*.9;
+    Nav.ox=Nav.canvas.width/2-Nav.scale*(Math.min(...xs)+Math.max(...xs))/2;
+    Nav.oy=Nav.canvas.height/2-Nav.scale*(Math.min(...ys)+Math.max(...ys))/2;
+  }
+  draw();
+  toast('📍',`${Nav.totalM.toFixed(0)}m · ~${steps} steps · ${eta}min`);
+}
+
+function startNav(){
+  if(!Nav.route.length)return;
+  Nav.isNav=true;Nav.step=0;Nav.stepCount=0;
+  document.getElementById('route-panel').classList.remove('show');
+  document.getElementById('nav-panel').classList.add('show');
+  document.getElementById('dir-hud').classList.add('show');
+  document.getElementById('sw').classList.add('hide');
+  document.getElementById('rp').classList.add('show');
+  document.getElementById('compass-overlay').classList.add('active');
+  updateNavPanel();
+  draw();
+  speak(`Starting navigation to ${Nav.dest?.label}`);
+  // Center on user
+  if(Nav.userPos){
+    Nav.ox=Nav.canvas.width/2-Nav.userPos.x*Nav.scale;
+    Nav.oy=Nav.canvas.height/2-Nav.userPos.y*Nav.scale;
+  }
+}
+
+function updateNavPanel(){
+  const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);
+  let remD=0;
+  for(let i=Nav.step;i<Nav.route.length-1;i++){const a=nm[Nav.route[i]],b=nm[Nav.route[i+1]];if(a&&b)remD+=Math.hypot(a.x-b.x,a.y-b.y);}
+  const remM=(remD*Nav.cal.mpp).toFixed(0);
+  const remEta=Math.max(1,Math.round(remD*Nav.cal.mpp/Nav.cal.walkSpd));
+  document.getElementById('n-steps').textContent=Nav.stepCount;
+  document.getElementById('n-rem').innerHTML=`${remM}<span class="u">m</span>`;
+  document.getElementById('n-wp').textContent=Math.max(0,Nav.route.length-1-Nav.step);
+  document.getElementById('n-eta').innerHTML=`${remEta}<span class="u">min</span>`;
+  document.getElementById('rf').style.width=`${Math.min(100,Math.max(0,(1-(remD/Math.max(Nav.totalM/Nav.cal.mpp,1)))*100))}%`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ══ SENSOR FUSION ENGINE ══
+// Architecture:
+//   DeviceOrientation → absolute heading (magnetometer/compass)
+//   DeviceMotion.rotationRate → gyroscope (relative yaw rate)
+//   DeviceMotion.accelerationIncludingGravity → step detection
+//
+// Fusion: Kalman filter blends compass (accurate but slow/noisy)
+//         with gyroscope integration (fast but drifts)
+// ═══════════════════════════════════════════════════════════════════════════
+let _motH=null,_oriH=null,_pdrOn=false,_simT=null;
+
+function initAllSensors(){
+  _pdrOn=false;
+  const needsPerm=typeof DeviceMotionEvent?.requestPermission==='function';
+  if(needsPerm){
+    document.getElementById('motion-banner').classList.add('show');
+    startOrientation(); // some iOS allows orientation without permission
+  }else{
+    if(typeof DeviceMotionEvent!=='undefined')startMotion();
+    if(typeof DeviceOrientationEvent!=='undefined')startOrientation();
+    if(typeof DeviceMotionEvent==='undefined')setSimStatus();
+  }
+}
+
+function reqSensors(){
+  document.getElementById('motion-banner').classList.remove('show');
+  const reqs=[];
+  if(typeof DeviceMotionEvent?.requestPermission==='function')reqs.push(DeviceMotionEvent.requestPermission());
+  if(typeof DeviceOrientationEvent?.requestPermission==='function')reqs.push(DeviceOrientationEvent.requestPermission());
+  Promise.all(reqs).then(rs=>{
+    if(rs.every(r=>r==='granted')){startMotion();startOrientation();toast('✅','All sensors enabled');}
+    else{setSimStatus();}
+  }).catch(()=>setSimStatus());
+}
+
+function setSimStatus(){
+  setSd('sd-step','sim');setSt('st-step','Simulated');
+  setSd('sd-hdg','sim');setSt('st-hdg','Simulated');
+  setSd('sd-gyro','off');setSt('st-gyro','N/A');
+}
+
+// ── ORIENTATION (Compass + Gyro absolute) ────────────────────────────────
+function startOrientation(){
+  if(_oriH)return;
+  _oriH=e=>processOri(e);
+  window.addEventListener('deviceorientation',_oriH,true);
+}
+
+function processOri(e){
+  let raw;
+  if(e.webkitCompassHeading!=null){
+    raw=e.webkitCompassHeading; // iOS: 0=North CW ✓
+    if(e.webkitCompassAccuracy>50){setSd('sd-hdg','sim');setSt('st-hdg','Low accuracy');}
+    else{setSd('sd-hdg','on');setSt('st-hdg',`${raw.toFixed(0)}°`);}
+  }else if(e.alpha!=null){
+    raw=(360-e.alpha+360)%360; // Android: invert alpha
+    setSd('sd-hdg','on');setSt('st-hdg',`${raw.toFixed(0)}°`);
+  }else return;
+
+  Nav.hdgRaw=raw;
+  Nav.hdgSamples++;
+  Nav.hdgReady=true;
+
+  // ── Kalman filter: fuse compass measurement with gyro prediction ──
+  // Prediction from gyro integration was already done in processMotion
+  // Update step: correct with compass measurement
+  const R_compass=5; // compass measurement noise variance (degrees²)
+  const K=Nav.kalHdgVar/(Nav.kalHdgVar+R_compass); // Kalman gain
+
+  // Wrap-around-safe innovation
+  let innov=raw-Nav.kalHdg;
+  if(innov>180)innov-=360;
+  if(innov<-180)innov+=360;
+
+  Nav.kalHdg=(Nav.kalHdg+K*innov+360)%360;
+  Nav.kalHdgVar=(1-K)*Nav.kalHdgVar;
+
+  // Also apply simple low-pass for display
+  let diff=raw-Nav.hdg;
+  if(diff>180)diff-=360;if(diff<-180)diff+=360;
+  Nav.hdg=(Nav.hdg+0.15*diff+360)%360;
+
+  // Cal screen
+  document.getElementById('cal-hdg')&&(document.getElementById('cal-hdg').textContent=`${Nav.hdg.toFixed(0)}°`);
+
+  if(Nav.isNav){draw();checkOffRoute();}
+}
+
+// ── ACCELEROMETER + GYROSCOPE (DeviceMotion) ─────────────────────────────
+function startMotion(){
+  if(_motH)return;
+  _motH=e=>processMotion(e);
+  window.addEventListener('devicemotion',_motH,{passive:true});
+  setSd('sd-step','on');setSt('st-step','Calibrating…');
+}
+
+function processMotion(e){
+  const now=Date.now();
+
+  // ── GYROSCOPE: integrate rotation rate for heading ────────────────────
+  // rotationRate.alpha = rotation around Z axis (yaw) — what we want for heading
+  // Units: degrees/second
+  if(e.rotationRate?.alpha!=null||e.rotationRate?.gamma!=null){
+    const dt=Nav.gyroLastT?(now-Nav.gyroLastT)/1000:0;
+    Nav.gyroLastT=now;
+
+    // On most devices: beta=X, gamma=Y, alpha=Z
+    // Depending on phone orientation, yaw comes from different axes
+    // Use alpha for landscape, gamma for portrait
+    const yawRate=e.rotationRate.alpha||0; // deg/s around Z (vertical axis)
+
+    if(dt>0&&dt<0.5&&Math.abs(yawRate)<400){
+      // Gyro predict step: integrate yaw rate
+      const dHdg=yawRate*dt;
+      // Kalman predict
+      const Q_gyro=0.5; // gyro process noise
+      Nav.kalHdg=(Nav.kalHdg+dHdg+360)%360;
+      Nav.kalHdgVar+=Q_gyro;
+      // Also update display heading with gyro (fast response)
+      if(!Nav.hdgReady||Nav.kalHdgVar<50){
+        Nav.hdg=Nav.kalHdg;
+        if(Nav.isNav){draw();}
+      }
+      Nav.gyroActive=true;
+      setSd('sd-gyro','on');setSt('st-gyro',`${yawRate.toFixed(0)}°/s`);
+    }
+  }
+
+  // ── ACCELEROMETER: step detection ─────────────────────────────────────
+  const gi=e.accelerationIncludingGravity;
+  const la=e.acceleration; // gravity removed
+  if(!gi&&!la)return;
+
+  // Use linearAcceleration if non-trivially zero, else use raw
+  const useLinear=la&&(Math.abs(la.x||0)+Math.abs(la.y||0)+Math.abs(la.z||0))>0.1;
+  const ax=useLinear?(la.x||0):(gi?.x||0);
+  const ay=useLinear?(la.y||0):(gi?.y||0);
+  const az=useLinear?(la.z||0):(gi?.z||0);
+  const mag=Math.sqrt(ax*ax+ay*ay+az*az);
+
+  // Rolling buffer (15 samples ≈ 0.5s at ~30Hz)
+  Nav.accBuf.push(mag);if(Nav.accBuf.length>15)Nav.accBuf.shift();
+  const avg=Nav.accBuf.reduce((s,v)=>s+v,0)/Nav.accBuf.length;
+
+  // ── Adaptive threshold calibration (first 60 samples ~2s) ────────────
+  if(!Nav.calDone){
+    Nav.calBuf.push(mag);
+    if(Nav.calBuf.length>=60){
+      const sorted=[...Nav.calBuf].sort((a,b)=>a-b);
+      const q75=sorted[Math.floor(sorted.length*.75)];
+      const q25=sorted[Math.floor(sorted.length*.25)];
+      Nav.stepThr=Math.max(0.5,Math.min(3.0,(q75-q25)*0.6));
+      Nav.calDone=true;
+      setSt('st-step',`Active (${Nav.stepThr.toFixed(1)})`);
+    }
+  }
+
+  // ── Peak detection ────────────────────────────────────────────────────
+  // Step = acc rises by >threshold AND hasn't peaked recently (>300ms)
+  if(avg>Nav.lastAccMag+Nav.stepThr&&!Nav.lastPeak&&now-Nav.lastStepT>300){
+    Nav.lastPeak=true;
+    Nav.lastStepT=now;
+
+    // ── Adaptive step length ───────────────────────────────────────────
+    // Estimate cadence from step intervals
+    if(Nav.lastStepT>0){
+      const interval=now-Nav.lastStepT;
+      Nav.stepIntervals.push(interval);
+      if(Nav.stepIntervals.length>8)Nav.stepIntervals.shift();
+      const avgInt=Nav.stepIntervals.reduce((s,v)=>s+v,0)/Nav.stepIntervals.length;
+      // Higher cadence (shorter intervals) → longer steps
+      if(avgInt<400)Nav.stepLenAdapt=Nav.cal.stepLen*1.2; // fast walk
+      else if(avgInt>800)Nav.stepLenAdapt=Nav.cal.stepLen*0.85; // slow walk
+      else Nav.stepLenAdapt=Nav.cal.stepLen;
+    }
+
+    onStep();
+  }else if(avg<Nav.lastAccMag-Nav.stepThr*0.25){
+    Nav.lastPeak=false;
+  }
+  Nav.lastAccMag=avg;
+}
+
+// ── STEP HANDLER: PDR position update ─────────────────────────────────────
+function onStep(){
+  Nav.stepCount++;
+  if(!Nav.isNav||!Nav.route.length)return;
+
+  const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);
+  if(Nav.step>=Nav.route.length-1){arrive();return;}
+
+  const nextNode=nm[Nav.route[Nav.step+1]];
+  if(!nextNode||!Nav.userPos)return;
+
+  // ── PDR Movement Formula ──────────────────────────────────────────────
+  // pos_new = pos_old + stepLen × (direction_vector)
+  // Use Kalman-fused heading for best accuracy
+  const headingToUse=Nav.kalHdgVar<20?Nav.kalHdg:Nav.hdg; // trust Kalman if converged
+  const hRad=headingToUse*Math.PI/180;
+  const stepPx=Nav.stepLenAdapt/Nav.cal.mpp;
+
+  // Raw PDR movement (heading-based)
+  const pdx=Math.sin(hRad)*stepPx;  // East on canvas
+  const pdy=-Math.cos(hRad)*stepPx; // North on canvas
+
+  // ── Route-constrained blending ────────────────────────────────────────
+  // 55% route direction, 45% free PDR
+  // Prevents walking through walls while still responding to real movement
+  const toNext={x:nextNode.x-Nav.userPos.x,y:nextNode.y-Nav.userPos.y};
+  const distToNext=Math.hypot(toNext.x,toNext.y);
+
+  if(distToNext<=stepPx*1.3){
+    // Snap to waypoint
+    Nav.userPos={x:nextNode.x,y:nextNode.y};
+    Nav.userNodeId=Nav.route[Nav.step+1];
+    Nav.step++;
+    Nav.offRouteSamples=0;
+    document.getElementById('offroute-banner').classList.remove('show');
+    if(Nav.step>=Nav.route.length-1){arrive();return;}
+    speak(getWaypointInstruction(Nav.step));
+  }else{
+    // Blend PDR + route
+    const BLEND=0.55;
+    const rx=toNext.x/distToNext,ry=toNext.y/distToNext;
+    Nav.userPos={
+      x:Nav.userPos.x+pdx*(1-BLEND)+rx*stepPx*BLEND,
+      y:Nav.userPos.y+pdy*(1-BLEND)+ry*stepPx*BLEND
+    };
+  }
+
+  // Keep map centered on user
+  Nav.ox=Nav.canvas.width/2-Nav.userPos.x*Nav.scale;
+  Nav.oy=Nav.canvas.height/2-Nav.userPos.y*Nav.scale;
+
+  updateNavPanel();
+  draw();
+}
+
+function getWaypointInstruction(stepIdx){
+  const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);
+  if(stepIdx>=Nav.route.length-1)return'You have arrived';
+  const curr=nm[Nav.route[stepIdx]];
+  const next=nm[Nav.route[stepIdx+1]];
+  if(!curr||!next)return'Continue';
+  const dx=next.x-curr.x,dy=next.y-curr.y;
+  const bearing=(Math.atan2(dx,-dy)*180/Math.PI+360)%360;
+  let turn=bearing-Nav.hdg;
+  if(turn>180)turn-=360;if(turn<-180)turn+=360;
+  if(Math.abs(turn)<25)return`Continue straight to ${next.label||next.type}`;
+  else if(turn>0)return`Turn right toward ${next.label||next.type}`;
+  else return`Turn left toward ${next.label||next.type}`;
+}
+
+// ── OFF-ROUTE DETECTION ───────────────────────────────────────────────────
+function checkOffRoute(){
+  if(!Nav.isNav||!Nav.userPos||!Nav.route.length)return;
+  const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);
+  // Find closest point on route
+  let minDist=Infinity;
+  for(let i=Nav.step;i<Math.min(Nav.step+3,Nav.route.length);i++){
+    const n=nm[Nav.route[i]];if(!n)continue;
+    const d=Math.hypot(n.x-Nav.userPos.x,n.y-Nav.userPos.y);
+    if(d<minDist)minDist=d;
+  }
+  const distM=minDist*Nav.cal.mpp;
+  if(distM>Nav.offRouteThreshold){
+    Nav.offRouteSamples++;
+    if(Nav.offRouteSamples>5){
+      document.getElementById('offroute-banner').classList.add('show');
+    }
+  }else{
+    Nav.offRouteSamples=Math.max(0,Nav.offRouteSamples-1);
+    if(Nav.offRouteSamples===0)document.getElementById('offroute-banner').classList.remove('show');
+  }
+}
+
+function rerouteNow(){
+  document.getElementById('offroute-banner').classList.remove('show');
+  Nav.offRouteSamples=0;
+  if(!Nav.dest||!Nav.userPos)return;
+  // Find nearest node to current position
+  let nearest=null,nd=Infinity;
+  Nav.nodes.forEach(n=>{const d=Math.hypot(n.x-Nav.userPos.x,n.y-Nav.userPos.y);if(d<nd){nd=d;nearest=n;}});
+  if(!nearest)return;
+  Nav.userNodeId=nearest.id;
+  const path=astar(Nav.nodes,Nav.edges,nearest.id,Nav.dest.id,getMW());
+  if(path){Nav.route=path;Nav.step=0;updateNavPanel();draw();toast('🔄','Route recalculated');speak('Route recalculated');}
+  else toast('⚠','Cannot find new route');
+}
+
+// ── SIMULATION (desktop / no sensors) ─────────────────────────────────────
+function simPDR(){
+  if(!Nav.route.length)return;
+  document.getElementById('motion-banner').classList.remove('show');
+  setSd('sd-step','sim');setSt('st-step','Simulated');
+  setSd('sd-hdg','sim');setSt('st-hdg','Simulated');
+  const nm={};Nav.nodes.forEach(n=>nm[n.id]=n);
+  const coords=Nav.route.map(id=>nm[id]).filter(Boolean);let i=0;
+  const mv=()=>{
+    if(!Nav.isNav||i>=coords.length-1){clearTimeout(_simT);return;}
+    i++;const prev=coords[i-1],curr=coords[i];
+    if(prev&&curr){
+      const dx=curr.x-prev.x,dy=curr.y-prev.y;
+      Nav.hdg=(Math.atan2(dx,-dy)*180/Math.PI+360)%360;
+      Nav.kalHdg=Nav.hdg;Nav.hdgReady=true;
+    }
+    Nav.userPos={x:curr.x,y:curr.y};Nav.userNodeId=Nav.route[i];Nav.step=i;
+    Nav.stepCount+=Math.floor(Math.random()*3)+3;
+    Nav.ox=Nav.canvas.width/2-Nav.userPos.x*Nav.scale;
+    Nav.oy=Nav.canvas.height/2-Nav.userPos.y*Nav.scale;
+    updateNavPanel();draw();
+    if(i<coords.length-1)_simT=setTimeout(mv,900+Math.random()*400);else arrive();
+  };
+  _simT=setTimeout(mv,1000);
+  toast('💻','Desktop simulation — auto-walking');
+}
+
+// ── START PDR ─────────────────────────────────────────────────────────────
+function startPDR(){
+  if(_pdrOn)return;_pdrOn=true;
+  const isHTTP=location.protocol==='http:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1';
+  if(isHTTP){simPDR();return;}
+  if(!_motH&&typeof DeviceMotionEvent!=='undefined'){
+    const needsPerm=typeof DeviceMotionEvent?.requestPermission==='function';
+    if(!needsPerm)startMotion();
+    else{document.getElementById('motion-banner').classList.add('show');simPDR();}
+  }else if(!_motH)simPDR();
+  if(!_oriH&&typeof DeviceOrientationEvent!=='undefined')startOrientation();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NAV CONTROL
+// ═══════════════════════════════════════════════════════════════════════════
+function arrive(){
+  Nav.isNav=false;if(_simT){clearTimeout(_simT);_simT=null;}
+  document.getElementById('arr').classList.add('show');
+  document.getElementById('dir-hud').classList.remove('show');
+  document.getElementById('compass-overlay').classList.remove('active');
+  document.getElementById('arr-dest').textContent=`Arrived at: ${Nav.dest?.label||'destination'}`;
+  document.getElementById('arr-stats').textContent=`${Nav.stepCount} steps · ${(Nav.totalM||0).toFixed(0)}m`;
+  speak(`You have arrived at ${Nav.dest?.label}`);
+}
+function stopNav(){
+  Nav.isNav=false;Nav.route=[];Nav.step=0;if(_simT){clearTimeout(_simT);_simT=null;}
+  document.getElementById('dir-hud').classList.remove('show');
+  document.getElementById('sw').classList.remove('hide');
+  document.getElementById('nav-panel').classList.remove('show');
+  document.getElementById('route-panel').classList.remove('show');
+  document.getElementById('idle').style.display='block';
+  document.getElementById('rp').classList.remove('show');
+  document.getElementById('compass-overlay').classList.remove('active');
+  document.getElementById('offroute-banner').classList.remove('show');
+  document.getElementById('motion-banner').classList.remove('show');
+  draw();
+}
+function clearNav(){
+  stopNav();document.getElementById('arr').classList.remove('show');Nav.dest=null;draw();
+}
+
+startNav=function(){
+  if(!Nav.route.length)return;
+  Nav.isNav=true;Nav.step=0;Nav.stepCount=0;Nav.offRouteSamples=0;
+  document.getElementById('route-panel').classList.remove('show');
+  document.getElementById('nav-panel').classList.add('show');
+  document.getElementById('dir-hud').classList.add('show');
+  document.getElementById('sw').classList.add('hide');
+  document.getElementById('rp').classList.add('show');
+  document.getElementById('compass-overlay').classList.add('active');
+  updateNavPanel();draw();
+  startPDR();
+  speak(`Starting navigation to ${Nav.dest?.label}`);
+  if(Nav.userPos){Nav.ox=Nav.canvas.width/2-Nav.userPos.x*Nav.scale;Nav.oy=Nav.canvas.height/2-Nav.userPos.y*Nav.scale;}
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// QR SCANNER
+// ═══════════════════════════════════════════════════════════════════════════
+async function openQR(facilityMode){
+  document.getElementById('sqr').classList.add('show');
+  try{
+    Nav.qrStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    const v=document.getElementById('qvid');v.srcObject=Nav.qrStream;await v.play();
+    qrLoop(facilityMode);
+  }catch(e){document.getElementById('sqr').classList.remove('show');toast('❌','Camera access denied');}
+}
+function qrLoop(facilityMode){
+  const v=document.getElementById('qvid'),c=document.getElementById('qcv'),x=c.getContext('2d');
+  const tick=()=>{
+    if(!document.getElementById('sqr').classList.contains('show'))return;
+    if(v.readyState===v.HAVE_ENOUGH_DATA){c.width=v.videoWidth;c.height=v.videoHeight;x.drawImage(v,0,0);const img=x.getImageData(0,0,c.width,c.height);if(typeof jsQR!=='undefined'){const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});if(code){try{const d=JSON.parse(code.data);if(d.fid&&!d.nid){closeQR();document.getElementById('fid-inp').value=d.fid;go();return;}if(d.nid){onQRS(d);return;}}catch(e){}}}}
+    Nav.qrTimer=requestAnimationFrame(tick);
+  };Nav.qrTimer=requestAnimationFrame(tick);
+}
+function closeQR(){document.getElementById('sqr').classList.remove('show');if(Nav.qrStream){Nav.qrStream.getTracks().forEach(t=>t.stop());Nav.qrStream=null;}if(Nav.qrTimer){cancelAnimationFrame(Nav.qrTimer);Nav.qrTimer=null;}}
+function onQRS(data){
+  closeQR();
+  const node=Nav.nodes.find(n=>n.id===data.nid);if(!node){toast('❌','Unknown location QR');return;}
+  // POSITION CORRECTION — resets accumulated drift
+  Nav.userPos={x:node.x,y:node.y};Nav.userNodeId=node.id;
+  Nav.offRouteSamples=0;
+  document.getElementById('offroute-banner').classList.remove('show');
+  document.getElementById('pos-name').textContent=node.label||node.type;
+  document.getElementById('pos-chip').classList.add('show');
+  setTimeout(()=>document.getElementById('pos-chip').classList.remove('show'),5000);
+  // Recalculate route from corrected position
+  if(Nav.isNav&&Nav.dest){
+    const path=astar(Nav.nodes,Nav.edges,node.id,Nav.dest.id,getMW());
+    if(path){Nav.route=path;Nav.step=0;updateNavPanel();draw();}
+  }
+  draw();toast('📍',`Position locked: ${node.label||node.type}`);speak(`Position updated — you are at ${node.label||node.type}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CALIBRATION
+// ═══════════════════════════════════════════════════════════════════════════
+function openCal(){document.getElementById('cal-screen').classList.add('show');if(!_oriH)startOrientation();}
+function closeCal(){document.getElementById('cal-screen').classList.remove('show');}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+function setSd(id,state){const el=document.getElementById(id);if(!el)return;el.className='sd '+(state==='on'?'on':state==='sim'?'sim':'off');}
+function setSt(id,t){const el=document.getElementById(id);if(el)el.textContent=t;}
+const synth=window.speechSynthesis;
+function speak(t){if(!synth)return;synth.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=1.05;const v=synth.getVoices().find(v=>v.lang.startsWith('en'));if(v)u.voice=v;synth.speak(u);}
+let _tt;
+function toast(ico,msg){document.getElementById('ti').textContent=ico;document.getElementById('tm').textContent=msg;const el=document.getElementById('toast');el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3200);}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RESIZE + INIT
+// ═══════════════════════════════════════════════════════════════════════════
+window.addEventListener('resize',()=>{if(Nav.canvas&&!document.getElementById('sn').classList.contains('off')){const w=document.getElementById('map-wrap');Nav.canvas.width=w.clientWidth;Nav.canvas.height=w.clientHeight;draw();}});
+
+window.addEventListener('DOMContentLoaded',()=>{
+  if(loadCfg())showCfgOk();
+  renderRecent();
+  const p=new URLSearchParams(location.search);const fid=p.get('fid');
+  if(fid){document.getElementById('fid-inp').value=fid.toUpperCase();if(FB.projectId)setTimeout(go,400);}
+  // PWA install
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+});
+</script>
+</body>
+</html>
