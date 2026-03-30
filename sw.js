@@ -1,10 +1,9 @@
 'use strict';
-const CACHE = 'waypoint-v2';
+const CACHE = 'waypoint-v3';
 const ASSETS = [
   '/',
   '/index.html',
   '/app.html',
-  '/admin.html',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
@@ -32,10 +31,14 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // Never cache: API calls, fonts, credentials, admin panel
   if (
     e.request.url.includes('firestore.googleapis.com') ||
+    e.request.url.includes('identitytoolkit.googleapis.com') ||
     e.request.url.includes('fonts.googleapis') ||
-    e.request.url.includes('fonts.gstatic')
+    e.request.url.includes('fonts.gstatic') ||
+    e.request.url.includes('config.js') ||
+    e.request.url.includes('admin.html')
   ) return;
 
   e.respondWith(

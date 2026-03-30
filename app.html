@@ -246,20 +246,32 @@ canvas#qcv{display:none;}
 </head>
 <body>
 
-<!-- ═══════════ FIREBASE CONFIG — HARDCODE BELOW ═══════════
-     Paste your projectId and apiKey here before deploying.
-     Customers will NEVER see this.
-════════════════════════════════════════════════════════════ -->
+<!-- ═══════════ FIREBASE CONFIG ═══════════ -->
+<script src="config.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   FIREBASE CONFIG — Already hardcoded. Do NOT share these files.
-   To update: change projectId and apiKey below, then redeploy.
+   FIREBASE CONFIG — loaded from config.js (local dev) or
+   injected by build.js (production via Netlify).
 ═══════════════════════════════════════════════════════════════ */
-const FB = {
-  projectId: '__FIREBASE_PROJECT_ID__',
-  apiKey:    '__FIREBASE_API_KEY__',
-};
+const FB = (function() {
+  // Build tokens (replaced by build.js for production)
+  let pid = '__FIREBASE_PROJECT_ID__';
+  let key = '__FIREBASE_API_KEY__';
+  // If tokens weren't replaced (local dev), use config.js
+  if (pid.startsWith('__FIREBASE') && window.WP_CONFIG) {
+    pid = window.WP_CONFIG.projectId || '';
+    key = window.WP_CONFIG.apiKey || '';
+  }
+  return { projectId: pid, apiKey: key };
+})();
 const FSB = () => `https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
+
+/* ── HTML escape helper (XSS prevention) ── */
+function esc(s) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(s || ''));
+  return d.innerHTML;
+}
 </script>
 
 <!-- ENTRY -->
@@ -537,6 +549,9 @@ const Nav={
   allNodes:[],
   allEdges:[],
   cal:{mpp:.033,walkSpd:80,stepLen:.72},
+  mapNorthOffset:0,    // degrees: map's up vs real-world North
+  pdrBlend:0.55,       // how much to trust route vs compass
+  stepSensitivity:'normal',
   canvas:null,ctx:null,scale:1,ox:0,oy:0,
   // From/To selection
   fromNode:null,
@@ -549,11 +564,11 @@ const Nav={
   hdg:0,hdgRaw:0,hdgReady:false,
   kalHdg:0,kalHdgVar:100,
   gyroZ:0,gyroLastT:0,
-  // Step detection — FIXED: much stricter than before
-  accBuf:[],lastAccMag:0,lastPeak:false,lastStepT:0,
-  stepThr:1.5,       // ← higher threshold = less sensitive
+  // Step detection — improved band-pass + double-peak
+  accBuf:[],lpMag:0,lastLpMag:0,peakPhase:'idle', // idle→rise→fall→step
+  lastStepT:0,stepThr:1.5,
   calBuf:[],calDone:false,
-  minStepIntervalMs:380,  // ← min 380ms between steps
+  minStepIntervalMs:380,
   // Adaptive step length
   stepLenAdapt:.72,stepIntervals:[],
   // Off-route
@@ -592,14 +607,20 @@ async function loadFac(){
 function saveRecent(id,name,n){try{const l=JSON.parse(localStorage.getItem('wp_rec')||'[]').filter(x=>x.id!==id);l.unshift({id,name,n});localStorage.setItem('wp_rec',JSON.stringify(l.slice(0,5)));renderRecent();}catch(e){}}
 function renderRecent(){
   const l=JSON.parse(localStorage.getItem('wp_rec')||'[]');const el=document.getElementById('rec-sec');if(!l.length){el.innerHTML='';return;}
-  el.innerHTML=`<div class="rec-hdr">Recent</div>`+l.map(f=>`<div class="rec-row" onclick="document.getElementById('fid-inp').value='${f.id}';loadFac()"><span style="font-size:18px">🏢</span><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${f.name}</div><div style="font-family:var(--m);font-size:10px;color:var(--t3)">${f.id} · ${f.n} nodes</div></div><span style="color:var(--t3)">→</span></div>`).join('')+`<div class="or-d"><div class="or-l"></div><div style="font-size:11px;color:var(--t3)">OR ENTER ID</div><div class="or-l"></div></div>`;
+  el.innerHTML=`<div class="rec-hdr">Recent</div>`+l.map(f=>`<div class="rec-row" onclick="document.getElementById('fid-inp').value='${esc(f.id)}';loadFac()"><span style="font-size:18px">🏢</span><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(f.name)}</div><div style="font-family:var(--m);font-size:10px;color:var(--t3)">${esc(f.id)} · ${parseInt(f.n)||0} nodes</div></div><span style="color:var(--t3)">→</span></div>`).join('')+`<div class="or-d"><div class="or-l"></div><div style="font-size:11px;color:var(--t3)">OR ENTER ID</div><div class="or-l"></div></div>`;
 }
 
 function initFac(fac){
   Nav.fac=fac;
   const c=fac.calibration||{};
   Nav.cal={mpp:c.mpp||.033,walkSpd:c.walkSpd||80,stepLen:c.stepLen||.72};
+  Nav.mapNorthOffset=c.mapNorthOffset||0;
+  Nav.pdrBlend=c.pdrBlend||0.55;
+  Nav.stepSensitivity=c.stepSensitivity||'normal';
   Nav.stepLenAdapt=Nav.cal.stepLen;
+  // Adjust step threshold based on sensitivity
+  const sensMap={low:2.2,normal:1.5,high:0.9};
+  Nav.stepThr=sensMap[Nav.stepSensitivity]||1.5;
 
   // ── Multi-floor parsing ────────────────────────────────
   Nav.floors=[];Nav.allNodes=[];Nav.allEdges=[];
@@ -1024,11 +1045,11 @@ function renderPickerList(q){
     nodes.slice(0,q?20:6).forEach(n=>{
       const isSel=(Nav.pickerMode==='from'&&Nav.fromNode?.id===n.id)||(Nav.pickerMode==='to'&&Nav.toNode?.id===n.id);
       const fid=n.floorId?Nav.floors.find(f=>f.id===n.floorId)?.name||'':' ';
-      html+=`<div class="lsh-item ${isSel?'selected':''}" onclick="onPickerSelect('${n.id}')">
+      html+=`<div class="lsh-item ${isSel?'selected':''}" onclick="onPickerSelect('${esc(n.id)}')">
         <div class="lsh-dot" style="background:${nc(n.type)}"></div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n.label||n.type}</div>
-          <div style="font-size:10px;color:var(--t3)">${n.type}${fid?' · '+fid:''}</div>
+          <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.label||n.type)}</div>
+          <div style="font-size:10px;color:var(--t3)">${esc(n.type)}${fid?' · '+esc(fid):''}</div>
         </div>
         ${isSel?'<div style="color:var(--acc2);font-size:12px">✓</div>':''}
       </div>`;
@@ -1060,13 +1081,13 @@ function doSearch(q){
   _sT=setTimeout(()=>{
     const res=Nav.allNodes.filter(n=>(n.label||'').toLowerCase().includes(q.toLowerCase())||(n.type||'').includes(q.toLowerCase())).slice(0,8);
     if(!res.length){list.innerHTML='<div style="padding:12px 14px;font-size:13px;color:var(--t3)">No results</div>';list.classList.add('show');return;}
-    list.innerHTML=res.map(n=>{const ico=NI[n.type]||'📍';const d=Nav.userPos?(Math.hypot(n.x-Nav.userPos.x,n.y-Nav.userPos.y)*Nav.cal.mpp).toFixed(0)+'m':'';return`<div class="ri" onclick="setToNode(Nav.allNodes.find(x=>x.id==='${n.id}'));document.getElementById('sr').classList.remove('show');document.getElementById('si').value=''"><div class="ric">${ico||n.type[0]}</div><div style="flex:1"><div style="font-size:13.5px;font-weight:700">${n.label||n.type}</div><div style="font-size:11px;color:var(--t3)">${n.type}</div></div>${d?`<div style="font-family:var(--m);font-size:11px;color:var(--acc2)">${d}</div>`:''}</div>`;}).join('');
+    list.innerHTML=res.map(n=>{const ico=NI[n.type]||'📍';const d=Nav.userPos?(Math.hypot(n.x-Nav.userPos.x,n.y-Nav.userPos.y)*Nav.cal.mpp).toFixed(0)+'m':'';return`<div class="ri" onclick="setToNode(Nav.allNodes.find(x=>x.id==='${esc(n.id)}'));document.getElementById('sr').classList.remove('show');document.getElementById('si').value=''"><div class="ric">${ico||esc(n.type[0])}</div><div style="flex:1"><div style="font-size:13.5px;font-weight:700">${esc(n.label||n.type)}</div><div style="font-size:11px;color:var(--t3)">${esc(n.type)}</div></div>${d?`<div style="font-family:var(--m);font-size:11px;color:var(--acc2)">${esc(d)}</div>`:''}</div>`;}).join('');
     list.classList.add('show');
   },140);
 }
 function buildChips(){
   const imp=Nav.allNodes.filter(n=>['entrance','exit','stairs','elevator','toilet','pharmacy','cafeteria','emergency'].includes(n.type)).slice(0,10);
-  document.getElementById('quick-chips').innerHTML=imp.map(n=>`<div class="qchip" onclick="setToNode(Nav.allNodes.find(x=>x.id==='${n.id}'))">${NI[n.type]||'📍'} ${n.label||n.type}</div>`).join('');
+  document.getElementById('quick-chips').innerHTML=imp.map(n=>`<div class="qchip" onclick="setToNode(Nav.allNodes.find(x=>x.id==='${esc(n.id)}'))">${NI[n.type]||'📍'} ${esc(n.label||n.type)}</div>`).join('');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1175,12 +1196,14 @@ function processOri(e){
   else if(e.alpha!=null){raw=(360-e.alpha+360)%360;setSd('sd-h','on');setSt('st-h',`${raw.toFixed(0)}°`);}
   else return;
   Nav.hdgRaw=raw;Nav.hdgReady=true;
+  // Apply map north offset: convert compass heading to map heading
+  const corrected = (raw - Nav.mapNorthOffset + 360) % 360;
   // Kalman compass update
   const R_c=5;const K=Nav.kalHdgVar/(Nav.kalHdgVar+R_c);
-  let innov=raw-Nav.kalHdg;if(innov>180)innov-=360;if(innov<-180)innov+=360;
+  let innov=corrected-Nav.kalHdg;if(innov>180)innov-=360;if(innov<-180)innov+=360;
   Nav.kalHdg=(Nav.kalHdg+K*innov+360)%360;Nav.kalHdgVar=(1-K)*Nav.kalHdgVar;
   // Low-pass for display
-  let diff=raw-Nav.hdg;if(diff>180)diff-=360;if(diff<-180)diff+=360;
+  let diff=corrected-Nav.hdg;if(diff>180)diff-=360;if(diff<-180)diff+=360;
   Nav.hdg=(Nav.hdg+0.12*diff+360)%360;
   if(Nav.isNav){draw();checkOffRoute();}
 }
@@ -1200,7 +1223,7 @@ function processMotion(e){
     }
   }
 
-  // ── STEP DETECTION — FIXED ──────────────────────────────
+  // ── STEP DETECTION — IMPROVED band-pass + double-peak ──────
   const gi=e.accelerationIncludingGravity,la=e.acceleration;
   if(!gi&&!la)return;
   const useL=la&&(Math.abs(la.x||0)+Math.abs(la.y||0)+Math.abs(la.z||0))>0.1;
@@ -1209,8 +1232,11 @@ function processMotion(e){
   const az=useL?(la.z||0):(gi?.z||0);
   const mag=Math.sqrt(ax*ax+ay*ay+az*az);
 
-  // Longer buffer = more averaging = less noise
-  Nav.accBuf.push(mag);if(Nav.accBuf.length>20)Nav.accBuf.shift();
+  // Low-pass filter (exponential smoothing, α=0.15)
+  Nav.lpMag=(Nav.lpMag||mag)*0.85+mag*0.15;
+
+  // Longer buffer for average baseline
+  Nav.accBuf.push(Nav.lpMag);if(Nav.accBuf.length>25)Nav.accBuf.shift();
   const avg=Nav.accBuf.reduce((s,v)=>s+v,0)/Nav.accBuf.length;
 
   // Adaptive threshold calibration
@@ -1219,21 +1245,35 @@ function processMotion(e){
     if(Nav.calBuf.length>=80){
       const sorted=[...Nav.calBuf].sort((a,b)=>a-b);
       const q75=sorted[Math.floor(sorted.length*.75)];const q25=sorted[Math.floor(sorted.length*.25)];
-      // Higher multiplier (0.8 instead of 0.6) = less sensitive
-      Nav.stepThr=Math.max(0.8,Math.min(3.5,(q75-q25)*0.8));
+      const sensMulti={low:1.0,normal:0.8,high:0.6};
+      const multi=sensMulti[Nav.stepSensitivity]||0.8;
+      Nav.stepThr=Math.max(0.5,Math.min(3.5,(q75-q25)*multi));
       Nav.calDone=true;setSt('st-s',`Active (thr:${Nav.stepThr.toFixed(1)})`);
     }
   }
 
-  // Peak detection — FIXED: longer min interval
-  if(avg>Nav.lastAccMag+Nav.stepThr&&!Nav.lastPeak&&now-Nav.lastStepT>Nav.minStepIntervalMs){
-    // Extra check: must be a significant spike, not just drift
-    if(mag>Nav.stepThr*0.7){
-      Nav.lastPeak=true;Nav.lastStepT=now;
-      if(Nav.calDone)onStep(); // Only count steps after calibration
+  // Double-peak state machine: idle → rise → fall → step
+  const spike=Nav.lpMag-avg;
+  if(!Nav.peakPhase||Nav.peakPhase==='idle'){
+    if(spike>Nav.stepThr&&Nav.lpMag>(Nav.lastLpMag||0)){
+      Nav.peakPhase='rise';
     }
-  }else if(avg<Nav.lastAccMag-Nav.stepThr*0.2)Nav.lastPeak=false;
-  Nav.lastAccMag=avg;
+  }else if(Nav.peakPhase==='rise'){
+    if(Nav.lpMag<(Nav.lastLpMag||0)){
+      Nav.peakPhase='fall';
+    }
+  }else if(Nav.peakPhase==='fall'){
+    if(spike<Nav.stepThr*0.3){
+      if(now-Nav.lastStepT>Nav.minStepIntervalMs){
+        Nav.lastStepT=now;
+        if(Nav.calDone)onStep();
+      }
+      Nav.peakPhase='idle';
+    }else if(spike>Nav.stepThr&&Nav.lpMag>(Nav.lastLpMag||0)){
+      Nav.peakPhase='rise';
+    }
+  }
+  Nav.lastLpMag=Nav.lpMag;
 }
 
 // ── STEP HANDLER: PDR with position smoothing ──────────────
@@ -1252,7 +1292,7 @@ function onStep(){
     else Nav.stepLenAdapt=Nav.cal.stepLen;
   }
 
-  // PDR movement
+  // PDR movement — heading already adjusted for mapNorthOffset in processOri
   const stepPx=Nav.stepLenAdapt/Nav.cal.mpp;
   const hRad=Nav.hdg*Math.PI/180;
   const pdx=Math.sin(hRad)*stepPx,pdy=-Math.cos(hRad)*stepPx;
@@ -1272,11 +1312,11 @@ function onStep(){
     if(Nav.step>=Nav.route.length-1){arrive();return;}
     speak(getInstruction(Nav.step));
   }else{
-    const BLEND=0.55;
+    const BLEND=Nav.pdrBlend; // Use configurable blend instead of hardcoded 0.55
     const rx=toNext.x/distToNext,ry=toNext.y/distToNext;
     const newX=Nav.userPos.x+pdx*(1-BLEND)+rx*stepPx*BLEND;
     const newY=Nav.userPos.y+pdy*(1-BLEND)+ry*stepPx*BLEND;
-    // FIX: Clamp max movement per step (prevents teleporting on large spikes)
+    // Clamp max movement per step (prevents teleporting on large spikes)
     const maxMove=stepPx*1.5;
     const actualDx=newX-Nav.userPos.x,actualDy=newY-Nav.userPos.y;
     const actualDist=Math.hypot(actualDx,actualDy);

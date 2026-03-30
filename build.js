@@ -76,11 +76,18 @@ const BINARY_FILES = [
   'apple-touch-icon.png',
 ];
 
-// ── 4. Ensure dist/ exists ─────────────────────────────────
+// ── 4. Generate dist/config.js with real credentials ───
+// This ensures the config.js fallback in app.html works in dist/
 const distDir = path.join(__dirname, 'dist');
 if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir, { recursive: true });
 }
+const configContent = `window.WP_CONFIG={projectId:'${PROJECT_ID}',apiKey:'${API_KEY}'};`;
+fs.writeFileSync(path.join(distDir, 'config.js'), configContent, 'utf8');
+console.log('  ✅  config.js  (generated for dist)');
+
+// ── 5. Ensure dist/ exists ─────────────────────────────
+// (already ensured above in config.js generation)
 
 // ── 5. Token map ───────────────────────────────────────────
 const TOKENS = {

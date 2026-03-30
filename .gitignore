@@ -1,0 +1,17 @@
+# ── Credentials — NEVER commit these ──────────────────
+.env
+.env.local
+.env.production
+config.js
+
+# ── Build output ───────────────────────────────────────
+dist/
+
+# ── OS / Editor junk ───────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+node_modules/

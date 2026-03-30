@@ -199,6 +199,26 @@ canvas#fc{touch-action:none;}
 .progress-bar.show{display:block;}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--cyan));width:0%;transition:width .4s;border-radius:2px;}
 
+/* ─── CALIBRATION PANEL ─── */
+.cal-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.cal-label{font-size:11px;font-weight:600;color:var(--text2);min-width:72px;flex-shrink:0;}
+.cal-val{font-family:var(--mono);font-size:11px;color:var(--primary);min-width:40px;text-align:right;}
+.cal-range{flex:1;accent-color:var(--primary);height:4px;}
+.cal-presets{display:flex;gap:4px;flex:1;}
+.cal-preset{flex:1;padding:5px 0;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-size:10px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;}
+.cal-preset:hover{border-color:var(--primary);color:var(--text2);}
+.cal-preset.active{background:var(--primary-dim);border-color:var(--primary);color:var(--primary);}
+.compass-dial-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;margin:8px 0 14px;}
+.compass-dial{position:relative;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,rgba(13,16,24,.96),rgba(7,9,15,.98));border:2px solid rgba(99,102,241,.4);cursor:grab;touch-action:none;}
+.compass-dial:active{cursor:grabbing;}
+.compass-dial .cd-n,.compass-dial .cd-s,.compass-dial .cd-e,.compass-dial .cd-w{position:absolute;font-size:9px;font-weight:700;color:rgba(129,140,248,.8);}
+.compass-dial .cd-n{top:6px;left:50%;transform:translateX(-50%);color:#818CF8;}
+.compass-dial .cd-s{bottom:6px;left:50%;transform:translateX(-50%);}
+.compass-dial .cd-e{right:8px;top:50%;transform:translateY(-50%);}
+.compass-dial .cd-w{left:8px;top:50%;transform:translateY(-50%);}
+.compass-arrow{position:absolute;top:50%;left:50%;width:4px;height:36px;margin-left:-2px;transform-origin:center top;border-radius:2px;background:linear-gradient(to bottom,#EF4444,#818CF8);pointer-events:none;}
+.compass-deg-inp{width:60px;padding:4px 8px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;text-align:center;}
+
 /* ─── RESPONSIVE ─── */
 @media(max-width:768px){
   .view{padding:16px;}
@@ -221,15 +241,56 @@ canvas#fc{touch-action:none;}
 </head>
 <body>
 
+<script src="config.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   FIREBASE CONFIG — Hardcoded. Secured by Firebase Auth + Rules.
+   Credentials loaded from config.js — edit that file only.
+   Never hardcode credentials directly in HTML.
 ═══════════════════════════════════════════════════════════════ */
+(function(){
+  const cfg = window.WP_CONFIG || {};
+  if (!cfg.projectId || cfg.projectId.includes('your-') ||
+      !cfg.apiKey    || cfg.apiKey.includes('your-')) {
+    window._wp_config_invalid = true;
+    document.addEventListener('DOMContentLoaded', () => {
+      // Show banner ONLY — do not destroy login screen
+      const banner = document.createElement('div');
+      banner.id = 'cfg-banner';
+      banner.style.cssText = [
+        'position:fixed','top:0','left:0','right:0','z-index:99999',
+        'background:#7C2020','color:#fff','font-family:Inter,sans-serif',
+        'font-size:13px','font-weight:600','padding:10px 20px',
+        'display:flex','align-items:center','gap:12px','box-shadow:0 2px 12px rgba(0,0,0,.5)'
+      ].join(';');
+      banner.innerHTML = [
+        '<span style="font-size:18px">⚠️</span>',
+        '<span><strong>config.js not configured.</strong>',
+        ' Open config.js → paste your Firebase <code style="background:rgba(255,255,255,.15);',
+        'padding:1px 6px;border-radius:4px;">projectId</code> and',
+        ' <code style="background:rgba(255,255,255,.15);padding:1px 6px;border-radius:4px;">apiKey</code>',
+        ' → save → reload.</span>',
+        '<a href="https://console.firebase.google.com" target="_blank"',
+        ' style="margin-left:auto;background:rgba(255,255,255,.2);border-radius:6px;',
+        'padding:5px 12px;color:#fff;text-decoration:none;white-space:nowrap;font-size:12px;">',
+        '🔥 Firebase Console ↗</a>'
+      ].join('');
+      document.body.prepend(banner);
+    });
+  }
+})();
+
 const FB = {
-  projectId: '__FIREBASE_PROJECT_ID__',
-  apiKey:    '__FIREBASE_API_KEY__',
+  projectId: (window.WP_CONFIG||{}).projectId || '',
+  apiKey:    (window.WP_CONFIG||{}).apiKey    || '',
 };
 const FS_BASE = () => `https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
+
+/* ── HTML escape helper (XSS prevention) ── */
+function esc(s) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(s || ''));
+  return d.innerHTML;
+}
 
 /* ── Auth layer ─────────────────────────────────────────────── */
 let AUTH = { token: null, email: null, uid: null, expiry: 0 };
@@ -305,14 +366,14 @@ async function authFetch(url, opts={}) {
         <label style="display:block;font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Email Address</label>
         <div style="display:flex;align-items:center;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:10px;padding:0 14px;" id="li-email-wrap">
           <span style="color:#9CA3AF;margin-right:10px;">&#x2709;</span>
-          <input id="li-email" type="email" value="" autocomplete="username" style="flex:1;border:none;background:transparent;padding:13px 0;font-size:14px;color:#111;outline:none;font-family:inherit;" placeholder="admin@email.com" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()"/>
+          <input id="li-email" type="email" value="" autocomplete="off" style="flex:1;border:none;background:transparent;padding:13px 0;font-size:14px;color:#111;outline:none;font-family:inherit;" placeholder="admin@email.com" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()"/>
         </div>
       </div>
       <div style="margin-bottom:24px;">
         <label style="display:block;font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Password</label>
         <div style="display:flex;align-items:center;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:10px;padding:0 14px;" id="li-pass-wrap">
           <span style="color:#9CA3AF;margin-right:10px;">&#x1F512;</span>
-          <input id="li-pass" type="password" style="flex:1;border:none;background:transparent;padding:13px 0;font-size:14px;color:#111;outline:none;font-family:inherit;" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()"/>
+          <input id="li-pass" type="password" autocomplete="new-password" style="flex:1;border:none;background:transparent;padding:13px 0;font-size:14px;color:#111;outline:none;font-family:inherit;" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()"/>
           <button onclick="togglePwd()" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:14px;" id="pwd-eye">&#x1F441;</button>
         </div>
       </div>
@@ -326,6 +387,10 @@ async function authFetch(url, opts={}) {
 <script>
 function togglePwd(){const i=document.getElementById('li-pass');const e=document.getElementById('pwd-eye');i.type=i.type==='password'?'text':'password';e.innerHTML=i.type==='password'?'&#x1F441;':'&#x1F648;';}
 async function doLogin(){
+  if(window._wp_config_invalid){
+    showLiErr('⚠️ config.js is not configured. Fill in your Firebase projectId and apiKey in config.js then reload.');
+    return;
+  }
   const email=document.getElementById('li-email').value.trim();
   const pass=document.getElementById('li-pass').value;
   const btn=document.getElementById('li-btn');
@@ -342,14 +407,29 @@ async function doLogin(){
     showView('dashboard');loadDashboard();
   }catch(e){
     let msg=e.message||'Login failed';
-    if(msg.includes('INVALID_PASSWORD')||msg.includes('INVALID_LOGIN_CREDENTIALS'))msg='Incorrect email or password.';
-    else if(msg.includes('USER_NOT_FOUND'))msg='No account found with this email.';
-    else if(msg.includes('TOO_MANY_ATTEMPTS'))msg='Too many attempts. Please wait.';
-    else if(msg.includes('NETWORK'))msg='Network error. Check your connection.';
+    if(msg.includes('CONFIGURATION_NOT_FOUND'))
+      msg='Email/Password sign-in is not enabled in Firebase.\n\nFix: Firebase Console → Authentication → Sign-in methods → Email/Password → Enable → Save.';
+    else if(msg.includes('INVALID_PASSWORD')||msg.includes('INVALID_LOGIN_CREDENTIALS'))
+      msg='Incorrect email or password.';
+    else if(msg.includes('USER_NOT_FOUND'))
+      msg='No account found with this email. Create it in Firebase Console → Authentication → Users → Add user.';
+    else if(msg.includes('TOO_MANY_ATTEMPTS'))
+      msg='Too many failed attempts. Please wait a few minutes and try again.';
+    else if(msg.includes('NETWORK_REQUEST_FAILED')||msg.includes('NETWORK'))
+      msg='Network error — check your internet connection.';
+    else if(msg.includes('API_KEY_INVALID')||msg.includes('key not valid'))
+      msg='Invalid API key in config.js — check your apiKey value.';
+    else if(msg.includes('PROJECT_NOT_FOUND'))
+      msg='Firebase project not found — check your projectId in config.js.';
     showLiErr(msg);
   }finally{btn.textContent='LOGIN';btn.disabled=false;}
 }
-function showLiErr(msg){const e=document.getElementById('li-err');e.textContent=msg;e.style.display='block';}
+function showLiErr(msg){
+  const e=document.getElementById('li-err');
+  e.textContent=msg;
+  e.style.display='block';
+  e.style.whiteSpace='pre-wrap';
+}
 </script>
 
 <!-- ═══════════ ADMIN SHELL ═══════════ -->
@@ -457,6 +537,67 @@ function showLiErr(msg){const e=document.getElementById('li-err');e.textContent=
               <div class="stat"><div class="stat-val" id="stat-n">0</div><div class="stat-lbl">Nodes</div></div>
               <div class="stat"><div class="stat-val" id="stat-e">0</div><div class="stat-lbl">Edges</div></div>
               <div class="stat"><div class="stat-val" id="stat-v" style="color:var(--amber)">—</div><div class="stat-lbl">Valid</div></div>
+            </div>
+          </div>
+
+          <!-- Calibration -->
+          <div class="panel" id="cal-panel">
+            <div class="panel-title">🧭 Calibration</div>
+            <p style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.6">Set map north direction and step/sensor tuning. Saved per facility.</p>
+
+            <!-- Map North Offset — interactive dial -->
+            <div class="cal-label" style="margin-bottom:4px">Map North Offset</div>
+            <div class="compass-dial-wrap">
+              <div class="compass-dial" id="cal-compass-dial">
+                <span class="cd-n">N</span><span class="cd-s">S</span>
+                <span class="cd-e">E</span><span class="cd-w">W</span>
+                <div class="compass-arrow" id="cal-compass-arrow" style="transform:rotate(0deg)"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <input type="number" class="compass-deg-inp" id="cal-north-deg" min="0" max="359" value="0" oninput="setMapNorth(+this.value)"/>
+                <span style="font-size:11px;color:var(--text3)">degrees</span>
+              </div>
+            </div>
+
+            <!-- Step Length -->
+            <div class="cal-row">
+              <span class="cal-label">Step Length</span>
+              <input type="range" class="cal-range" id="cal-step-len" min="0.40" max="1.20" step="0.02" value="0.72" oninput="setCal('stepLen',+this.value)">
+              <span class="cal-val" id="cal-step-len-val">0.72m</span>
+            </div>
+
+            <!-- Meters per Pixel -->
+            <div class="cal-row">
+              <span class="cal-label">M/Pixel</span>
+              <input type="range" class="cal-range" id="cal-mpp" min="0.005" max="0.200" step="0.001" value="0.033" oninput="setCal('mpp',+this.value)">
+              <span class="cal-val" id="cal-mpp-val">0.033</span>
+            </div>
+
+            <!-- Walking Speed -->
+            <div class="cal-row">
+              <span class="cal-label">Walk Speed</span>
+              <input type="range" class="cal-range" id="cal-walk-spd" min="40" max="140" step="5" value="80" oninput="setCal('walkSpd',+this.value)">
+              <span class="cal-val" id="cal-walk-spd-val">80</span>
+            </div>
+
+            <!-- Step Sensitivity -->
+            <div class="cal-row">
+              <span class="cal-label">Sensitivity</span>
+              <div class="cal-presets">
+                <div class="cal-preset" data-sens="low" onclick="setStepSensitivity('low')">Low</div>
+                <div class="cal-preset active" data-sens="normal" onclick="setStepSensitivity('normal')">Normal</div>
+                <div class="cal-preset" data-sens="high" onclick="setStepSensitivity('high')">High</div>
+              </div>
+            </div>
+
+            <!-- PDR Blend -->
+            <div class="cal-row">
+              <span class="cal-label">PDR Blend</span>
+              <input type="range" class="cal-range" id="cal-pdr-blend" min="0.20" max="0.85" step="0.05" value="0.55" oninput="setCal('pdrBlend',+this.value)">
+              <span class="cal-val" id="cal-pdr-blend-val">0.55</span>
+            </div>
+            <div style="font-size:10px;color:var(--text3);line-height:1.5;margin-top:2px">
+              Low = trust compass more · High = trust route more
             </div>
           </div>
 
@@ -593,7 +734,7 @@ let state = {
   mapB64: null,
   mapEl: null,
   imgW: 800, imgH: 600,
-  calibration: { mpp: 0.033, walkSpd: 80 },
+  calibration: { mpp: 0.033, walkSpd: 80, mapNorthOffset: 0, stepLen: 0.72, stepSensitivity: 'normal', pdrBlend: 0.55 },
 
   // Editor
   tool: 'select',
@@ -609,8 +750,9 @@ let state = {
 
 // ── FIREBASE REST API ────────────────────────────────────────
 async function fsGet(collection, docId) {
-  const url = `${FS_BASE()}/${collection}/${docId}?key=${FB.apiKey}`;
-  const r = await fetch(url, {signal: AbortSignal.timeout(10000)});
+  if (!isAuthed()) throw new Error('Not authenticated');
+  const url = `${FS_BASE()}/${collection}/${docId}`;
+  const r = await authFetch(url, {signal: AbortSignal.timeout(10000)});
   if (r.status === 404) return null;
   if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || `HTTP ${r.status}`); }
   const doc = await r.json();
@@ -618,15 +760,16 @@ async function fsGet(collection, docId) {
 }
 
 async function fsList(collection) {
-  const url = `${FS_BASE()}/${collection}?key=${FB.apiKey}&pageSize=100`;
-  const r = await fetch(url, {signal: AbortSignal.timeout(10000)});
+  if (!isAuthed()) throw new Error('Not authenticated');
+  const url = `${FS_BASE()}/${collection}?pageSize=100`;
+  const r = await authFetch(url, {signal: AbortSignal.timeout(10000)});
   if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || `HTTP ${r.status}`); }
   const data = await r.json();
   return (data.documents || []).map(fsDocToObj);
 }
 
 async function fsSet(collection, docId, obj) {
-  // Store all data as a single JSON string — avoids Firestore type complexity
+  if (!isAuthed()) throw new Error('Not authenticated');
   const body = {
     fields: {
       data:      { stringValue: JSON.stringify(obj) },
@@ -634,10 +777,9 @@ async function fsSet(collection, docId, obj) {
       updatedAt: { integerValue: String(Date.now()) },
     }
   };
-  const url = `${FS_BASE()}/${collection}/${docId}?key=${FB.apiKey}`;
-  const r = await fetch(url, {
+  const url = `${FS_BASE()}/${collection}/${docId}`;
+  const r = await authFetch(url, {
     method: 'PATCH',
-    headers: {'Content-Type':'application/json'},
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(20000),
   });
@@ -646,8 +788,9 @@ async function fsSet(collection, docId, obj) {
 }
 
 async function fsDelete(collection, docId) {
-  const url = `${FS_BASE()}/${collection}/${docId}?key=${FB.apiKey}`;
-  const r = await fetch(url, {method:'DELETE', signal: AbortSignal.timeout(10000)});
+  if (!isAuthed()) throw new Error('Not authenticated');
+  const url = `${FS_BASE()}/${collection}/${docId}`;
+  const r = await authFetch(url, {method:'DELETE', signal: AbortSignal.timeout(10000)});
   if (!r.ok && r.status !== 404) { const e = await r.json(); throw new Error(e.error?.message || `HTTP ${r.status}`); }
 }
 
@@ -722,24 +865,24 @@ async function loadDashboard() {
         <div class="fac-card-header">
           <div class="fac-icon">${ico}</div>
           <div style="min-width:0">
-            <div class="fac-name">${f.name||'Unnamed'}</div>
-            <div class="fac-id">${id}</div>
+            <div class="fac-name">${esc(f.name||'Unnamed')}</div>
+            <div class="fac-id">${esc(id)}</div>
           </div>
         </div>
         <div class="fac-meta">
-          <span>📍 ${nodes} nodes</span>
-          <span>🕒 ${updated}</span>
+          <span>📍 ${parseInt(nodes)||0} nodes</span>
+          <span>🕒 ${esc(updated)}</span>
           ${f.pub ? '<span style="color:var(--green)">☁ Live</span>' : ''}
         </div>
         <div class="fac-actions">
-          <button class="btn btn-ghost btn-sm" onclick="loadFacilityById('${id}')">✏ Edit</button>
-          <button class="btn btn-ghost btn-sm" onclick="copyId('${id}')">📋 Copy ID</button>
-          <button class="btn btn-danger btn-sm" onclick="confirmDelete('${id}','${(f.name||'').replace(/'/g,"\\'")}')">🗑</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadFacilityById('${esc(id)}')">✏ Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyId('${esc(id)}')">📋 Copy ID</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDelete('${esc(id)}','${esc((f.name||'').replace(/'/g,"\\'"))}')">🗑</button>
         </div>
       </div>`;
     }).join('')}</div>`;
   } catch(e) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div><h3>Load failed</h3><p>${e.message}</p></div>`;
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div><h3>Load failed</h3><p>${esc(e.message)}</p></div>`;
   }
 }
 
@@ -776,7 +919,13 @@ async function loadFacilityById(id) {
     state.nodes = fac.nodes || fac.floors?.[0]?.nodes || [];
     state.edges = fac.edges || fac.floors?.[0]?.edges || [];
     state.mapB64 = fac.floorImage || fac.img || fac.floors?.[0]?.b64 || null;
-    state.calibration = fac.calibration || {mpp:0.033,walkSpd:80};
+    state.calibration = fac.calibration || {mpp:0.033,walkSpd:80,mapNorthOffset:0,stepLen:0.72,stepSensitivity:'normal',pdrBlend:0.55};
+    // Ensure defaults for new fields
+    if(state.calibration.mapNorthOffset==null)state.calibration.mapNorthOffset=0;
+    if(state.calibration.stepLen==null)state.calibration.stepLen=0.72;
+    if(state.calibration.stepSensitivity==null)state.calibration.stepSensitivity='normal';
+    if(state.calibration.pdrBlend==null)state.calibration.pdrBlend=0.55;
+    updateCalUI();
     document.getElementById('fac-name').value = fac.name || '';
     document.getElementById('editor-title').textContent = fac.name || 'Facility';
     document.getElementById('editor-fid').textContent = id;
@@ -1004,6 +1153,40 @@ function draw() {
   }
 
   ctx.restore();
+
+  // ── Compass rose (top-right corner, drawn in screen space) ──
+  const cCanvas = CV();
+  const cx2 = cCanvas.width - 40, cy2 = 40, cr = 28;
+  const ct = CX();
+  ct.save();
+  // Outer ring
+  ct.beginPath(); ct.arc(cx2, cy2, cr, 0, Math.PI*2);
+  ct.fillStyle = 'rgba(13,16,24,.92)'; ct.fill();
+  ct.strokeStyle = 'rgba(99,102,241,.5)'; ct.lineWidth = 2; ct.stroke();
+  // Ticks
+  const noff = state.calibration.mapNorthOffset || 0;
+  for(let i=0;i<360;i+=45){
+    const a2 = (i + noff)*Math.PI/180;
+    const il = i%90===0 ? 8 : 5;
+    ct.beginPath();
+    ct.moveTo(cx2+Math.sin(a2)*(cr-1), cy2-Math.cos(a2)*(cr-1));
+    ct.lineTo(cx2+Math.sin(a2)*(cr-il), cy2-Math.cos(a2)*(cr-il));
+    ct.strokeStyle = i===0 ? '#EF4444' : 'rgba(129,140,248,.5)';
+    ct.lineWidth = i%90===0 ? 2 : 1; ct.stroke();
+  }
+  // North arrow
+  const na = noff*Math.PI/180;
+  ct.save(); ct.translate(cx2, cy2); ct.rotate(na);
+  ct.beginPath(); ct.moveTo(0, -(cr-10)); ct.lineTo(3, -4); ct.lineTo(-3, -4); ct.closePath();
+  ct.fillStyle = '#EF4444'; ct.fill();
+  ct.beginPath(); ct.moveTo(0, cr-10); ct.lineTo(3, 4); ct.lineTo(-3, 4); ct.closePath();
+  ct.fillStyle = 'rgba(129,140,248,.4)'; ct.fill();
+  ct.restore();
+  // N label
+  ct.font = '700 9px Inter'; ct.textAlign = 'center'; ct.textBaseline = 'middle';
+  ct.fillStyle = '#EF4444';
+  ct.fillText('N', cx2+Math.sin(na)*(cr+10), cy2-Math.cos(na)*(cr+10));
+  ct.restore();
 }
 
 // ── CANVAS EVENTS ─────────────────────────────────────────────
@@ -1513,6 +1696,84 @@ window.addEventListener('DOMContentLoaded',()=>{
     }
   });
 });
+
+// ── CALIBRATION FUNCTIONS ─────────────────────────────────
+function setCal(key, val) {
+  state.calibration[key] = val;
+  updateCalUI();
+  draw();
+}
+
+function setMapNorth(deg) {
+  const v = ((Math.round(deg) % 360) + 360) % 360;
+  state.calibration.mapNorthOffset = v;
+  updateCalUI();
+  draw();
+}
+
+function setStepSensitivity(level) {
+  state.calibration.stepSensitivity = level;
+  document.querySelectorAll('.cal-preset').forEach(el => {
+    el.classList.toggle('active', el.dataset.sens === level);
+  });
+}
+
+function updateCalUI() {
+  const c = state.calibration;
+  // Map North
+  const degInp = document.getElementById('cal-north-deg');
+  const arrow = document.getElementById('cal-compass-arrow');
+  if (degInp) degInp.value = c.mapNorthOffset || 0;
+  if (arrow) arrow.style.transform = `rotate(${c.mapNorthOffset || 0}deg)`;
+  // Step Length
+  const sl = document.getElementById('cal-step-len');
+  if (sl) { sl.value = c.stepLen || 0.72; document.getElementById('cal-step-len-val').textContent = (c.stepLen || 0.72).toFixed(2) + 'm'; }
+  // MPP
+  const mp = document.getElementById('cal-mpp');
+  if (mp) { mp.value = c.mpp || 0.033; document.getElementById('cal-mpp-val').textContent = (c.mpp || 0.033).toFixed(3); }
+  // Walk Speed
+  const ws = document.getElementById('cal-walk-spd');
+  if (ws) { ws.value = c.walkSpd || 80; document.getElementById('cal-walk-spd-val').textContent = c.walkSpd || 80; }
+  // Sensitivity
+  document.querySelectorAll('.cal-preset').forEach(el => {
+    el.classList.toggle('active', el.dataset.sens === (c.stepSensitivity || 'normal'));
+  });
+  // PDR Blend
+  const pb = document.getElementById('cal-pdr-blend');
+  if (pb) { pb.value = c.pdrBlend || 0.55; document.getElementById('cal-pdr-blend-val').textContent = (c.pdrBlend || 0.55).toFixed(2); }
+}
+
+// ── Compass dial drag interaction ────────────────────────
+(function initCompassDial() {
+  let dragging = false;
+  function getAngle(e, dial) {
+    const r = dial.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const px = (e.touches ? e.touches[0].clientX : e.clientX);
+    const py = (e.touches ? e.touches[0].clientY : e.clientY);
+    const a = Math.atan2(px - cx, -(py - cy)) * 180 / Math.PI;
+    return ((Math.round(a) % 360) + 360) % 360;
+  }
+  function onDown(e) { dragging = true; onMove(e); }
+  function onMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const dial = document.getElementById('cal-compass-dial');
+    if (!dial) return;
+    setMapNorth(getAngle(e, dial));
+  }
+  function onUp() { dragging = false; }
+  document.addEventListener('DOMContentLoaded', () => {
+    const dial = document.getElementById('cal-compass-dial');
+    if (!dial) return;
+    dial.addEventListener('mousedown', onDown);
+    dial.addEventListener('touchstart', onDown, { passive: false });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+  });
+})();
 
 // ── MULTI-FLOOR STATE ──────────────────────────────────────
 // state.floors = [{id, name, nodes, edges, mapB64, imgW, imgH}]

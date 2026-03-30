@@ -7,7 +7,7 @@
     "build":       "node build.js",
     "check-env":   "node build.js --check",
     "dev":         "node build.js && npx serve dist",
-    "clean":       "rm -rf dist"
+    "clean":       "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "engines": {
     "node": ">=16"
