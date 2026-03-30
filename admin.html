@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WayPoint Admin</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#6366F1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* ─── DESIGN TOKENS ─── */
@@ -203,6 +206,13 @@ canvas#fc{touch-action:none;}
   .editor-layout{grid-template-columns:1fr;grid-template-rows:400px 1fr;height:auto;}
 }
 
+/* ── MULTI-FLOOR TABS ── */
+.floor-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+.floor-tab{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:9px;background:var(--surface2);border:1.5px solid var(--border);cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);transition:all .15s;}
+.floor-tab.active{border-color:var(--primary);background:var(--primary-dim);color:var(--primary);}
+.floor-tab .fl-del{width:16px;height:16px;border-radius:50%;background:rgba(239,68,68,.15);border:none;color:var(--red);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.add-floor-btn{padding:6px 12px;border-radius:9px;background:transparent;border:1.5px dashed var(--border);color:var(--text3);cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;}
+.add-floor-btn:hover{border-color:var(--primary);color:var(--primary);}
 @media print{.topbar,.editor-sidebar,.toolbar,.zoom-btns,.canvas-hint,.place-hint{display:none!important;}#qr-modal{position:static!important;background:#fff!important;display:block!important;}.modal-overlay.open{position:static;background:transparent;padding:0;}.modal{max-width:100%!important;box-shadow:none!important;border:none!important;background:#fff!important;color:#000!important;}#qr-grid{grid-template-columns:repeat(4,1fr)!important;}body{background:#fff!important;}}
 #qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;margin-top:14px;}
 #qr-modal .modal{max-width:740px;max-height:90vh;overflow-y:auto;}
@@ -211,19 +221,139 @@ canvas#fc{touch-action:none;}
 </head>
 <body>
 
-<!-- ═══════════════════════════════════
-     FIREBASE CONFIG — Edit these two lines
-     Get from Firebase Console → Project Settings → Web App
-═══════════════════════════════════ -->
 <script>
+/* ═══════════════════════════════════════════════════════════════
+   FIREBASE CONFIG — Hardcoded. Secured by Firebase Auth + Rules.
+═══════════════════════════════════════════════════════════════ */
 const FB = {
-  projectId: '',   // e.g. "my-hospital-nav"
-  apiKey:    '',   // e.g. "AIzaSy..."
+  projectId: '__FIREBASE_PROJECT_ID__',
+  apiKey:    '__FIREBASE_API_KEY__',
 };
-// Firestore REST base URL
 const FS_BASE = () => `https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
+
+/* ── Auth layer ─────────────────────────────────────────────── */
+let AUTH = { token: null, email: null, uid: null, expiry: 0 };
+const AUTH_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
+
+async function fbSignIn(email, password) {
+  const r = await fetch(`${AUTH_URL}:signInWithPassword?key=${FB.apiKey}`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ email, password, returnSecureToken: true })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || 'Auth failed');
+  AUTH = { token: d.idToken, email: d.email, uid: d.localId,
+           expiry: Date.now() + parseInt(d.expiresIn||3600)*1000 };
+  sessionStorage.setItem('wp_auth', JSON.stringify(AUTH));
+  return AUTH;
+}
+
+function fbSignOut() {
+  AUTH = { token: null, email: null, uid: null, expiry: 0 };
+  sessionStorage.removeItem('wp_auth');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('admin-shell').style.display = 'none';
+}
+
+function isAuthed() {
+  if (AUTH.token && AUTH.expiry > Date.now()) return true;
+  try {
+    const s = JSON.parse(sessionStorage.getItem('wp_auth')||'null');
+    if (s?.token && s.expiry > Date.now()) { AUTH = s; return true; }
+  } catch(e) {}
+  return false;
+}
+
+async function authFetch(url, opts={}) {
+  if (!isAuthed()) { fbSignOut(); throw new Error('Not authenticated'); }
+  return fetch(url, {
+    ...opts,
+    headers: { 'Content-Type':'application/json',
+                'Authorization':`Bearer ${AUTH.token}`, ...(opts.headers||{}) }
+  });
+}
 </script>
 
+<!-- ═══════════ ADMIN LOGIN SCREEN ═══════════ -->
+<div id="login-screen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(160deg,#1a3a5c 0%,#0d2137 40%,#1a4a2e 100%);">
+  <div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.35);width:100%;max-width:900px;min-height:420px;display:flex;overflow:hidden;margin:20px;">
+    <!-- Left panel -->
+    <div style="flex:0 0 380px;background:linear-gradient(160deg,#1a3a5c,#0d2137);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px;">
+      <div style="background:linear-gradient(135deg,#6366F1,#4338CA);width:72px;height:72px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;box-shadow:0 8px 32px rgba(99,102,241,.5);margin-bottom:20px;">&#x1F9ED;</div>
+      <div style="font-size:32px;font-weight:800;color:#fff;letter-spacing:-0.5px;margin-bottom:6px;">WayPoint</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.55);text-align:center;line-height:1.7;max-width:240px;margin-bottom:32px;">Indoor Navigation Management System<br>Powered by Sensor Fusion Technology</div>
+      <div style="display:flex;flex-direction:column;gap:10px;width:100%;">
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;">
+          <span style="font-size:18px;">&#x1F3E2;</span>
+          <div><div style="font-size:12px;font-weight:700;color:#fff;">Multi-Floor Maps</div><div style="font-size:11px;color:rgba(255,255,255,.45);">Upload &amp; manage each floor separately</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;">
+          <span style="font-size:18px;">&#x1F4F1;</span>
+          <div><div style="font-size:12px;font-weight:700;color:#fff;">QR Code Generation</div><div style="font-size:11px;color:rgba(255,255,255,.45);">Auto-print QR sheets for deployment</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;">
+          <span style="font-size:18px;">&#x1F525;</span>
+          <div><div style="font-size:12px;font-weight:700;color:#fff;">Cloud Sync</div><div style="font-size:11px;color:rgba(255,255,255,.45);">Real-time Firebase synchronisation</div></div>
+        </div>
+      </div>
+    </div>
+    <!-- Right panel -->
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:48px 44px;">
+      <div style="font-size:26px;font-weight:800;color:#222;margin-bottom:4px;">LOGIN <span style="font-size:14px;font-weight:600;color:#6366F1;">ADMIN</span></div>
+      <div style="font-size:13px;color:#6B7280;margin-bottom:32px;">Authorised administrators only</div>
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Email Address</label>
+        <div style="display:flex;align-items:center;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:10px;padding:0 14px;" id="li-email-wrap">
+          <span style="color:#9CA3AF;margin-right:10px;">&#x2709;</span>
+          <input id="li-email" type="email" value="" autocomplete="username" style="flex:1;border:none;background:transparent;padding:13px 0;font-size:14px;color:#111;outline:none;font-family:inherit;" placeholder="admin@email.com" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()"/>
+        </div>
+      </div>
+      <div style="margin-bottom:24px;">
+        <label style="display:block;font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Password</label>
+        <div style="display:flex;align-items:center;background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:10px;padding:0 14px;" id="li-pass-wrap">
+          <span style="color:#9CA3AF;margin-right:10px;">&#x1F512;</span>
+          <input id="li-pass" type="password" style="flex:1;border:none;background:transparent;padding:13px 0;font-size:14px;color:#111;outline:none;font-family:inherit;" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()"/>
+          <button onclick="togglePwd()" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:14px;" id="pwd-eye">&#x1F441;</button>
+        </div>
+      </div>
+      <div id="li-err" style="display:none;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:10px 14px;font-size:13px;color:#DC2626;margin-bottom:16px;"></div>
+      <button id="li-btn" onclick="doLogin()" style="width:100%;padding:14px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#22C55E,#16A34A);color:#fff;font-size:15px;font-weight:700;font-family:inherit;letter-spacing:.3px;box-shadow:0 4px 16px rgba(34,197,94,.4);transition:all .2s;">LOGIN</button>
+      <div style="font-size:12px;color:#9CA3AF;text-align:center;margin-top:20px;">&#x1F510; Secured by Firebase Authentication</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function togglePwd(){const i=document.getElementById('li-pass');const e=document.getElementById('pwd-eye');i.type=i.type==='password'?'text':'password';e.innerHTML=i.type==='password'?'&#x1F441;':'&#x1F648;';}
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pass=document.getElementById('li-pass').value;
+  const btn=document.getElementById('li-btn');
+  const err=document.getElementById('li-err');
+  if(!email||!pass){showLiErr('Please enter email and password.');return;}
+  btn.textContent='Signing in…';btn.disabled=true;err.style.display='none';
+  try{
+    await fbSignIn(email,pass);
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('admin-shell').style.display='grid';
+    const badge=document.getElementById('admin-email-badge');
+    if(badge)badge.textContent=AUTH.email||'Admin';
+    setStatus('ok','Connected');
+    showView('dashboard');loadDashboard();
+  }catch(e){
+    let msg=e.message||'Login failed';
+    if(msg.includes('INVALID_PASSWORD')||msg.includes('INVALID_LOGIN_CREDENTIALS'))msg='Incorrect email or password.';
+    else if(msg.includes('USER_NOT_FOUND'))msg='No account found with this email.';
+    else if(msg.includes('TOO_MANY_ATTEMPTS'))msg='Too many attempts. Please wait.';
+    else if(msg.includes('NETWORK'))msg='Network error. Check your connection.';
+    showLiErr(msg);
+  }finally{btn.textContent='LOGIN';btn.disabled=false;}
+}
+function showLiErr(msg){const e=document.getElementById('li-err');e.textContent=msg;e.style.display='block';}
+</script>
+
+<!-- ═══════════ ADMIN SHELL ═══════════ -->
+<div id="admin-shell" style="display:none;">
 <div class="shell">
   <!-- TOPBAR -->
   <header class="topbar">
@@ -236,34 +366,15 @@ const FS_BASE = () => `https://firestore.googleapis.com/v1/projects/${FB.project
       <div class="status-dot"></div>
       <span id="fb-status-text">Not configured</span>
     </div>
-    <button class="btn btn-ghost" onclick="showView('setup')" style="font-size:12px">⚙ Config</button>
     <button class="btn btn-primary" onclick="startNewFacility()">+ New Facility</button>
+    <div style="display:flex;align-items:center;gap:8px;padding:0 8px 0 12px;border-left:1px solid var(--border);margin-left:4px;">
+      <div style="font-size:11px;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="admin-email-badge">Admin</div>
+      <button class="btn btn-ghost" onclick="fbSignOut()" style="font-size:11px;padding:5px 10px;color:var(--red);">&#x23CF; Logout</button>
+    </div>
   </header>
 
   <!-- CONTENT -->
   <main class="content">
-
-    <!-- ── VIEW: SETUP ── -->
-    <div class="view" id="view-setup">
-      <div class="setup-card">
-        <h2>🔥 Firebase Setup</h2>
-        <p>Connect to Firebase Firestore to store and sync facility data across all devices. This is required for cross-device access.</p>
-        <div class="setup-steps">
-          <div class="setup-step" data-n="1">Go to <strong style="color:var(--text)">console.firebase.google.com</strong> → Create project</div>
-          <div class="setup-step" data-n="2">Firestore Database → Create → Start in <strong style="color:var(--text)">Test mode</strong></div>
-          <div class="setup-step" data-n="3">Project Settings → Add Web app → Copy config</div>
-          <div class="setup-step" data-n="4">Paste Project ID and API Key below</div>
-        </div>
-        <div class="fgroup">
-          <label>Firebase Project ID</label>
-          <input class="finput mono" id="cfg-pid" placeholder="your-project-id" oninput="FB.projectId=this.value.trim()"/>
-        </div>
-        <div class="fgroup">
-          <label>Firebase API Key</label>
-          <input class="finput mono" id="cfg-ak" placeholder="AIzaSy…" oninput="FB.apiKey=this.value.trim()"/>
-        </div>
-        <button class="btn btn-primary btn-full" onclick="testFirebase()">🔥 Connect Firebase</button>
-        <div id="setup-result" style="margin-top:12px;font-size:12.5px;color:var(--text3);text-align:center"></div>
       </div>
     </div>
 
@@ -277,9 +388,9 @@ const FS_BASE = () => `https://firestore.googleapis.com/v1/projects/${FB.project
       <div id="dash-content">
         <div class="empty-state">
           <div class="empty-icon">🏗️</div>
-          <h3>Configure Firebase first</h3>
-          <p>Enter your Firebase credentials in Config to start managing facilities.</p>
-          <button class="btn btn-primary" style="margin-top:16px" onclick="showView('setup')">⚙ Open Config</button>
+          <h3>No Facilities Yet</h3>
+          <p>Click <strong>+ New Facility</strong> to create your first indoor map.</p>
+
         </div>
       </div>
     </div>
@@ -291,8 +402,8 @@ const FS_BASE = () => `https://firestore.googleapis.com/v1/projects/${FB.project
         <h2 id="editor-title">New Facility</h2>
         <span class="editor-fid" id="editor-fid"></span>
         <button class="btn btn-ghost btn-sm" onclick="runLocalAnalysis()">🔬 Auto-detect</button>
+        <button class="btn btn-ghost btn-sm" onclick="generateQRSheet()" id="qr-btn" style="display:none">📱 QR Codes</button>
         <button class="btn btn-success" onclick="saveFacility()">☁ Save to Firebase</button>
-        <button class="btn btn-ghost btn-sm" onclick="generateQRSheet()" style="font-size:12px;margin-left:4px">📱 QR Codes</button>
       </div>
       <div class="editor-layout">
         <!-- Canvas -->
@@ -395,6 +506,20 @@ const FS_BASE = () => `https://firestore.googleapis.com/v1/projects/${FB.project
           </div>
 
           <!-- Analysis -->
+
+          <!-- Multi-Floor Panel -->
+          <div class="panel" id="floor-mgmt-panel">
+            <div class="panel-title">🏢 Floors</div>
+            <p style="font-size:11.5px;color:var(--text3);margin-bottom:10px;line-height:1.6">Each floor has its own map image and node graph.</p>
+            <div class="floor-tabs" id="floor-tabs-admin"></div>
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <input class="finput" id="new-floor-name" placeholder="Floor name e.g. Level 1" style="padding:7px 10px;font-size:12px;flex:1">
+              <button class="btn btn-ghost btn-sm" onclick="addFloor()">+ Add</button>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6">
+              ℹ️ Upload a different image for each floor. Nodes placed on each floor are saved separately.
+            </div>
+          </div>
           <div class="panel">
             <div class="panel-title">Auto Analysis</div>
             <p style="font-size:11.5px;color:var(--text3);margin-bottom:10px;line-height:1.6">Automatically detect corridor nodes from the floor plan image.</p>
@@ -541,38 +666,24 @@ function fsDocToObj(doc) {
 
 // ── FIREBASE TEST ────────────────────────────────────────────
 async function testFirebase() {
-  if (!FB.projectId || !FB.apiKey) { toast('⚠', 'Fill in Project ID and API Key', 'warn'); return; }
+  if (!isAuthed()) { toast('⚠','Please login first','warn'); return; }
   setStatus('idle', 'Testing…');
   try {
     const url = `${FS_BASE()}/_ping/test?key=${FB.apiKey}`;
-    const r = await fetch(url, {
-      method:'PATCH', headers:{'Content-Type':'application/json'},
+    const r = await authFetch(url, {
+      method:'PATCH',
       body: JSON.stringify({fields:{t:{integerValue:String(Date.now())}}}),
       signal: AbortSignal.timeout(8000),
     });
-    if (r.status === 403 || r.status === 401) {
-      const e = await r.json();
-      const msg = e.error?.message || '';
-      if (msg.includes('PERMISSION_DENIED') || msg.includes('insufficient')) {
-        setStatus('err','Rules blocked');
-        document.getElementById('setup-result').innerHTML = '❌ Firestore rules blocked write.<br>Go to Firestore → Rules → change <code>if false</code> to <code>if true</code> → Publish';
-        return;
-      }
-      throw new Error(msg);
+    if (!r.ok && r.status !== 404) {
+      const e = await r.json().catch(()=>({}));
+      throw new Error(e.error?.message || `HTTP ${r.status}`);
     }
-    if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || `HTTP ${r.status}`); }
     setStatus('ok','Connected');
-    // Save config
-    localStorage.setItem('wp_fb_config', JSON.stringify({projectId:FB.projectId,apiKey:FB.apiKey}));
-    document.getElementById('setup-result').innerHTML = '✅ Firebase connected! Loading dashboard…';
     toast('🔥','Firebase connected!','ok');
-    setTimeout(()=>{ showView('dashboard'); loadDashboard(); }, 800);
   } catch(e) {
     setStatus('err','Failed');
-    const hint = e.message.includes('not found')||e.message.includes('404') ?
-      'Project not found — check Project ID' : e.message.slice(0,80);
-    document.getElementById('setup-result').innerHTML = `❌ ${hint}`;
-    toast('❌', hint, 'err');
+    toast('❌', e.message.slice(0,80), 'err');
   }
 }
 
@@ -586,13 +697,8 @@ function setStatus(type, text) {
 async function loadDashboard() {
   const el = document.getElementById('dash-content');
   if (!FB.projectId || !FB.apiKey) {
-    el.innerHTML = `<div class="empty-state">
-      <div class="empty-icon">🔥</div>
-      <h3>Firebase not configured</h3>
-      <p>Set up Firebase in Config to manage facilities across devices.</p>
-      <button class="btn btn-primary" style="margin-top:16px" onclick="showView('setup')">⚙ Open Config</button>
-    </div>`;
-    return;
+    if(!isAuthed()){ fbSignOut(); return; }
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><h3>Loading…</h3></div>`;
   }
   el.innerHTML = `<div class="empty-state"><div class="empty-icon">⏳</div><h3>Loading…</h3></div>`;
   try {
@@ -718,7 +824,7 @@ async function compressImage(b64, maxW=600, maxH=500, quality=0.65) {
 }
 
 async function saveFacility() {
-  if (!FB.projectId || !FB.apiKey) { toast('⚠','Configure Firebase first','warn'); return; }
+  if (!isAuthed()) { toast('⚠','Please login first','warn'); fbSignOut(); return; }
   const name = document.getElementById('fac-name').value.trim() || 'Unnamed';
   const saveBtn = document.querySelector('.btn-success');
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Saving…'; }
@@ -1380,16 +1486,17 @@ function showLoad(){/* handled by UI loading states */}
 
 // ── INIT ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
-  // Restore saved config
-  const saved=JSON.parse(localStorage.getItem('wp_fb_config')||'null');
-  if(saved?.projectId&&saved?.apiKey){
-    FB.projectId=saved.projectId;FB.apiKey=saved.apiKey;
-    document.getElementById('cfg-pid').value=saved.projectId;
-    document.getElementById('cfg-ak').value=saved.apiKey;
+  // Session auth check
+  if(isAuthed()){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('admin-shell').style.display='grid';
+    const badge=document.getElementById('admin-email-badge');
+    if(badge)badge.textContent=AUTH.email||'Admin';
     setStatus('ok','Connected');
     showView('dashboard');loadDashboard();
-  }else{
-    showView('setup');
+  } else {
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('admin-shell').style.display='none';
   }
 
   // Drop zone
@@ -1407,29 +1514,144 @@ window.addEventListener('DOMContentLoaded',()=>{
   });
 });
 
+// ── MULTI-FLOOR STATE ──────────────────────────────────────
+// state.floors = [{id, name, nodes, edges, mapB64, imgW, imgH}]
+// state.floorIdx = current active floor
+if(!state.floors)state.floors=[];
+if(state.floorIdx===undefined)state.floorIdx=0;
+
+function initFloors(){
+  // Migrate single-floor to multi-floor format
+  if(!state.floors||!state.floors.length){
+    state.floors=[{id:'f0',name:'Ground Floor',nodes:state.nodes,edges:state.edges,mapB64:state.mapB64,imgW:state.imgW,imgH:state.imgH}];
+    state.floorIdx=0;
+  }
+  renderFloorTabs();
+}
+
+function renderFloorTabs(){
+  const el=document.getElementById('floor-tabs-admin');if(!el)return;
+  el.innerHTML=state.floors.map((fl,i)=>`
+    <div class="floor-tab ${i===state.floorIdx?'active':''}" onclick="switchAdminFloor(${i})">
+      ${fl.name||`Floor ${i+1}`}
+      ${state.floors.length>1?`<button class="fl-del" onclick="event.stopPropagation();deleteFloor(${i})">✕</button>`:''}
+    </div>`).join('')+`<button class="add-floor-btn" onclick="addFloor()">+ Floor</button>`;
+}
+
+function switchAdminFloor(idx){
+  // Save current floor state
+  saveCurrentFloor();
+  state.floorIdx=idx;
+  // Load target floor state
+  const fl=state.floors[idx];
+  state.nodes=fl.nodes||[];state.edges=fl.edges||[];
+  state.mapB64=fl.mapB64||null;state.imgW=fl.imgW||800;state.imgH=fl.imgH||600;
+  state.mapEl=null;state.selected=null;
+  document.getElementById('fac-name').value=state.facilityId?document.getElementById('fac-name').value:'';
+  if(state.mapB64){
+    document.getElementById('dz-img').src=state.mapB64;
+    document.getElementById('dz-preview').classList.add('show');
+    document.getElementById('dz').classList.add('done');
+    document.getElementById('dz-title').textContent='✅ Map loaded';
+    loadMapImage(state.mapB64);
+  }else{
+    state.mapEl=null;document.getElementById('dz-preview').classList.remove('show');
+    document.getElementById('dz').classList.remove('done');
+    document.getElementById('dz-title').textContent='Drop floor plan here';
+    document.getElementById('dz-icon').textContent='🖼';
+    draw();
+  }
+  renderFloorTabs();updateStats();renderNodeList();
+}
+
+function saveCurrentFloor(){
+  if(!state.floors[state.floorIdx])return;
+  const fl=state.floors[state.floorIdx];
+  fl.nodes=JSON.parse(JSON.stringify(state.nodes));
+  fl.edges=JSON.parse(JSON.stringify(state.edges));
+  fl.mapB64=state.mapB64;fl.imgW=state.imgW;fl.imgH=state.imgH;
+}
+
+function addFloor(){
+  saveCurrentFloor();
+  const name=document.getElementById('new-floor-name').value.trim()||`Floor ${state.floors.length+1}`;
+  const newFloor={id:`f${Date.now()}`,name,nodes:[],edges:[],mapB64:null,imgW:800,imgH:600};
+  state.floors.push(newFloor);document.getElementById('new-floor-name').value='';
+  switchAdminFloor(state.floors.length-1);
+  toast('🏢',`"${name}" added`,'ok');
+}
+
+function deleteFloor(idx){
+  if(state.floors.length<=1){toast('⚠','At least one floor required','warn');return;}
+  if(!confirm(`Delete "${state.floors[idx].name}"?`))return;
+  state.floors.splice(idx,1);
+  const newIdx=Math.min(idx,state.floors.length-1);
+  switchAdminFloor(newIdx);
+  toast('🗑','Floor deleted','warn');
+}
+
+// Override saveFacility to include multi-floor data
+const _origSave=saveFacility;
+saveFacility=async function(){
+  saveCurrentFloor();
+  // Build multi-floor payload
+  const floorsPayload=state.floors.map(fl=>{
+    let imgToSave=fl.mapB64;
+    return{id:fl.id,name:fl.name,nodes:fl.nodes||[],edges:fl.edges||[],floorImage:imgToSave,imgW:fl.imgW,imgH:fl.imgH};
+  });
+  const name=document.getElementById('fac-name').value.trim()||'Unnamed';
+  if(!isAuthed()){toast('⚠','Please login first','warn');fbSignOut();return;}
+  const saveBtn=document.querySelector('.btn-success');
+  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='⏳ Saving…';}
+  try{
+    // Compress images
+    for(const fl of floorsPayload){
+      if(fl.floorImage&&fl.floorImage.length>200000){
+        fl.floorImage=await compressImage(fl.floorImage,700,550,.6);
+      }
+    }
+    const fac={id:state.facilityId,name,floors:floorsPayload,calibration:state.calibration,pub:true,updatedAt:Date.now()};
+    const jsonStr=JSON.stringify(fac);
+    if(jsonStr.length/1024>900){floorsPayload.forEach(fl=>fl.floorImage=null);toast('⚠','Images stripped — too large','warn');}
+    await fsSet('facilities',state.facilityId,fac);
+    document.getElementById('editor-title').textContent=name;
+    toast('☁',`Saved! ID: ${state.facilityId}`,'ok');
+    renderFloorTabs();
+    document.getElementById('qr-btn').style.display='';
+  }catch(e){toast('❌',`Save failed: ${e.message.slice(0,60)}`,'err');}
+  finally{if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='☁ Save to Firebase';}}
+};
+
+// QR generation
 function generateQRSheet(){
-  if(!state.nodes?.length){toast('⚠','No nodes to generate QR codes for','warn');return;}
-  if(!state.facilityId){toast('⚠','Save facility first to get ID','warn');return;}
+  saveCurrentFloor();
+  const allNodes=state.floors.flatMap(fl=>(fl.nodes||[]).map(n=>({...n,_floorName:fl.name,_floorId:fl.id})));
+  if(!allNodes.length){toast('⚠','No nodes across any floor','warn');return;}
+  if(!state.facilityId){toast('⚠','Save facility first','warn');return;}
   const grid=document.getElementById('qr-grid');grid.innerHTML='';
-  const items=[{id:null,label:state.facilityId,type:'facility',payload:JSON.stringify({fid:state.facilityId,type:'facility'})}];
-  state.nodes.forEach(n=>items.push({id:n.id,label:n.label||n.type,type:n.type,payload:JSON.stringify({fid:state.facilityId,nid:n.id,label:n.label||n.type,type:n.type})}));
+  const items=[{id:null,label:state.facilityId,type:'facility',floor:'',payload:JSON.stringify({fid:state.facilityId,type:'facility'})}];
+  allNodes.forEach(n=>items.push({id:n.id,label:n.label||n.type,type:n.type,floor:n._floorName||'',payload:JSON.stringify({fid:state.facilityId,nid:n.id,label:n.label||n.type,type:n.type,floorId:n._floorId})}));
   items.forEach((item,idx)=>{
     const td=TYPE_MAP[item.type]||{c:'#6366F1',i:'🏢',l:'Facility'};
     const card=document.createElement('div');
     card.style.cssText='background:#fff;border-radius:10px;padding:12px;text-align:center;border:1px solid #e2e8f0;break-inside:avoid;';
     const qd=document.createElement('div');qd.id='qrc-'+idx;qd.style.cssText='margin:0 auto 8px;display:flex;align-items:center;justify-content:center;';card.appendChild(qd);
     const lbl=document.createElement('div');lbl.style.cssText='font-family:Inter,sans-serif;font-size:11px;font-weight:700;color:#0A0C14;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';lbl.textContent=item.label;card.appendChild(lbl);
-    const sub=document.createElement('div');sub.style.cssText='font-family:monospace;font-size:9px;color:#64748b;margin-bottom:3px;';sub.textContent=item.id?(state.facilityId+' · '+item.id):('ID: '+state.facilityId);card.appendChild(sub);
+    if(item.floor){const fl2=document.createElement('div');fl2.style.cssText='font-size:9px;color:#64748b;margin-bottom:2px;';fl2.textContent=item.floor;card.appendChild(fl2);}
+    const sub=document.createElement('div');sub.style.cssText='font-family:monospace;font-size:9px;color:#94a3b8;margin-bottom:3px;';sub.textContent=item.id?(state.facilityId+' · '+item.id):('ID: '+state.facilityId);card.appendChild(sub);
     if(item.type!=='facility'){const tag=document.createElement('div');tag.style.cssText=`display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;background:${td.c}22;color:${td.c};border:1px solid ${td.c}44;`;tag.textContent=(td.i||'')+' '+(td.l||item.type);card.appendChild(tag);}
     grid.appendChild(card);
-    setTimeout(()=>{
-      try{new QRCode(qd,{text:item.payload,width:120,height:120,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});}
-      catch(e2){const img=document.createElement('img');img.src='https://api.qrserver.com/v1/create-qr-code/?size=120x120&data='+encodeURIComponent(item.payload);img.style.cssText='width:120px;height:120px;';qd.appendChild(img);}
-    },idx*25);
+    setTimeout(()=>{try{new QRCode(qd,{text:item.payload,width:120,height:120,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});}catch(e2){const img=document.createElement('img');img.src='https://api.qrserver.com/v1/create-qr-code/?size=120x120&data='+encodeURIComponent(item.payload);img.style.cssText='width:120px;height:120px;';qd.appendChild(img);}},idx*25);
   });
   document.getElementById('qr-modal').classList.add('open');
   toast('📱',`${items.length} QR codes generated`,'ok');
 }
+
+// Hook into DOMContentLoaded to init floors
+const _origInit=window.addEventListener;
+document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>{
+  if(typeof state!=='undefined'){initFloors();}
+},300);});
 
 </script>
 
@@ -1442,10 +1664,11 @@ function generateQRSheet(){
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('qr-modal').classList.remove('open')">✕ Close</button>
       </div>
     </div>
-    <p style="font-size:13px;color:var(--text2);line-height:1.6">Print, cut and laminate each QR. The first QR is the Facility QR (place at entrance). The rest go at each node location.</p>
+    <p style="font-size:13px;color:var(--text2);line-height:1.6">Print and place each QR at the corresponding location. First QR is the facility QR for the entrance.</p>
     <div id="qr-grid"></div>
   </div>
 </div>
 
+</div><!-- /admin-shell -->
 </body>
 </html>

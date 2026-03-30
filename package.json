@@ -1,0 +1,17 @@
+{
+  "name": "waypoint-indoor-nav",
+  "version": "1.0.0",
+  "description": "WayPoint — Sensor-fusion indoor navigation system",
+  "private": true,
+  "scripts": {
+    "build":       "node build.js",
+    "check-env":   "node build.js --check",
+    "dev":         "node build.js && npx serve dist",
+    "clean":       "rm -rf dist"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "keywords": ["indoor-navigation", "pwa", "waypoint"],
+  "license": "MIT"
+}

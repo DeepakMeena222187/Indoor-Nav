@@ -5,18 +5,18 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#07090F">
 <link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>WayPoint — Indoor Navigation</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;font-family:'Sora',sans-serif;-webkit-font-smoothing:antialiased;}
-body{background:radial-gradient(ellipse 70% 50% at 30% 15%,rgba(91,95,237,.15),transparent),radial-gradient(ellipse 50% 40% at 80% 85%,rgba(6,182,212,.08),transparent),#07090F;color:#EEF2FF;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+body{background:radial-gradient(ellipse 70% 50% at 30% 15%,rgba(91,95,237,.16),transparent),radial-gradient(ellipse 50% 40% at 80% 85%,rgba(6,182,212,.08),transparent),#07090F;color:#EEF2FF;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
 .logo{width:72px;height:72px;border-radius:24px;background:linear-gradient(145deg,#6366F1,#4338CA);display:flex;align-items:center;justify-content:center;font-size:34px;box-shadow:0 12px 48px rgba(99,102,241,.5);animation:float 5s ease-in-out infinite;margin-bottom:10px;}
 @keyframes float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-10px) rotate(1deg)}}
 h1{font-size:40px;font-weight:800;letter-spacing:-1px;background:linear-gradient(135deg,#818CF8,#06B6D4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px;}
-.tag{font-size:13px;color:#8892B0;text-align:center;line-height:1.8;max-width:360px;margin-bottom:36px;}
-.tag strong{color:#EEF2FF;}
-.qe{width:100%;max-width:440px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:18px;padding:20px 22px;margin-bottom:28px;}
+.tag{font-size:13px;color:#8892B0;text-align:center;line-height:1.8;max-width:360px;margin-bottom:32px;}
+.qe{width:100%;max-width:440px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:18px;padding:20px 22px;margin-bottom:24px;}
 .qe-l{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:10px;}
 .qe-r{display:flex;gap:8px;}
 .qi{flex:1;padding:12px 16px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:#EEF2FF;font-family:'Sora',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:2px;text-align:center;outline:none;transition:all .2s;}
@@ -24,57 +24,49 @@ h1{font-size:40px;font-weight:800;letter-spacing:-1px;background:linear-gradient
 .qi::placeholder{color:rgba(255,255,255,.15);font-size:12px;font-weight:400;letter-spacing:1px;}
 .qb{padding:12px 20px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#6366F1,#4338CA);color:#fff;font-family:'Sora',sans-serif;font-size:14px;font-weight:700;box-shadow:0 4px 20px rgba(91,95,237,.45);transition:all .2s;}
 .qb:hover{transform:scale(1.04);}
-.cards{display:flex;gap:16px;width:100%;max-width:520px;margin-bottom:36px;}
+.cards{display:flex;gap:16px;width:100%;max-width:520px;margin-bottom:32px;}
 @media(max-width:480px){.cards{flex-direction:column;}}
-.card{flex:1;border-radius:20px;padding:26px 22px;text-align:center;cursor:pointer;text-decoration:none;display:block;transition:all .25s cubic-bezier(.34,1.56,.64,1);}
+.card{flex:1;border-radius:20px;padding:24px 20px;text-align:center;cursor:pointer;text-decoration:none;display:block;transition:all .25s cubic-bezier(.34,1.56,.64,1);}
 .card:hover{transform:translateY(-5px);}
-.card-nav{background:linear-gradient(135deg,rgba(91,95,237,.15),rgba(6,182,212,.08));border:1.5px solid rgba(91,95,237,.35);box-shadow:0 4px 32px rgba(91,95,237,.2);}
-.card-nav:hover{box-shadow:0 14px 48px rgba(91,95,237,.35);}
-.card-adm{background:linear-gradient(135deg,rgba(16,185,129,.1),rgba(6,182,212,.05));border:1.5px solid rgba(16,185,129,.3);box-shadow:0 4px 32px rgba(16,185,129,.12);}
-.card-adm:hover{box-shadow:0 14px 48px rgba(16,185,129,.25);}
-.ci{font-size:40px;margin-bottom:12px;display:block;}
-.ct{font-size:17px;font-weight:800;margin-bottom:5px;}
-.card-nav .ct{color:#818CF8;}.card-adm .ct{color:#10B981;}
-.cd{font-size:12.5px;color:#8892B0;line-height:1.6;}
-.feats{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;max-width:480px;}
-.feat{text-align:center;}
-.feat-i{font-size:22px;margin-bottom:4px;display:block;}
-.feat-l{font-size:11px;color:#374069;font-weight:700;}
-.install-btn{margin-top:20px;padding:10px 20px;border-radius:99px;border:1px solid rgba(91,95,237,.3);background:rgba(91,95,237,.08);color:#818CF8;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:none;}
-#install-btn.show{display:block;}
+.cn{background:linear-gradient(135deg,rgba(91,95,237,.14),rgba(6,182,212,.07));border:1.5px solid rgba(91,95,237,.3);box-shadow:0 4px 32px rgba(91,95,237,.18);}
+.cn:hover{box-shadow:0 14px 48px rgba(91,95,237,.32);}
+.ca{background:linear-gradient(135deg,rgba(16,185,129,.09),rgba(6,182,212,.05));border:1.5px solid rgba(16,185,129,.28);box-shadow:0 4px 32px rgba(16,185,129,.1);}
+.ca:hover{box-shadow:0 14px 48px rgba(16,185,129,.22);}
+.ci{font-size:38px;margin-bottom:11px;display:block;}
+.ct{font-size:16px;font-weight:800;margin-bottom:4px;}
+.cn .ct{color:#818CF8;}.ca .ct{color:#10B981;}
+.cd{font-size:12px;color:#8892B0;line-height:1.6;}
+.feats{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;max-width:500px;}
+.feat{text-align:center;}.feat-i{font-size:20px;margin-bottom:3px;display:block;}.feat-l{font-size:10px;color:#374069;font-weight:700;}
 </style>
 </head>
 <body>
 <div class="logo">🧭</div>
 <h1>WayPoint</h1>
-<p class="tag"><strong>Sensor-fusion indoor navigation.</strong><br>Step counter + gyroscope + compass — no GPS needed.</p>
+<p class="tag">Sensor-fusion indoor navigation — step counter, gyroscope & live compass</p>
 <div class="qe">
-  <div class="qe-l">Enter Facility ID to navigate</div>
+  <div class="qe-l">Enter Facility ID</div>
   <div class="qe-r">
-    <input type="text" class="qi" id="fid" maxlength="8" placeholder="e.g. AB12CD34" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')goNav()">
+    <input type="text" class="qi" id="fid" maxlength="8" placeholder="AB12CD34" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')goNav()">
     <button class="qb" onclick="goNav()">Go →</button>
   </div>
 </div>
 <div class="cards">
-  <a href="app.html" class="card card-nav"><span class="ci">📱</span><div class="ct">Navigate</div><div class="cd">Live compass, step tracking, sensor fusion</div></a>
-  <a href="admin.html" class="card card-adm"><span class="ci">🗺️</span><div class="ct">Admin Panel</div><div class="cd">Upload floor plans, generate QR codes, deploy</div></a>
+  <a href="app.html" class="card cn"><span class="ci">📱</span><div class="ct">Navigate</div><div class="cd">Multi-floor · Live compass · From→To · Step tracking</div></a>
+  <a href="admin.html" class="card ca"><span class="ci">🗺️</span><div class="ct">Admin Panel</div><div class="cd">Multi-floor maps · QR codes · Firebase sync</div></a>
 </div>
 <div class="feats">
+  <div class="feat"><span class="feat-i">🏢</span><div class="feat-l">Multi-Floor</div></div>
+  <div class="feat"><span class="feat-i">🧭</span><div class="feat-l">Live Compass</div></div>
   <div class="feat"><span class="feat-i">🪜</span><div class="feat-l">Step Counter</div></div>
   <div class="feat"><span class="feat-i">🔄</span><div class="feat-l">Gyroscope</div></div>
-  <div class="feat"><span class="feat-i">🧭</span><div class="feat-l">Live Compass</div></div>
-  <div class="feat"><span class="feat-i">📷</span><div class="feat-l">QR Fix</div></div>
+  <div class="feat"><span class="feat-i">📍</span><div class="feat-l">From → To</div></div>
   <div class="feat"><span class="feat-i">🔥</span><div class="feat-l">Firebase</div></div>
-  <div class="feat"><span class="feat-i">📲</span><div class="feat-l">Install as App</div></div>
 </div>
-<button class="install-btn" id="install-btn" onclick="installApp()">📲 Install App</button>
 <script>
 function goNav(){const id=document.getElementById('fid').value.trim().toUpperCase();if(id.length>=4)window.location.href=`app.html?fid=${id}`;else document.getElementById('fid').focus();}
 const p=new URLSearchParams(window.location.search);const fid=p.get('fid');if(fid){document.getElementById('fid').value=fid.toUpperCase();goNav();}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('install-btn').classList.add('show');});
-function installApp(){if(deferredPrompt){deferredPrompt.prompt();deferredPrompt.userChoice.then(()=>{deferredPrompt=null;document.getElementById('install-btn').classList.remove('show');});}}
 </script>
 </body>
 </html>
