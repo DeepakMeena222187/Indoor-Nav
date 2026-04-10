@@ -1296,6 +1296,74 @@ function drawCompassOverlay(){
 
 
 // ── LOCATION PICKER SHEET ───────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════
+// FROM / TO — node selection and UI update
+// ═══════════════════════════════════════════════════════════
+function setFromNode(n){
+  Nav.fromNode=n;
+  Nav.userPos={x:n.x,y:n.y};
+  Nav.smoothPos={x:n.x,y:n.y};
+  Nav.userNodeId=n.id;
+  updateFromToUI();
+  draw();
+}
+
+function setToNode(n){
+  Nav.toNode=n;
+  updateFromToUI();
+  draw();
+}
+
+function swapLocations(){
+  const tmp=Nav.fromNode;
+  Nav.fromNode=Nav.toNode;
+  Nav.toNode=tmp;
+  if(Nav.fromNode){
+    Nav.userPos={x:Nav.fromNode.x,y:Nav.fromNode.y};
+    Nav.smoothPos={x:Nav.fromNode.x,y:Nav.fromNode.y};
+  }
+  updateFromToUI();
+  draw();
+}
+
+function updateFromToUI(){
+  const fl=document.getElementById('from-lbl');
+  const fh=document.getElementById('from-hint');
+  const tl=document.getElementById('to-lbl');
+  const th=document.getElementById('to-hint');
+  const gb=document.getElementById('go-btn');
+
+  if(fl) fl.textContent = Nav.fromNode ? (Nav.fromNode.label||Nav.fromNode.type) : 'Select starting point';
+  if(fl) fl.classList.toggle('set', !!Nav.fromNode);
+  if(fh) fh.textContent = Nav.fromNode
+    ? (Nav.fromNode.type + (Nav.fromNode.floorId ? ' · ' + (Nav.floors.find(f=>f.id===Nav.fromNode.floorId)?.name||'') : ''))
+    : 'Your current location';
+
+  if(tl) tl.textContent = Nav.toNode ? (Nav.toNode.label||Nav.toNode.type) : 'Where to?';
+  if(tl) tl.classList.toggle('set', !!Nav.toNode);
+  if(th) th.textContent = Nav.toNode
+    ? (Nav.toNode.type + (Nav.toNode.floorId ? ' · ' + (Nav.floors.find(f=>f.id===Nav.toNode.floorId)?.name||'') : ''))
+    : 'Search or tap a node on map';
+
+  if(gb) gb.disabled = !(Nav.fromNode && Nav.toNode);
+
+  // Update route-panel labels if visible
+  const rf=document.getElementById('rft-from');
+  const rt=document.getElementById('rft-to');
+  if(rf) rf.textContent = Nav.fromNode?.label||Nav.fromNode?.type||'—';
+  if(rt) rt.textContent = Nav.toNode?.label||Nav.toNode?.type||'—';
+}
+
+// ── localStorage with fallback ────────────────────────────
+function _lsFallback(key, val){
+  try{
+    if(val===undefined) return localStorage.getItem(key);
+    if(val===null) localStorage.removeItem(key);
+    else localStorage.setItem(key, val);
+  }catch(e){ /* storage blocked */ }
+}
+
 function openPicker(mode){
   Nav.pickerMode=mode;
   document.getElementById('lsh-title').textContent=mode==='from'?'📍 Select Starting Point':'🎯 Select Destination';
