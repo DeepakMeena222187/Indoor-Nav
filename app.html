@@ -857,6 +857,147 @@ function curNodes(){return curFloor()?.nodes||[];}
 function curEdges(){return curFloor()?.edges||[];}
 function nmAll(){const m={};Nav.allNodes.forEach(n=>m[n.id]=n);return m;}
 
+
+// ═══════════════════════════════════════════════════════════
+// MAP EVENTS — touch, mouse, pinch-zoom, tap-to-select
+// ═══════════════════════════════════════════════════════════
+function setupMapEvents(){
+  const cv = Nav.canvas;
+  if(!cv || cv._eventsSet) return;
+  cv._eventsSet = true;
+
+  // ── State ────────────────────────────────────────────────
+  let drag=false, dragSx=0, dragSy=0, dragOx=0, dragOy=0;
+  let lastTap=0, tapX=0, tapY=0;
+  let pinchDist=0;
+
+  // ── Coordinate helper ────────────────────────────────────
+  function evPt(e){
+    const r=cv.getBoundingClientRect();
+    if(e.touches){
+      return {x:e.touches[0].clientX-r.left, y:e.touches[0].clientY-r.top};
+    }
+    return {x:e.clientX-r.left, y:e.clientY-r.top};
+  }
+  function canvasToMap(x,y){
+    return {mx:(x-Nav.ox)/Nav.scale, my:(y-Nav.oy)/Nav.scale};
+  }
+  function pinchMid(t){
+    const r=cv.getBoundingClientRect();
+    return {
+      x:(t[0].clientX+t[1].clientX)/2-r.left,
+      y:(t[0].clientY+t[1].clientY)/2-r.top,
+      d:Math.hypot(t[1].clientX-t[0].clientX,t[1].clientY-t[0].clientY)
+    };
+  }
+
+  // ── Mouse ────────────────────────────────────────────────
+  cv.addEventListener('mousedown',e=>{
+    drag=true;
+    dragSx=e.clientX; dragSy=e.clientY;
+    dragOx=Nav.ox;    dragOy=Nav.oy;
+    cv.style.cursor='grabbing';
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!drag) return;
+    Nav.ox=dragOx+(e.clientX-dragSx);
+    Nav.oy=dragOy+(e.clientY-dragSy);
+    draw();
+  });
+  window.addEventListener('mouseup',e=>{
+    if(!drag) return;
+    const moved=Math.hypot(e.clientX-dragSx,e.clientY-dragSy);
+    drag=false; cv.style.cursor='grab';
+    if(moved<6){ // treat as click/tap
+      const p=evPt(e);
+      handleMapTap(p.x,p.y);
+    }
+  });
+
+  // ── Wheel zoom ───────────────────────────────────────────
+  cv.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const p=evPt(e);
+    const f=e.deltaY>0?0.88:1.13;
+    // Zoom toward cursor
+    Nav.ox=p.x-(p.x-Nav.ox)*f;
+    Nav.oy=p.y-(p.y-Nav.oy)*f;
+    Nav.scale=Math.max(0.15,Math.min(10,Nav.scale*f));
+    draw();
+  },{passive:false});
+
+  // ── Touch ────────────────────────────────────────────────
+  cv.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    if(e.touches.length===1){
+      const p=evPt(e);
+      drag=true;
+      dragSx=e.touches[0].clientX; dragSy=e.touches[0].clientY;
+      dragOx=Nav.ox; dragOy=Nav.oy;
+      tapX=p.x; tapY=p.y;
+    } else if(e.touches.length===2){
+      drag=false;
+      pinchDist=pinchMid(e.touches).d;
+    }
+  },{passive:false});
+
+  cv.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    if(e.touches.length===1 && drag){
+      Nav.ox=dragOx+(e.touches[0].clientX-dragSx);
+      Nav.oy=dragOy+(e.touches[0].clientY-dragSy);
+      draw();
+    } else if(e.touches.length===2){
+      const m=pinchMid(e.touches);
+      const f=m.d/Math.max(pinchDist,1);
+      pinchDist=m.d;
+      Nav.ox=m.x-(m.x-Nav.ox)*f;
+      Nav.oy=m.y-(m.y-Nav.oy)*f;
+      Nav.scale=Math.max(0.15,Math.min(10,Nav.scale*f));
+      draw();
+    }
+  },{passive:false});
+
+  cv.addEventListener('touchend',e=>{
+    e.preventDefault();
+    if(e.changedTouches.length===1 && drag){
+      const dx=e.changedTouches[0].clientX-dragSx;
+      const dy=e.changedTouches[0].clientY-dragSy;
+      drag=false;
+      if(Math.hypot(dx,dy)<8){
+        // Double-tap detection
+        const now=Date.now();
+        if(now-lastTap<300){ zm(1.5); lastTap=0; }
+        else { lastTap=now; handleMapTap(tapX,tapY); }
+      }
+    }
+  },{passive:false});
+
+  cv.style.cursor='grab';
+}
+
+// ── Tap handler — select node or set from/to ──────────────
+function handleMapTap(cx,cy){
+  if(!Nav.canvas) return;
+  const mx=(cx-Nav.ox)/Nav.scale;
+  const my=(cy-Nav.oy)/Nav.scale;
+  const nodes=curNodes();
+  // Find nearest node within 28px (scaled)
+  let best=null, bestD=28/Nav.scale;
+  for(const n of nodes){
+    const d=Math.hypot(n.x-mx,n.y-my);
+    if(d<bestD){bestD=d;best=n;}
+  }
+  if(!best) return;
+  // Set from or to depending on what's already set
+  if(!Nav.fromNode || (Nav.fromNode && Nav.toNode)){
+    setFromNode(best);
+  } else {
+    setToNode(best);
+  }
+  draw();
+}
+
 // ═══════════════════════════════════════════════════════════
 // CANVAS
 // ═══════════════════════════════════════════════════════════
