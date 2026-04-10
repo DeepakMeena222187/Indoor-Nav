@@ -9,6 +9,20 @@
  * Usage:
  *   npm run build          — full build → dist/
  *   node build.js --check  — validate env vars only
+ *
+ * ── NETLIFY SETUP (one-time) ────────────────────────────────
+ *   1. Go to: Netlify Dashboard → Your Site → Site Configuration
+ *             → Environment Variables → Add a variable
+ *   2. Add these two variables:
+ *        Key:   FIREBASE_PROJECT_ID
+ *        Value: your-project-id   (from Firebase Console)
+ *
+ *        Key:   FIREBASE_API_KEY
+ *        Value: AIzaSy...         (from Firebase Console)
+ *   3. Trigger a new deploy — it will succeed.
+ *
+ *   Find values: Firebase Console → ⚙ Project Settings
+ *                → Your apps → Web app → firebaseConfig
  * ════════════════════════════════════════════════════════════
  */
 
@@ -31,19 +45,40 @@ if (fs.existsSync(envPath)) {
   }
   console.log('✅  Loaded credentials from .env');
 } else {
-  console.log('ℹ️   No .env file — reading from environment (Netlify)');
+  console.log('ℹ️   No .env file — reading from Netlify environment variables');
 }
 
 // ── 2. Validate required variables ─────────────────────────
 const REQUIRED = ['FIREBASE_PROJECT_ID', 'FIREBASE_API_KEY'];
 const missing  = REQUIRED.filter(k => !process.env[k] ||
-                                       process.env[k].includes('your-'));
+                                       process.env[k].includes('your-') ||
+                                       process.env[k].startsWith('__'));
 
 if (missing.length) {
-  console.error('\n❌  Missing or placeholder credentials:');
-  missing.forEach(k => console.error(`    ${k}`));
-  console.error('\n   → Open .env and fill in your real Firebase values.');
-  console.error('   → Firebase Console → Project Settings → Your apps → Config\n');
+  console.error('\n╔══════════════════════════════════════════════════════════╗');
+  console.error('║            ❌  BUILD FAILED — Missing credentials         ║');
+  console.error('╠══════════════════════════════════════════════════════════╣');
+  console.error('║                                                          ║');
+  console.error('║  Missing environment variables:                          ║');
+  missing.forEach(k => console.error(`║    • ${k.padEnd(52)}║`));
+  console.error('║                                                          ║');
+  console.error('║  ── HOW TO FIX ON NETLIFY ──────────────────────────────║');
+  console.error('║                                                          ║');
+  console.error('║  1. Open: Netlify Dashboard → your site                  ║');
+  console.error('║  2. Go to: Site configuration → Environment variables    ║');
+  console.error('║  3. Click "Add a variable" and add:                      ║');
+  console.error('║                                                          ║');
+  console.error('║     FIREBASE_PROJECT_ID = indoor-nav-59cd2               ║');
+  console.error('║     FIREBASE_API_KEY    = AIzaSyBTzj9w1E22...            ║');
+  console.error('║                                                          ║');
+  console.error('║  4. Retrigger deploy — it will succeed.                  ║');
+  console.error('║                                                          ║');
+  console.error('║  ── WHERE TO FIND YOUR VALUES ─────────────────────────  ║');
+  console.error('║  Firebase Console → ⚙ Project Settings                  ║');
+  console.error('║  → Your apps → Web app → firebaseConfig                  ║');
+  console.error('║  → Copy projectId  and  apiKey                           ║');
+  console.error('║                                                          ║');
+  console.error('╚══════════════════════════════════════════════════════════╝\n');
   process.exit(1);
 }
 
@@ -76,26 +111,24 @@ const BINARY_FILES = [
   'apple-touch-icon.png',
 ];
 
-// ── 4. Generate dist/config.js with real credentials ───
-// This ensures the config.js fallback in app.html works in dist/
+// ── 4. Ensure dist/ exists and generate config.js ──────────
 const distDir = path.join(__dirname, 'dist');
 if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir, { recursive: true });
 }
+
+// config.js is the runtime credential loader
 const configContent = `window.WP_CONFIG={projectId:'${PROJECT_ID}',apiKey:'${API_KEY}'};`;
 fs.writeFileSync(path.join(distDir, 'config.js'), configContent, 'utf8');
-console.log('  ✅  config.js  (generated for dist)');
+console.log('  ✅  config.js  (generated)');
 
-// ── 5. Ensure dist/ exists ─────────────────────────────
-// (already ensured above in config.js generation)
-
-// ── 5. Token map ───────────────────────────────────────────
+// ── 5. Token replacement map ────────────────────────────────
 const TOKENS = {
   '__FIREBASE_PROJECT_ID__': PROJECT_ID,
   '__FIREBASE_API_KEY__':    API_KEY,
 };
 
-// ── 6. Process text files — inject credentials ─────────────
+// ── 6. Process text source files ────────────────────────────
 let processed = 0;
 for (const file of SRC_FILES) {
   const srcPath  = path.join(__dirname, file);
@@ -108,7 +141,6 @@ for (const file of SRC_FILES) {
 
   let content = fs.readFileSync(srcPath, 'utf8');
 
-  // Replace tokens
   let replacements = 0;
   for (const [token, value] of Object.entries(TOKENS)) {
     const regex = new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
@@ -124,7 +156,7 @@ for (const file of SRC_FILES) {
   processed++;
 }
 
-// ── 7. Copy binary files ───────────────────────────────────
+// ── 7. Copy binary files ────────────────────────────────────
 for (const file of BINARY_FILES) {
   const srcPath  = path.join(__dirname, file);
   const distPath = path.join(distDir, file);
@@ -136,7 +168,7 @@ for (const file of BINARY_FILES) {
   }
 }
 
-// ── 8. Verify no tokens leaked into dist ──────────────────
+// ── 8. Verify no tokens leaked into dist ───────────────────
 console.log('\n🔍  Verifying no placeholder tokens in dist...');
 let leaks = 0;
 for (const file of SRC_FILES) {
@@ -145,7 +177,7 @@ for (const file of SRC_FILES) {
   const content = fs.readFileSync(distPath, 'utf8');
   for (const token of Object.keys(TOKENS)) {
     if (content.includes(token)) {
-      console.error(`  ❌  LEAK: ${token} still in ${file}`);
+      console.error(`  ❌  LEAK: ${token} still present in ${file}`);
       leaks++;
     }
   }
@@ -154,7 +186,7 @@ for (const file of SRC_FILES) {
 if (leaks === 0) {
   console.log('  ✅  No token leaks detected.\n');
 } else {
-  console.error(`\n  ❌  ${leaks} token leak(s) found! Do not deploy.\n`);
+  console.error(`\n  ❌  ${leaks} token leak(s) found — do not deploy.\n`);
   process.exit(1);
 }
 

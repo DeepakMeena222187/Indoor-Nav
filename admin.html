@@ -199,26 +199,6 @@ canvas#fc{touch-action:none;}
 .progress-bar.show{display:block;}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--cyan));width:0%;transition:width .4s;border-radius:2px;}
 
-/* ─── CALIBRATION PANEL ─── */
-.cal-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-.cal-label{font-size:11px;font-weight:600;color:var(--text2);min-width:72px;flex-shrink:0;}
-.cal-val{font-family:var(--mono);font-size:11px;color:var(--primary);min-width:40px;text-align:right;}
-.cal-range{flex:1;accent-color:var(--primary);height:4px;}
-.cal-presets{display:flex;gap:4px;flex:1;}
-.cal-preset{flex:1;padding:5px 0;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-size:10px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;}
-.cal-preset:hover{border-color:var(--primary);color:var(--text2);}
-.cal-preset.active{background:var(--primary-dim);border-color:var(--primary);color:var(--primary);}
-.compass-dial-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;margin:8px 0 14px;}
-.compass-dial{position:relative;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,rgba(13,16,24,.96),rgba(7,9,15,.98));border:2px solid rgba(99,102,241,.4);cursor:grab;touch-action:none;}
-.compass-dial:active{cursor:grabbing;}
-.compass-dial .cd-n,.compass-dial .cd-s,.compass-dial .cd-e,.compass-dial .cd-w{position:absolute;font-size:9px;font-weight:700;color:rgba(129,140,248,.8);}
-.compass-dial .cd-n{top:6px;left:50%;transform:translateX(-50%);color:#818CF8;}
-.compass-dial .cd-s{bottom:6px;left:50%;transform:translateX(-50%);}
-.compass-dial .cd-e{right:8px;top:50%;transform:translateY(-50%);}
-.compass-dial .cd-w{left:8px;top:50%;transform:translateY(-50%);}
-.compass-arrow{position:absolute;top:50%;left:50%;width:4px;height:36px;margin-left:-2px;transform-origin:center top;border-radius:2px;background:linear-gradient(to bottom,#EF4444,#818CF8);pointer-events:none;}
-.compass-deg-inp{width:60px;padding:4px 8px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;text-align:center;}
-
 /* ─── RESPONSIVE ─── */
 @media(max-width:768px){
   .view{padding:16px;}
@@ -236,6 +216,16 @@ canvas#fc{touch-action:none;}
 @media print{.topbar,.editor-sidebar,.toolbar,.zoom-btns,.canvas-hint,.place-hint{display:none!important;}#qr-modal{position:static!important;background:#fff!important;display:block!important;}.modal-overlay.open{position:static;background:transparent;padding:0;}.modal{max-width:100%!important;box-shadow:none!important;border:none!important;background:#fff!important;color:#000!important;}#qr-grid{grid-template-columns:repeat(4,1fr)!important;}body{background:#fff!important;}}
 #qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;margin-top:14px;}
 #qr-modal .modal{max-width:740px;max-height:90vh;overflow-y:auto;}
+.north-btn{padding:9px 6px;border-radius:8px;border:1.5px solid var(--border2);
+  background:var(--surface2);color:var(--text2);font-family:var(--font);font-size:12px;
+  font-weight:600;cursor:pointer;transition:all .15s;text-align:center;}
+.north-btn:hover{border-color:var(--primary);color:var(--text);}
+.north-btn.active{border-color:var(--primary);background:var(--primary-dim);color:var(--primary);font-weight:700;}
+.north-btn{padding:9px 6px;border-radius:8px;border:1.5px solid var(--border2);
+  background:var(--surface2);color:var(--text2);font-family:var(--font);font-size:12px;
+  font-weight:600;cursor:pointer;transition:all .15s;text-align:center;}
+.north-btn:hover{border-color:var(--primary);color:var(--text);}
+.north-btn.active{border-color:var(--primary);background:var(--primary-dim);color:var(--primary);font-weight:700;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -284,13 +274,6 @@ const FB = {
   apiKey:    (window.WP_CONFIG||{}).apiKey    || '',
 };
 const FS_BASE = () => `https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
-
-/* ── HTML escape helper (XSS prevention) ── */
-function esc(s) {
-  const d = document.createElement('div');
-  d.appendChild(document.createTextNode(s || ''));
-  return d.innerHTML;
-}
 
 /* ── Auth layer ─────────────────────────────────────────────── */
 let AUTH = { token: null, email: null, uid: null, expiry: 0 };
@@ -426,7 +409,7 @@ async function doLogin(){
 }
 function showLiErr(msg){
   const e=document.getElementById('li-err');
-  e.textContent=msg;
+  e.innerHTML=msg.replace(/\n\n/g,'<br><br>').replace(/\n/g,'<br>');
   e.style.display='block';
   e.style.whiteSpace='pre-wrap';
 }
@@ -455,8 +438,6 @@ function showLiErr(msg){
 
   <!-- CONTENT -->
   <main class="content">
-      </div>
-    </div>
 
     <!-- ── VIEW: DASHBOARD ── -->
     <div class="view active" id="view-dashboard">
@@ -531,73 +512,131 @@ function showLiErr(msg){
             </div>
           </div>
 
+          <!-- Map Orientation -->
+          <div class="panel">
+            <div class="panel-title">🧭 Map Orientation</div>
+            <div style="font-size:11.5px;color:var(--text3);margin-bottom:10px;line-height:1.6;">
+              Which real-world direction does the <strong style="color:var(--text)">top of your map image</strong> face?<br>
+              Drag the compass rose or enter an exact angle. This rotates the in-app compass needle to match your floor plan.
+            </div>
+            <!-- Quick cardinal buttons -->
+            <div id="north-picker" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+              <button class="north-btn active" data-deg="0"   onclick="setMapNorth(0)">&#x2B06; North</button>
+              <button class="north-btn"        data-deg="90"  onclick="setMapNorth(90)">&#x27A1; East</button>
+              <button class="north-btn"        data-deg="180" onclick="setMapNorth(180)">&#x2B07; South</button>
+              <button class="north-btn"        data-deg="270" onclick="setMapNorth(270)">&#x2B05; West</button>
+            </div>
+            <!-- Draggable compass rose + custom angle -->
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+              <canvas id="north-prev" width="110" height="110"
+                style="border-radius:50%;background:rgba(99,102,241,.08);border:1px solid var(--border2);flex-shrink:0;cursor:grab;touch-action:none;"
+                title="Drag to rotate"></canvas>
+              <div style="flex:1;">
+                <div style="font-size:12px;font-weight:700;color:var(--text);" id="north-label">Top = North</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:3px;margin-bottom:8px;" id="north-sub">Map already aligned to compass</div>
+                <!-- Custom angle input -->
+                <label style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px;display:block;">Custom Angle (°)</label>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <input id="north-custom" type="number" min="0" max="359" step="1" placeholder="0–359"
+                    style="width:80px;padding:6px 8px;border-radius:7px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;outline:none;"
+                    oninput="setMapNorth(((parseInt(this.value)||0)+360)%360)"/>
+                  <span style="font-size:11px;color:var(--text3);">° from North</span>
+                </div>
+              </div>
+            </div>
+            <!-- Live map rotation preview -->
+            <div id="compass-rotate-preview" style="display:none;background:var(--surface2);border:1px solid rgba(99,102,241,.25);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--primary);display:flex;align-items:center;gap:7px;">
+              <span style="font-size:15px;">🔄</span>
+              <span id="compass-rotate-text">Compass rotated 0° — top of map faces North</span>
+            </div>
+          </div>
+
+          <!-- Facility Dimensions — critical for step accuracy -->
+          <div class="panel">
+            <div class="panel-title">📐 Facility Dimensions &amp; Area</div>
+            <div style="font-size:11.5px;color:var(--text3);margin-bottom:12px;line-height:1.6;">
+              Enter the <strong style="color:var(--text)">real-world size</strong> of the floor plan.<br>
+              This converts steps → exact meters and calculates floor area.
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+              <div class="fgroup" style="margin:0;">
+                <label style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px;display:block;">Width (metres)</label>
+                <input class="finput" id="dim-width" type="number" min="1" max="2000" step="0.5"
+                  placeholder="e.g. 40" style="padding:8px 10px;font-size:14px;font-family:var(--mono);"
+                  oninput="onDimChange()"/>
+              </div>
+              <div class="fgroup" style="margin:0;">
+                <label style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px;display:block;">Height (metres)</label>
+                <input class="finput" id="dim-height" type="number" min="1" max="2000" step="0.5"
+                  placeholder="e.g. 25" style="padding:8px 10px;font-size:14px;font-family:var(--mono);"
+                  oninput="onDimChange()"/>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+              <div class="fgroup" style="margin:0;">
+                <label style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px;display:block;">No. of Floors</label>
+                <input class="finput" id="dim-floors" type="number" min="1" max="200" step="1"
+                  placeholder="1" value="1" style="padding:8px 10px;font-size:14px;font-family:var(--mono);"
+                  oninput="onDimChange()"/>
+              </div>
+              <div class="fgroup" style="margin:0;">
+                <label style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px;display:block;">Usable % (opt)</label>
+                <input class="finput" id="dim-usable" type="number" min="1" max="100" step="1"
+                  placeholder="80" style="padding:8px 10px;font-size:14px;font-family:var(--mono);"
+                  oninput="onDimChange()"/>
+              </div>
+            </div>
+            <div id="dim-result" style="display:none;background:var(--surface2);border:1px solid var(--border2);
+              border-radius:8px;padding:10px 12px;font-size:11.5px;line-height:1.9;">
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--text3);">Scale</span>
+                <span style="font-family:var(--mono);color:var(--primary);" id="dim-mpp-label">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--text3);">Step length</span>
+                <span style="font-family:var(--mono);color:var(--green);" id="dim-step-px">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--text3);">Map diagonal</span>
+                <span style="font-family:var(--mono);color:var(--text2);" id="dim-diag">—</span>
+              </div>
+              <div style="height:1px;background:var(--border);margin:5px 0;"></div>
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--text3);">Floor area</span>
+                <span style="font-family:var(--mono);color:var(--amber);font-weight:700;" id="dim-area-floor">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;" id="dim-total-row">
+                <span style="color:var(--text3);">Total built area</span>
+                <span style="font-family:var(--mono);color:var(--amber);" id="dim-area-total">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;" id="dim-usable-row">
+                <span style="color:var(--text3);">Usable area</span>
+                <span style="font-family:var(--mono);color:var(--green);font-weight:700;" id="dim-area-usable">—</span>
+              </div>
+            </div>
+            <!-- Area summary badge -->
+            <div id="area-badge" style="display:none;margin-top:8px;padding:10px 14px;border-radius:10px;
+              background:linear-gradient(135deg,rgba(245,158,11,.1),rgba(245,158,11,.04));
+              border:1px solid rgba(245,158,11,.3);">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:22px;">📏</span>
+                <div>
+                  <div style="font-size:16px;font-weight:800;color:var(--amber);font-family:var(--mono);" id="area-badge-val">—</div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:1px;" id="area-badge-sub">Floor area</div>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:10.5px;color:var(--text3);margin-top:8px;line-height:1.6;">
+              💡 Measure the longest corridor or count ceiling tiles (standard tile = 0.6m)
+            </div>
+          </div>
+
           <!-- Stats -->
           <div class="panel">
             <div class="stat-row">
               <div class="stat"><div class="stat-val" id="stat-n">0</div><div class="stat-lbl">Nodes</div></div>
               <div class="stat"><div class="stat-val" id="stat-e">0</div><div class="stat-lbl">Edges</div></div>
               <div class="stat"><div class="stat-val" id="stat-v" style="color:var(--amber)">—</div><div class="stat-lbl">Valid</div></div>
-            </div>
-          </div>
-
-          <!-- Calibration -->
-          <div class="panel" id="cal-panel">
-            <div class="panel-title">🧭 Calibration</div>
-            <p style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.6">Set map north direction and step/sensor tuning. Saved per facility.</p>
-
-            <!-- Map North Offset — interactive dial -->
-            <div class="cal-label" style="margin-bottom:4px">Map North Offset</div>
-            <div class="compass-dial-wrap">
-              <div class="compass-dial" id="cal-compass-dial">
-                <span class="cd-n">N</span><span class="cd-s">S</span>
-                <span class="cd-e">E</span><span class="cd-w">W</span>
-                <div class="compass-arrow" id="cal-compass-arrow" style="transform:rotate(0deg)"></div>
-              </div>
-              <div style="display:flex;align-items:center;gap:6px">
-                <input type="number" class="compass-deg-inp" id="cal-north-deg" min="0" max="359" value="0" oninput="setMapNorth(+this.value)"/>
-                <span style="font-size:11px;color:var(--text3)">degrees</span>
-              </div>
-            </div>
-
-            <!-- Step Length -->
-            <div class="cal-row">
-              <span class="cal-label">Step Length</span>
-              <input type="range" class="cal-range" id="cal-step-len" min="0.40" max="1.20" step="0.02" value="0.72" oninput="setCal('stepLen',+this.value)">
-              <span class="cal-val" id="cal-step-len-val">0.72m</span>
-            </div>
-
-            <!-- Meters per Pixel -->
-            <div class="cal-row">
-              <span class="cal-label">M/Pixel</span>
-              <input type="range" class="cal-range" id="cal-mpp" min="0.005" max="0.200" step="0.001" value="0.033" oninput="setCal('mpp',+this.value)">
-              <span class="cal-val" id="cal-mpp-val">0.033</span>
-            </div>
-
-            <!-- Walking Speed -->
-            <div class="cal-row">
-              <span class="cal-label">Walk Speed</span>
-              <input type="range" class="cal-range" id="cal-walk-spd" min="40" max="140" step="5" value="80" oninput="setCal('walkSpd',+this.value)">
-              <span class="cal-val" id="cal-walk-spd-val">80</span>
-            </div>
-
-            <!-- Step Sensitivity -->
-            <div class="cal-row">
-              <span class="cal-label">Sensitivity</span>
-              <div class="cal-presets">
-                <div class="cal-preset" data-sens="low" onclick="setStepSensitivity('low')">Low</div>
-                <div class="cal-preset active" data-sens="normal" onclick="setStepSensitivity('normal')">Normal</div>
-                <div class="cal-preset" data-sens="high" onclick="setStepSensitivity('high')">High</div>
-              </div>
-            </div>
-
-            <!-- PDR Blend -->
-            <div class="cal-row">
-              <span class="cal-label">PDR Blend</span>
-              <input type="range" class="cal-range" id="cal-pdr-blend" min="0.20" max="0.85" step="0.05" value="0.55" oninput="setCal('pdrBlend',+this.value)">
-              <span class="cal-val" id="cal-pdr-blend-val">0.55</span>
-            </div>
-            <div style="font-size:10px;color:var(--text3);line-height:1.5;margin-top:2px">
-              Low = trust compass more · High = trust route more
             </div>
           </div>
 
@@ -734,7 +773,8 @@ let state = {
   mapB64: null,
   mapEl: null,
   imgW: 800, imgH: 600,
-  calibration: { mpp: 0.033, walkSpd: 80, mapNorthOffset: 0, stepLen: 0.72, stepSensitivity: 'normal', pdrBlend: 0.55 },
+  calibration: { mpp: 0.033, walkSpd: 80 },
+  mapNorth: 0,   // degrees: which direction the TOP of this map image faces (0=N,90=E,180=S,270=W)
 
   // Editor
   tool: 'select',
@@ -750,9 +790,8 @@ let state = {
 
 // ── FIREBASE REST API ────────────────────────────────────────
 async function fsGet(collection, docId) {
-  if (!isAuthed()) throw new Error('Not authenticated');
-  const url = `${FS_BASE()}/${collection}/${docId}`;
-  const r = await authFetch(url, {signal: AbortSignal.timeout(10000)});
+  const url = `${FS_BASE()}/${collection}/${docId}?key=${FB.apiKey}`;
+  const r = await fetch(url, {signal: AbortSignal.timeout(10000)});
   if (r.status === 404) return null;
   if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || `HTTP ${r.status}`); }
   const doc = await r.json();
@@ -760,16 +799,15 @@ async function fsGet(collection, docId) {
 }
 
 async function fsList(collection) {
-  if (!isAuthed()) throw new Error('Not authenticated');
-  const url = `${FS_BASE()}/${collection}?pageSize=100`;
-  const r = await authFetch(url, {signal: AbortSignal.timeout(10000)});
+  const url = `${FS_BASE()}/${collection}?key=${FB.apiKey}&pageSize=100`;
+  const r = await fetch(url, {signal: AbortSignal.timeout(10000)});
   if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || `HTTP ${r.status}`); }
   const data = await r.json();
   return (data.documents || []).map(fsDocToObj);
 }
 
 async function fsSet(collection, docId, obj) {
-  if (!isAuthed()) throw new Error('Not authenticated');
+  // Store all data as a single JSON string — avoids Firestore type complexity
   const body = {
     fields: {
       data:      { stringValue: JSON.stringify(obj) },
@@ -777,9 +815,10 @@ async function fsSet(collection, docId, obj) {
       updatedAt: { integerValue: String(Date.now()) },
     }
   };
-  const url = `${FS_BASE()}/${collection}/${docId}`;
-  const r = await authFetch(url, {
+  const url = `${FS_BASE()}/${collection}/${docId}?key=${FB.apiKey}`;
+  const r = await fetch(url, {
     method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(20000),
   });
@@ -788,9 +827,8 @@ async function fsSet(collection, docId, obj) {
 }
 
 async function fsDelete(collection, docId) {
-  if (!isAuthed()) throw new Error('Not authenticated');
-  const url = `${FS_BASE()}/${collection}/${docId}`;
-  const r = await authFetch(url, {method:'DELETE', signal: AbortSignal.timeout(10000)});
+  const url = `${FS_BASE()}/${collection}/${docId}?key=${FB.apiKey}`;
+  const r = await fetch(url, {method:'DELETE', signal: AbortSignal.timeout(10000)});
   if (!r.ok && r.status !== 404) { const e = await r.json(); throw new Error(e.error?.message || `HTTP ${r.status}`); }
 }
 
@@ -865,24 +903,24 @@ async function loadDashboard() {
         <div class="fac-card-header">
           <div class="fac-icon">${ico}</div>
           <div style="min-width:0">
-            <div class="fac-name">${esc(f.name||'Unnamed')}</div>
-            <div class="fac-id">${esc(id)}</div>
+            <div class="fac-name">${f.name||'Unnamed'}</div>
+            <div class="fac-id">${id}</div>
           </div>
         </div>
         <div class="fac-meta">
-          <span>📍 ${parseInt(nodes)||0} nodes</span>
-          <span>🕒 ${esc(updated)}</span>
+          <span>📍 ${nodes} nodes</span>
+          <span>🕒 ${updated}</span>
           ${f.pub ? '<span style="color:var(--green)">☁ Live</span>' : ''}
         </div>
         <div class="fac-actions">
-          <button class="btn btn-ghost btn-sm" onclick="loadFacilityById('${esc(id)}')">✏ Edit</button>
-          <button class="btn btn-ghost btn-sm" onclick="copyId('${esc(id)}')">📋 Copy ID</button>
-          <button class="btn btn-danger btn-sm" onclick="confirmDelete('${esc(id)}','${esc((f.name||'').replace(/'/g,"\\'"))}')">🗑</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadFacilityById('${id}')">✏ Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyId('${id}')">📋 Copy ID</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDelete('${id}','${(f.name||'').replace(/'/g,"\\'")}')">🗑</button>
         </div>
       </div>`;
     }).join('')}</div>`;
   } catch(e) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div><h3>Load failed</h3><p>${esc(e.message)}</p></div>`;
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div><h3>Load failed</h3><p>${e.message}</p></div>`;
   }
 }
 
@@ -896,6 +934,10 @@ function startNewFacility() {
   state.selected = null;
   state.history = [];
   document.getElementById('fac-name').value = '';
+  state.mapNorth = 0;
+  if(typeof setMapNorth==='function') setMapNorth(0);
+  state.mapNorth = 0;
+  if(typeof setMapNorth === 'function') setMapNorth(0);
   document.getElementById('dz-title').textContent = 'Drop floor plan here';
   document.getElementById('dz-icon').textContent = '🖼';
   document.getElementById('dz').classList.remove('done');
@@ -916,17 +958,44 @@ async function loadFacilityById(id) {
     const fac = await fsGet('facilities', id);
     if (!fac) { toast('❌','Facility not found','err'); return; }
     state.facilityId = id;
-    state.nodes = fac.nodes || fac.floors?.[0]?.nodes || [];
-    state.edges = fac.edges || fac.floors?.[0]?.edges || [];
-    state.mapB64 = fac.floorImage || fac.img || fac.floors?.[0]?.b64 || null;
-    state.calibration = fac.calibration || {mpp:0.033,walkSpd:80,mapNorthOffset:0,stepLen:0.72,stepSensitivity:'normal',pdrBlend:0.55};
-    // Ensure defaults for new fields
-    if(state.calibration.mapNorthOffset==null)state.calibration.mapNorthOffset=0;
-    if(state.calibration.stepLen==null)state.calibration.stepLen=0.72;
-    if(state.calibration.stepSensitivity==null)state.calibration.stepSensitivity='normal';
-    if(state.calibration.pdrBlend==null)state.calibration.pdrBlend=0.55;
-    updateCalUI();
+    // Restore multi-floor structure
+    if(fac.floors && fac.floors.length){
+      // Multi-floor facility
+      state.floors = fac.floors.map(fl=>({
+        id: fl.id, name: fl.name,
+        nodes: fl.nodes||[], edges: fl.edges||[],
+        mapB64: fl.floorImage||fl.img||fl.b64||null,
+        imgW: fl.imgW||800, imgH: fl.imgH||600
+      }));
+      state.floorIdx = 0;
+    } else {
+      // Legacy single-floor
+      state.floors = [{id:'f0',name:'Ground Floor',nodes:fac.nodes||[],edges:fac.edges||[],mapB64:fac.floorImage||fac.img||null,imgW:fac.imgW||800,imgH:fac.imgH||600}];
+      state.floorIdx = 0;
+    }
+    const curFl = state.floors[0];
+    state.nodes     = curFl.nodes;
+    state.edges     = curFl.edges;
+    // Check localStorage first (full-res), fall back to Firebase compressed version
+    // Try multiple key variants to handle legacy saves
+    const _cached = loadImgLocal(id, curFl.id)
+                 || loadImgLocal(id, 'f0')
+                 || loadImgLocal(id, '0')
+                 || loadImgLocal(id, 'floor0')
+                 || curFl.mapB64 || null;
+    state.mapB64 = _cached;
+    if(state.mapB64){ curFl.mapB64=state.mapB64; // sync back
+      // Re-save under canonical key so future loads work
+      saveImgLocal(id, curFl.id, state.mapB64);
+    }
+    state.imgW      = curFl.imgW;
+    state.imgH      = curFl.imgH;
+    state.calibration = fac.calibration || {mpp:0.033,walkSpd:80};
+    setTimeout(loadDimensions, 100);
     document.getElementById('fac-name').value = fac.name || '';
+    const mn = fac.mapNorth || 0;
+    state.mapNorth = mn;
+    if(typeof setMapNorth==='function') setMapNorth(mn);
     document.getElementById('editor-title').textContent = fac.name || 'Facility';
     document.getElementById('editor-fid').textContent = id;
     if (state.mapB64) {
@@ -934,10 +1003,15 @@ async function loadFacilityById(id) {
       document.getElementById('dz-preview').classList.add('show');
       document.getElementById('dz').classList.add('done');
       document.getElementById('dz-title').textContent = '✅ Map loaded';
+    } else {
+      document.getElementById('dz-preview').classList.remove('show');
+      document.getElementById('dz').classList.remove('done');
+      document.getElementById('dz-title').textContent = 'Drop floor plan here';
     }
     showView('editor');
     setupCanvas();
     buildTypePalette();
+    renderFloorTabs();
     if (state.mapB64) loadMapImage(state.mapB64);
     else { updateStats(); renderNodeList(); draw(); }
     toast('📂','Facility loaded','ok');
@@ -946,31 +1020,50 @@ async function loadFacilityById(id) {
   }
 }
 
-async function compressImage(b64, maxW=600, maxH=500, quality=0.65) {
-  // Compress floor plan image before Firestore storage
-  // Firestore limit: 1MB per document
+// ── IMAGE HELPERS ─────────────────────────────────────────────────────────
+// Two-tier image system:
+//   LOCAL  (admin device) : full-res in localStorage  → crisp editing
+//   CLOUD  (Firebase)     : 420×336 at q=0.42         → ~20-40KB, fits Firestore
+
+function imgKey(facId, floorId){ return 'wp_img_'+facId+'_'+floorId; }
+function saveImgLocal(facId, floorId, b64){
+  try{ localStorage.setItem(imgKey(facId,floorId), b64); }catch(e){}
+}
+function loadImgLocal(facId, floorId){
+  try{ return localStorage.getItem(imgKey(facId,floorId))||null; }catch(e){ return null; }
+}
+
+async function compressImage(b64, maxW, maxH, quality) {
   if (!b64) return null;
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      const scaleW = Math.min(maxW / img.naturalWidth, 1);
-      const scaleH = Math.min(maxH / img.naturalHeight, 1);
-      const sc = Math.min(scaleW, scaleH);
-      const w = Math.round(img.naturalWidth * sc);
-      const h = Math.round(img.naturalHeight * sc);
+      const sc = Math.min(maxW/img.naturalWidth, maxH/img.naturalHeight, 1);
+      const w  = Math.round(img.naturalWidth  * sc);
+      const h  = Math.round(img.naturalHeight * sc);
       const cv = document.createElement('canvas');
-      cv.width = w; cv.height = h;
-      cv.getContext('2d').drawImage(img, 0, 0, w, h);
-      const compressed = cv.toDataURL('image/jpeg', quality);
-      const origKB = Math.round(b64.length * 3/4 / 1024);
-      const newKB  = Math.round(compressed.length * 3/4 / 1024);
-      console.log(`[WayPoint] Image compressed: ${origKB}KB → ${newKB}KB (${w}×${h})`);
-      resolve(compressed);
+      cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(cv.toDataURL('image/jpeg', quality));
     };
-    img.onerror = () => resolve(b64); // fallback to original
+    img.onerror = () => resolve(b64);
     img.src = b64;
   });
 }
+
+// Compress for Firestore: aim for < 50KB binary (< 70KB base64 chars)
+async function compressForCloud(b64) {
+  if (!b64) return null;
+  let out = await compressImage(b64, 420, 336, 0.42);
+  // If still large, shrink further
+  if (out.length > 90000) out = await compressImage(b64, 280, 224, 0.35);
+  if (out.length > 60000) out = await compressImage(b64, 200, 160, 0.30);
+  const origKB = Math.round(b64.length*3/4/1024);
+  const newKB  = Math.round(out.length*3/4/1024);
+  console.log('[WayPoint] Cloud compress: '+origKB+'KB → '+newKB+'KB');
+  return out;
+}
+
 
 async function saveFacility() {
   if (!isAuthed()) { toast('⚠','Please login first','warn'); fbSignOut(); return; }
@@ -994,6 +1087,7 @@ async function saveFacility() {
       imgW: state.imgW,
       imgH: state.imgH,
       calibration: state.calibration,
+      mapNorth: state.mapNorth || 0,
       pub: true,
       updatedAt: Date.now(),
     };
@@ -1038,6 +1132,236 @@ function copyId(id) {
   navigator.clipboard.writeText(id).then(()=>toast('📋',`ID ${id} copied`,'ok'));
 }
 
+
+// ── MAP NORTH ORIENTATION ──────────────────────────────────────
+const NORTH_LABELS = {
+  0:   { label: 'Top = North',  sub: 'Map already aligned to compass' },
+  90:  { label: 'Top = East',   sub: 'Map rotated 90° CW from North' },
+  180: { label: 'Top = South',  sub: 'Map flipped — South at top' },
+  270: { label: 'Top = West',   sub: 'Map rotated 90° CCW from North' },
+};
+
+function setMapNorth(deg){
+  deg = ((Math.round(deg) % 360) + 360) % 360;
+  state.mapNorth = deg;
+
+  // Sync cardinal buttons
+  document.querySelectorAll('.north-btn').forEach(b=>{
+    b.classList.toggle('active', parseInt(b.dataset.deg)===deg);
+  });
+
+  // Sync custom number input
+  const ci = document.getElementById('north-custom');
+  if(ci && parseInt(ci.value||0) !== deg) ci.value = deg;
+
+  // Label
+  const closest = [0,90,180,270].reduce((a,b)=>Math.abs(b-deg)<Math.abs(a-deg)?b:a);
+  const info = deg % 90 === 0 ? (NORTH_LABELS[deg] || NORTH_LABELS[0])
+    : { label: `Top = ${deg}° from North`, sub: `Custom compass rotation` };
+  const lbl = document.getElementById('north-label');
+  const sub = document.getElementById('north-sub');
+  if(lbl) lbl.textContent = info.label;
+  if(sub) sub.textContent = info.sub;
+
+  // Live rotation preview banner
+  const banner = document.getElementById('compass-rotate-preview');
+  const bannerTxt = document.getElementById('compass-rotate-text');
+  if(banner && bannerTxt){
+    banner.style.display = 'flex';
+    bannerTxt.textContent = deg === 0
+      ? 'Compass aligned — top of map faces North'
+      : `Compass offset ${deg}° — top of map faces ${deg}° from North`;
+  }
+
+  drawNorthPreview(deg);
+}
+
+function drawNorthPreview(deg){
+  const cv = document.getElementById('north-prev');
+  if(!cv) return;
+  const ctx = cv.getContext('2d'), W=110, H=110, cx=55, cy=55, R=46;
+  ctx.clearRect(0,0,W,H);
+
+  // Background
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.fillStyle='rgba(99,102,241,0.07)'; ctx.fill();
+  ctx.strokeStyle='rgba(99,102,241,0.2)'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // Degree ring ticks
+  for(let a=0;a<360;a+=5){
+    const major=(a%90===0), mid=(a%45===0), minor=(a%15===0);
+    const len = major?11:mid?7:minor?5:2;
+    const r = a*Math.PI/180;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(r)*(R-1), cy+Math.sin(r)*(R-1));
+    ctx.lineTo(cx+Math.cos(r)*(R-1-len), cy+Math.sin(r)*(R-1-len));
+    ctx.strokeStyle = major?'rgba(129,140,248,.8)':mid?'rgba(129,140,248,.4)':'rgba(100,116,139,.25)';
+    ctx.lineWidth = major?1.5:1; ctx.stroke();
+  }
+
+  // Cardinal letters (fixed, not rotating)
+  const cards=[{l:'N',a:-90},{l:'E',a:0},{l:'S',a:90},{l:'W',a:180}];
+  ctx.font='bold 9px Inter,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  cards.forEach(({l,a})=>{
+    const r=a*Math.PI/180, lr=R-20;
+    ctx.fillStyle=l==='N'?'rgba(239,68,68,.9)':'rgba(100,116,139,.6)';
+    ctx.fillText(l, cx+Math.cos(r)*lr, cy+Math.sin(r)*lr);
+  });
+
+  // Compass needle — white half points where top-of-map faces, red half = real North
+  const northOnCanvas = (270 - deg + 360) % 360; // where real North is on canvas
+  const aRad = northOnCanvas * Math.PI / 180;
+  const ar = R - 16;
+
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(aRad);
+  // North (red) pointer
+  ctx.beginPath();
+  ctx.moveTo(0, -ar); ctx.lineTo(5, -ar*0.1); ctx.lineTo(0, -ar*0.25); ctx.lineTo(-5, -ar*0.1);
+  ctx.closePath(); ctx.fillStyle='#EF4444';
+  ctx.shadowColor='rgba(239,68,68,.6)'; ctx.shadowBlur=6; ctx.fill(); ctx.shadowBlur=0;
+  // South (white) pointer
+  ctx.beginPath();
+  ctx.moveTo(0, ar); ctx.lineTo(4, ar*0.1); ctx.lineTo(0, ar*0.25); ctx.lineTo(-4, ar*0.1);
+  ctx.closePath(); ctx.fillStyle='rgba(238,242,255,.7)'; ctx.fill();
+  ctx.restore();
+
+  // Center pin
+  ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,.9)'; ctx.fill();
+
+  // Degree label
+  ctx.fillStyle='rgba(148,163,184,.8)'; ctx.font='bold 10px monospace';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(deg+'°', cx, cy+R-9);
+}
+
+// ── Draggable compass rose ────────────────────────────────────────────
+(function initCompassDrag(){
+  let dragging=false, startAngle=0, startDeg=0;
+  function getAngle(cv,e){
+    const rect=cv.getBoundingClientRect();
+    const px=(e.touches?e.touches[0].clientX:e.clientX)-rect.left-rect.width/2;
+    const py=(e.touches?e.touches[0].clientY:e.clientY)-rect.top-rect.height/2;
+    return (Math.atan2(py,px)*180/Math.PI+450)%360;
+  }
+  function onStart(e){
+    const cv=document.getElementById('north-prev');
+    if(!cv)return; e.preventDefault();
+    dragging=true; startAngle=getAngle(cv,e); startDeg=state.mapNorth||0;
+    cv.style.cursor='grabbing';
+  }
+  function onMove(e){
+    if(!dragging)return; e.preventDefault();
+    const cv=document.getElementById('north-prev'); if(!cv)return;
+    const a=getAngle(cv,e);
+    let diff=a-startAngle; if(diff>180)diff-=360; if(diff<-180)diff+=360;
+    const newDeg=((startDeg+diff)%360+360)%360;
+    setMapNorth(Math.round(newDeg));
+  }
+  function onEnd(){
+    dragging=false;
+    const cv=document.getElementById('north-prev');
+    if(cv)cv.style.cursor='grab';
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    const cv=document.getElementById('north-prev');
+    if(!cv)return;
+    cv.addEventListener('mousedown',onStart,{passive:false});
+    cv.addEventListener('touchstart',onStart,{passive:false});
+    document.addEventListener('mousemove',onMove,{passive:false});
+    document.addEventListener('touchmove',onMove,{passive:false});
+    document.addEventListener('mouseup',onEnd);
+    document.addEventListener('touchend',onEnd);
+  });
+})();
+
+// ── FACILITY DIMENSIONS + AREA CALCULATOR ──────────────────────────
+function onDimChange(){
+  const w       = parseFloat(document.getElementById('dim-width').value);
+  const h       = parseFloat(document.getElementById('dim-height').value);
+  const floors  = Math.max(1, parseInt(document.getElementById('dim-floors')?.value||1)||1);
+  const usablePct = parseFloat(document.getElementById('dim-usable')?.value||0)||0;
+
+  if(!w || !h || !state.imgW || !state.imgH) return;
+
+  // mpp = metres per pixel — average of both axes for aspect-ratio robustness
+  const mppW = w / state.imgW;
+  const mppH = h / state.imgH;
+  const mpp  = (mppW + mppH) / 2;
+
+  state.calibration.mpp          = mpp;
+  state.calibration.widthM       = w;
+  state.calibration.heightM      = h;
+  state.calibration.floors       = floors;
+  state.calibration.usablePct    = usablePct || null;
+  state.calibration.stepLen      = 0.72;
+  state.calibration.stepLenShort = 0.55;
+  state.calibration.stepLenLong  = 0.85;
+
+  // ── Derived values ──
+  const stepPx  = (0.72 / mpp).toFixed(1);
+  const diagM   = Math.hypot(w, h);
+  const floorM2 = w * h;
+  const totalM2 = floorM2 * floors;
+  const usableM2 = usablePct > 0 ? totalM2 * (usablePct / 100) : null;
+
+  // ── Update scale/step/diagonal ──
+  document.getElementById('dim-mpp-label').textContent = mpp.toFixed(4)+' m/px';
+  document.getElementById('dim-step-px').textContent   = stepPx+' px/step';
+  document.getElementById('dim-diag').textContent      = diagM.toFixed(1)+' m diagonal';
+
+  // ── Update area rows ──
+  const fmt = v => v >= 10000
+    ? (v/10000).toFixed(2)+' ha'
+    : v >= 1000
+      ? (v/1000).toFixed(2)+' km² ' // won't happen for buildings but safe
+      : v.toFixed(0)+' m²';
+
+  document.getElementById('dim-area-floor').textContent = fmt(floorM2);
+
+  const totalRow = document.getElementById('dim-total-row');
+  if(totalRow) totalRow.style.display = floors > 1 ? 'flex' : 'none';
+  document.getElementById('dim-area-total').textContent = fmt(totalM2);
+
+  const usableRow = document.getElementById('dim-usable-row');
+  if(usableRow) usableRow.style.display = usableM2 ? 'flex' : 'none';
+  if(usableM2) document.getElementById('dim-area-usable').textContent = fmt(usableM2);
+
+  document.getElementById('dim-result').style.display = 'block';
+
+  // ── Area badge (prominent summary) ──
+  const badge    = document.getElementById('area-badge');
+  const badgeVal = document.getElementById('area-badge-val');
+  const badgeSub = document.getElementById('area-badge-sub');
+  if(badge && badgeVal && badgeSub){
+    badge.style.display = 'block';
+    const primary = usableM2 || (floors > 1 ? totalM2 : floorM2);
+    badgeVal.textContent = fmt(primary);
+    badgeSub.textContent = usableM2
+      ? `Usable area (${usablePct}% of ${floors} floor${floors>1?'s':''})`
+      : floors > 1
+        ? `Total built area (${floors} floors × ${fmt(floorM2)})`
+        : `Floor area (${w}m × ${h}m)`;
+  }
+
+  // ── Update edge distances with new mpp ──
+  state.edges.forEach(e => { if(e.dist) e.distMeters = e.dist * mpp; });
+  state.floors?.forEach(fl => fl.edges?.forEach(e => { if(e.dist) e.distMeters = e.dist * mpp; }));
+
+  toast('📐', `${w}×${h}m = ${fmt(floorM2)}${floors>1?' × '+floors+' floors':''}`, 'ok');
+}
+
+function loadDimensions(){
+  const c = state.calibration;
+  if(c.widthM)  document.getElementById('dim-width').value  = c.widthM;
+  if(c.heightM) document.getElementById('dim-height').value = c.heightM;
+  const floorEl = document.getElementById('dim-floors');
+  const usableEl = document.getElementById('dim-usable');
+  if(floorEl  && c.floors)    floorEl.value  = c.floors;
+  if(usableEl && c.usablePct) usableEl.value = c.usablePct;
+  if(c.widthM && c.heightM) onDimChange();
+}
+
 // ── CANVAS ENGINE ─────────────────────────────────────────────
 const CV = () => document.getElementById('fc');
 const CX = () => CV().getContext('2d');
@@ -1069,6 +1393,7 @@ function loadMapImage(src) {
     CV().width = state.imgW; CV().height = state.imgH;
     state.scale = 1; state.ox = 0; state.oy = 0;
     draw(); updateStats(); renderNodeList();
+    if(state.calibration?.widthM) loadDimensions();
   };
   img.src = src;
 }
@@ -1078,8 +1403,8 @@ function draw() {
   if (!c.width || !c.height) return;
   ctx.save();
   ctx.clearRect(0,0,c.width,c.height);
-  ctx.scale(state.scale, state.scale);
   ctx.translate(state.ox, state.oy);
+  ctx.scale(state.scale, state.scale);
 
   // Floor plan
   if (state.mapEl) ctx.drawImage(state.mapEl, 0, 0, state.imgW, state.imgH);
@@ -1153,40 +1478,6 @@ function draw() {
   }
 
   ctx.restore();
-
-  // ── Compass rose (top-right corner, drawn in screen space) ──
-  const cCanvas = CV();
-  const cx2 = cCanvas.width - 40, cy2 = 40, cr = 28;
-  const ct = CX();
-  ct.save();
-  // Outer ring
-  ct.beginPath(); ct.arc(cx2, cy2, cr, 0, Math.PI*2);
-  ct.fillStyle = 'rgba(13,16,24,.92)'; ct.fill();
-  ct.strokeStyle = 'rgba(99,102,241,.5)'; ct.lineWidth = 2; ct.stroke();
-  // Ticks
-  const noff = state.calibration.mapNorthOffset || 0;
-  for(let i=0;i<360;i+=45){
-    const a2 = (i + noff)*Math.PI/180;
-    const il = i%90===0 ? 8 : 5;
-    ct.beginPath();
-    ct.moveTo(cx2+Math.sin(a2)*(cr-1), cy2-Math.cos(a2)*(cr-1));
-    ct.lineTo(cx2+Math.sin(a2)*(cr-il), cy2-Math.cos(a2)*(cr-il));
-    ct.strokeStyle = i===0 ? '#EF4444' : 'rgba(129,140,248,.5)';
-    ct.lineWidth = i%90===0 ? 2 : 1; ct.stroke();
-  }
-  // North arrow
-  const na = noff*Math.PI/180;
-  ct.save(); ct.translate(cx2, cy2); ct.rotate(na);
-  ct.beginPath(); ct.moveTo(0, -(cr-10)); ct.lineTo(3, -4); ct.lineTo(-3, -4); ct.closePath();
-  ct.fillStyle = '#EF4444'; ct.fill();
-  ct.beginPath(); ct.moveTo(0, cr-10); ct.lineTo(3, 4); ct.lineTo(-3, 4); ct.closePath();
-  ct.fillStyle = 'rgba(129,140,248,.4)'; ct.fill();
-  ct.restore();
-  // N label
-  ct.font = '700 9px Inter'; ct.textAlign = 'center'; ct.textBaseline = 'middle';
-  ct.fillStyle = '#EF4444';
-  ct.fillText('N', cx2+Math.sin(na)*(cr+10), cy2-Math.cos(na)*(cr+10));
-  ct.restore();
 }
 
 // ── CANVAS EVENTS ─────────────────────────────────────────────
@@ -1507,6 +1798,11 @@ function loadMapFile(file){
     document.getElementById('dz-title').textContent='✅ Map loaded';
     document.getElementById('dz-icon').textContent='✅';
     loadMapImage(e.target.result);
+    // Save immediately to localStorage so refresh doesn't lose it
+    if(state.facilityId){
+      const floorId = state.floors[state.floorIdx]?.id || 'f0';
+      saveImgLocal(state.facilityId, floorId, e.target.result);
+    }
     toast('🖼','Floor plan loaded','ok');
   };
   rd.readAsDataURL(file);
@@ -1669,6 +1965,8 @@ function showLoad(){/* handled by UI loading states */}
 
 // ── INIT ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
+  // Init compass preview
+  drawNorthPreview(0);
   // Session auth check
   if(isAuthed()){
     document.getElementById('login-screen').style.display='none';
@@ -1696,84 +1994,6 @@ window.addEventListener('DOMContentLoaded',()=>{
     }
   });
 });
-
-// ── CALIBRATION FUNCTIONS ─────────────────────────────────
-function setCal(key, val) {
-  state.calibration[key] = val;
-  updateCalUI();
-  draw();
-}
-
-function setMapNorth(deg) {
-  const v = ((Math.round(deg) % 360) + 360) % 360;
-  state.calibration.mapNorthOffset = v;
-  updateCalUI();
-  draw();
-}
-
-function setStepSensitivity(level) {
-  state.calibration.stepSensitivity = level;
-  document.querySelectorAll('.cal-preset').forEach(el => {
-    el.classList.toggle('active', el.dataset.sens === level);
-  });
-}
-
-function updateCalUI() {
-  const c = state.calibration;
-  // Map North
-  const degInp = document.getElementById('cal-north-deg');
-  const arrow = document.getElementById('cal-compass-arrow');
-  if (degInp) degInp.value = c.mapNorthOffset || 0;
-  if (arrow) arrow.style.transform = `rotate(${c.mapNorthOffset || 0}deg)`;
-  // Step Length
-  const sl = document.getElementById('cal-step-len');
-  if (sl) { sl.value = c.stepLen || 0.72; document.getElementById('cal-step-len-val').textContent = (c.stepLen || 0.72).toFixed(2) + 'm'; }
-  // MPP
-  const mp = document.getElementById('cal-mpp');
-  if (mp) { mp.value = c.mpp || 0.033; document.getElementById('cal-mpp-val').textContent = (c.mpp || 0.033).toFixed(3); }
-  // Walk Speed
-  const ws = document.getElementById('cal-walk-spd');
-  if (ws) { ws.value = c.walkSpd || 80; document.getElementById('cal-walk-spd-val').textContent = c.walkSpd || 80; }
-  // Sensitivity
-  document.querySelectorAll('.cal-preset').forEach(el => {
-    el.classList.toggle('active', el.dataset.sens === (c.stepSensitivity || 'normal'));
-  });
-  // PDR Blend
-  const pb = document.getElementById('cal-pdr-blend');
-  if (pb) { pb.value = c.pdrBlend || 0.55; document.getElementById('cal-pdr-blend-val').textContent = (c.pdrBlend || 0.55).toFixed(2); }
-}
-
-// ── Compass dial drag interaction ────────────────────────
-(function initCompassDial() {
-  let dragging = false;
-  function getAngle(e, dial) {
-    const r = dial.getBoundingClientRect();
-    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    const px = (e.touches ? e.touches[0].clientX : e.clientX);
-    const py = (e.touches ? e.touches[0].clientY : e.clientY);
-    const a = Math.atan2(px - cx, -(py - cy)) * 180 / Math.PI;
-    return ((Math.round(a) % 360) + 360) % 360;
-  }
-  function onDown(e) { dragging = true; onMove(e); }
-  function onMove(e) {
-    if (!dragging) return;
-    e.preventDefault();
-    const dial = document.getElementById('cal-compass-dial');
-    if (!dial) return;
-    setMapNorth(getAngle(e, dial));
-  }
-  function onUp() { dragging = false; }
-  document.addEventListener('DOMContentLoaded', () => {
-    const dial = document.getElementById('cal-compass-dial');
-    if (!dial) return;
-    dial.addEventListener('mousedown', onDown);
-    dial.addEventListener('touchstart', onDown, { passive: false });
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('mouseup', onUp);
-    document.addEventListener('touchend', onUp);
-  });
-})();
 
 // ── MULTI-FLOOR STATE ──────────────────────────────────────
 // state.floors = [{id, name, nodes, edges, mapB64, imgW, imgH}]
@@ -1806,7 +2026,10 @@ function switchAdminFloor(idx){
   // Load target floor state
   const fl=state.floors[idx];
   state.nodes=fl.nodes||[];state.edges=fl.edges||[];
-  state.mapB64=fl.mapB64||null;state.imgW=fl.imgW||800;state.imgH=fl.imgH||600;
+  const cachedImg = state.facilityId ? loadImgLocal(state.facilityId, fl.id) : null;
+  state.mapB64 = cachedImg || fl.mapB64 || null;
+  if(state.mapB64 && !fl.mapB64) fl.mapB64 = state.mapB64; // warm floor cache
+  state.imgW=fl.imgW||800;state.imgH=fl.imgH||600;
   state.mapEl=null;state.selected=null;
   document.getElementById('fac-name').value=state.facilityId?document.getElementById('fac-name').value:'';
   if(state.mapB64){
@@ -1831,6 +2054,8 @@ function saveCurrentFloor(){
   fl.nodes=JSON.parse(JSON.stringify(state.nodes));
   fl.edges=JSON.parse(JSON.stringify(state.edges));
   fl.mapB64=state.mapB64;fl.imgW=state.imgW;fl.imgH=state.imgH;
+  // Always persist image to localStorage when floor is saved
+  if(state.facilityId && state.mapB64) saveImgLocal(state.facilityId, fl.id, state.mapB64);
 }
 
 function addFloor(){
@@ -1865,15 +2090,17 @@ saveFacility=async function(){
   const saveBtn=document.querySelector('.btn-success');
   if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='⏳ Saving…';}
   try{
-    // Compress images
+    // ── Save full-res to localStorage (stays on this device for editing) ───
+    state.floors.forEach(fl=>{ if(fl.mapB64) saveImgLocal(state.facilityId, fl.id, fl.mapB64); });
+
+    // ── Aggressively compress images for Firestore (aim < 50KB each) ──────
     for(const fl of floorsPayload){
-      if(fl.floorImage&&fl.floorImage.length>200000){
-        fl.floorImage=await compressImage(fl.floorImage,700,550,.6);
-      }
+      if(fl.floorImage) fl.floorImage = await compressForCloud(fl.floorImage);
     }
-    const fac={id:state.facilityId,name,floors:floorsPayload,calibration:state.calibration,pub:true,updatedAt:Date.now()};
-    const jsonStr=JSON.stringify(fac);
-    if(jsonStr.length/1024>900){floorsPayload.forEach(fl=>fl.floorImage=null);toast('⚠','Images stripped — too large','warn');}
+    const fac={id:state.facilityId,name,floors:floorsPayload,calibration:state.calibration,mapNorth:state.mapNorth||0,pub:true,updatedAt:Date.now()};
+    const sizeKB=Math.round(JSON.stringify(fac).length/1024);
+    if(sizeKB>800){ floorsPayload.forEach(fl=>fl.floorImage=null); toast('⚠','Image too large — saved locally only, cloud has nodes/edges only','warn'); }
+    else { toast('🖼',`Cloud image: ~${sizeKB}KB`,'ok'); }
     await fsSet('facilities',state.facilityId,fac);
     document.getElementById('editor-title').textContent=name;
     toast('☁',`Saved! ID: ${state.facilityId}`,'ok');

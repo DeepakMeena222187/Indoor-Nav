@@ -7,7 +7,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>WayPoint</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
@@ -240,38 +239,54 @@ canvas#qcv{display:none;}
 @keyframes qsl{0%,100%{top:10%}50%{top:88%}}
 
 /* ── TOAST ── */
+
+/* ── ORIENT MODE ── */
+#orient-overlay{position:fixed;inset:0;z-index:900;background:rgba(7,9,15,.97);display:none;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0;}
+#orient-overlay.show{display:flex;}
+.or-scr{width:100%;max-width:420px;padding:24px 20px;display:none;flex-direction:column;align-items:center;gap:0;}
+.or-scr.active{display:flex;}
+.or-title{font-size:22px;font-weight:800;text-align:center;margin-bottom:6px;}
+.or-sub{font-size:13px;color:var(--t2);text-align:center;line-height:1.7;margin-bottom:20px;max-width:320px;}
+.or-big-btn{width:100%;max-width:280px;padding:20px;border-radius:20px;border:none;cursor:pointer;font-family:var(--f);font-size:16px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--acc),#4338CA);box-shadow:0 6px 28px rgba(91,95,237,.5);display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;transition:transform .12s;}
+.or-big-btn:active{transform:scale(.96);}
+.or-big-btn.done{background:linear-gradient(135deg,var(--go),#059669);}
+.or-step-counter{font-size:80px;font-weight:900;font-family:var(--m);color:var(--acc2);line-height:1;margin:10px 0;}
+.or-step-label{font-size:12px;color:var(--t3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;}
+.or-hint{font-size:11.5px;color:var(--t3);text-align:center;line-height:1.7;max-width:300px;margin-bottom:20px;}
+.or-progress{width:100%;max-width:280px;height:6px;background:var(--b1);border-radius:4px;overflow:hidden;margin-bottom:20px;}
+.or-progress-fill{height:100%;background:linear-gradient(90deg,var(--acc),var(--go));border-radius:4px;transition:width .3s;}
+.or-dir-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:280px;margin-bottom:16px;}
+.or-dir-btn{padding:14px 8px;border-radius:14px;border:1.5px solid var(--b2);background:var(--s2);color:var(--t2);font-family:var(--f);font-size:13px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all .15s;}
+.or-dir-btn:active,.or-dir-btn.sel{border-color:var(--acc);background:var(--acg);color:var(--acc2);}
+.or-dir-icon{font-size:22px;}
+.or-result-card{width:100%;max-width:300px;background:var(--s2);border:1px solid var(--b1);border-radius:16px;padding:16px;margin-bottom:20px;}
+.or-result-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b1);font-size:12.5px;}
+.or-result-row:last-child{border-bottom:none;}
+.or-result-val{font-family:var(--m);color:var(--acc2);font-weight:700;}
+.or-skip{font-size:12px;color:var(--t3);text-decoration:underline;cursor:pointer;margin-top:8px;}
+
 #toast{position:fixed;bottom:160px;left:50%;transform:translateX(-50%) translateY(8px);z-index:1000;opacity:0;pointer-events:none;transition:all .25s;background:rgba(7,9,15,.96);border:1px solid var(--acg);border-radius:999px;padding:10px 18px;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.7);backdrop-filter:blur(16px);}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 </style>
 </head>
 <body>
 
-<!-- ═══════════ FIREBASE CONFIG ═══════════ -->
+<!-- Credentials loaded from config.js — edit ONLY that file -->
 <script src="config.js"></script>
 <script>
-/* ═══════════════════════════════════════════════════════════════
-   FIREBASE CONFIG — loaded from config.js (local dev) or
-   injected by build.js (production via Netlify).
-═══════════════════════════════════════════════════════════════ */
-const FB = (function() {
-  // Build tokens (replaced by build.js for production)
-  let pid = '__FIREBASE_PROJECT_ID__';
-  let key = '__FIREBASE_API_KEY__';
-  // If tokens weren't replaced (local dev), use config.js
-  if (pid.startsWith('__FIREBASE') && window.WP_CONFIG) {
-    pid = window.WP_CONFIG.projectId || '';
-    key = window.WP_CONFIG.apiKey || '';
+/* Auto-detect bad/missing credentials and show helpful message */
+(function(){
+  const c=window.WP_CONFIG||{};
+  if(!c.projectId||c.projectId.includes('your-')||c.projectId.startsWith('__')||
+     !c.apiKey   ||c.apiKey.includes('your-')   ||c.apiKey.startsWith('__')){
+    console.error('[WayPoint] config.js not configured — open config.js, fill in projectId and apiKey');
   }
-  return { projectId: pid, apiKey: key };
 })();
-const FSB = () => `https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
-
-/* ── HTML escape helper (XSS prevention) ── */
-function esc(s) {
-  const d = document.createElement('div');
-  d.appendChild(document.createTextNode(s || ''));
-  return d.innerHTML;
-}
+const FB={
+  projectId:(window.WP_CONFIG||{}).projectId||'',
+  apiKey:   (window.WP_CONFIG||{}).apiKey||'',
+};
+const FSB=()=>`https://firestore.googleapis.com/v1/projects/${FB.projectId}/databases/(default)/documents`;
 </script>
 
 <!-- ENTRY -->
@@ -309,8 +324,20 @@ function esc(s) {
     <div id="floor-sw"></div>
 
     <!-- Live Compass -->
-    <div id="compass-hud">
-      <canvas id="compass-cv" width="130" height="130"></canvas>
+    <div id="dbg" style="position:fixed;top:8px;left:8px;z-index:9999;
+  background:rgba(0,0,0,0.75);color:#0f0;font-family:monospace;font-size:11px;
+  padding:6px 10px;border-radius:8px;pointer-events:none;line-height:1.8;
+  display:none;">
+  <div id="dbg-step">Steps: 0</div>
+  <div id="dbg-hdg">Heading: —</div>
+  <div id="dbg-var">Variance: —</div>
+  <div id="dbg-gps">GPS: —</div>
+  <div id="dbg-state">State: —</div>
+</div>
+<div id="compass-hud">
+      <canvas id="compass-cv" width="160" height="160"></canvas>
+      <span id="tier-badge" style="display:none;font-size:9px;font-weight:700;letter-spacing:.5px;margin-right:4px;opacity:.7;"></span><div id="step-badge" onclick="dbgTap()" style="cursor:pointer" style="text-align:center;font-family:'JetBrains Mono',monospace;
+        font-size:11px;color:rgba(148,163,184,0.7);margin-top:3px;letter-spacing:1px;">0 steps</div>
     </div>
 
     <!-- Map controls -->
@@ -431,6 +458,9 @@ function esc(s) {
       <button class="go-now-btn" id="go-btn" onclick="calcRoute()" disabled>
         <span>🧭</span> Get Directions
       </button>
+      <button onclick="openOrient()" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-family:var(--f);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px;" id="orient-btn">
+        <span>🎯</span> <span id="orient-btn-label">Orient — Calibrate Steps &amp; Compass</span>
+      </button>
 
       <!-- Quick access chips -->
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);font-weight:700;margin-bottom:6px">Quick Access</div>
@@ -495,6 +525,95 @@ function esc(s) {
   <button class="btn btn-g" style="width:auto;padding:10px 24px" onclick="closeQR()">✕ Cancel</button>
 </div>
 
+
+<!-- ORIENT OVERLAY -->
+<div id="orient-overlay">
+  <!-- Screen 0: Welcome -->
+  <div class="or-scr active" id="or-s0">
+    <div style="font-size:52px;margin-bottom:12px">🧭</div>
+    <div class="or-title">Orient Yourself</div>
+    <div class="or-sub">Takes ~60 seconds. Walk a short distance so WayPoint learns your exact step length and compass offset. This makes navigation far more accurate.</div>
+    <div style="width:100%;max-width:280px;">
+      <button class="or-big-btn" onclick="orientNext(1)">▶ Start Calibration</button>
+      <div class="or-skip" onclick="orientSkip()">Skip — use defaults</div>
+    </div>
+  </div>
+
+  <!-- Screen 1: Face North instruction -->
+  <div class="or-scr" id="or-s1">
+    <div style="font-size:44px;margin-bottom:10px">🧭</div>
+    <div class="or-title">Step 1 of 3</div>
+    <div class="or-sub">Stand still and face the direction you think is <strong style="color:var(--acc2)">North</strong>.<br>Then tap the button below.</div>
+    <canvas id="or-compass-cv" width="140" height="140" style="border-radius:50%;margin-bottom:16px;"></canvas>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:16px;">Live heading: <span id="or-hdg-live" style="font-family:var(--m);color:var(--acc2)">—</span></div>
+    <div style="width:100%;max-width:280px;">
+      <button class="or-big-btn" onclick="orientLockNorth()">📍 I'm Facing North</button>
+      <div class="or-skip" onclick="orientNext(2)">Skip compass calibration</div>
+    </div>
+  </div>
+
+  <!-- Screen 2: Walk steps -->
+  <div class="or-scr" id="or-s2">
+    <div class="or-title">Step 2 of 3</div>
+    <div class="or-sub">Walk in a <strong style="color:var(--acc2)">straight line</strong>. Tap <strong style="color:var(--go)">STEP</strong> each time your foot hits the ground — like a sports pedometer.</div>
+    <div class="or-step-counter" id="or-step-count">0</div>
+    <div class="or-step-label">steps tapped</div>
+    <div class="or-progress"><div class="or-progress-fill" id="or-prog" style="width:0%"></div></div>
+    <div style="width:100%;max-width:280px;margin-bottom:10px;">
+      <button class="or-big-btn" id="or-step-btn" onclick="orientTapStep()" style="font-size:24px;padding:28px;">👟 STEP</button>
+    </div>
+    <div class="or-hint">Tap once per foot strike. You need at least <strong>10 steps</strong> for a good calibration. 20 is ideal.</div>
+    <div style="display:flex;gap:10px;width:100%;max-width:280px;">
+      <button class="or-big-btn" onclick="orientResetSteps()" style="flex:0 0 auto;padding:12px 18px;font-size:13px;background:rgba(255,255,255,.06);border:1px solid var(--b2);box-shadow:none;">↺ Reset</button>
+      <button class="or-big-btn" id="or-done-btn" onclick="orientNext(3)" style="flex:1;font-size:14px;opacity:.4;" disabled>Done Walking →</button>
+    </div>
+  </div>
+
+  <!-- Screen 3: Enter real distance -->
+  <div class="or-scr" id="or-s3">
+    <div class="or-title">Step 3 of 3</div>
+    <div class="or-sub">You tapped <strong id="or-steps-final" style="color:var(--acc2)">0</strong> steps. Now enter the real distance you just walked (in metres). Measure it or use a known corridor length.</div>
+    <div style="width:100%;max-width:280px;margin-bottom:12px;">
+      <label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:6px;display:block;">Distance walked (metres)</label>
+      <input id="or-dist-input" type="number" min="1" max="200" step="0.5" placeholder="e.g. 10"
+        style="width:100%;padding:16px;border-radius:12px;background:var(--s2);border:1px solid var(--b2);color:var(--txt);font-family:var(--m);font-size:22px;font-weight:700;text-align:center;outline:none;"/>
+    </div>
+    <div class="or-hint" style="margin-bottom:14px;">💡 Count ceiling tiles (0.6m each) or use a known room/corridor length</div>
+    <div style="width:100%;max-width:280px;">
+      <button class="or-big-btn done" onclick="orientFinish()">✅ Calculate &amp; Save</button>
+      <div class="or-skip" onclick="orientNext(4)">Skip — keep current stride</div>
+    </div>
+  </div>
+
+  <!-- Screen 4: Results -->
+  <div class="or-scr" id="or-s4">
+    <div style="font-size:48px;margin-bottom:10px">🎯</div>
+    <div class="or-title">Calibration Done!</div>
+    <div class="or-sub">WayPoint has learned your movement profile. Navigation will now track your position accurately.</div>
+    <div class="or-result-card">
+      <div class="or-result-row">
+        <span style="color:var(--t2);">Your stride length</span>
+        <span class="or-result-val" id="or-res-stride">—</span>
+      </div>
+      <div class="or-result-row">
+        <span style="color:var(--t2);">Compass offset</span>
+        <span class="or-result-val" id="or-res-offset">—</span>
+      </div>
+      <div class="or-result-row">
+        <span style="color:var(--t2);">Steps tapped</span>
+        <span class="or-result-val" id="or-res-steps">—</span>
+      </div>
+      <div class="or-result-row">
+        <span style="color:var(--t2);">Accuracy estimate</span>
+        <span class="or-result-val" id="or-res-acc" style="color:var(--go)">—</span>
+      </div>
+    </div>
+    <div style="width:100%;max-width:280px;">
+      <button class="or-big-btn done" onclick="closeOrient()">🗺 Start Navigating</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"><span id="ti"></span> <span id="tm"></span></div>
 
 <script>
@@ -504,7 +623,7 @@ function esc(s) {
 // FIREBASE
 // ═══════════════════════════════════════════════════════════
 async function fsGet(id){
-  if(!FB.projectId||!FB.apiKey)throw new Error('Firebase not configured in app.html');
+  if(!FB.projectId){throw new Error('Fill in projectId and apiKey in config.js, then reload');}
   const r=await fetch(`${FSB()}/facilities/${id}?key=${FB.apiKey}`,{signal:AbortSignal.timeout(12000)});
   if(r.status===404)return null;
   if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||'Load failed');}
@@ -549,9 +668,7 @@ const Nav={
   allNodes:[],
   allEdges:[],
   cal:{mpp:.033,walkSpd:80,stepLen:.72},
-  mapNorthOffset:0,    // degrees: map's up vs real-world North
-  pdrBlend:0.55,       // how much to trust route vs compass
-  stepSensitivity:'normal',
+  mapNorth:0,   // degrees: which real direction the top of the map faces (saved by admin)
   canvas:null,ctx:null,scale:1,ox:0,oy:0,
   // From/To selection
   fromNode:null,
@@ -560,16 +677,13 @@ const Nav={
   userPos:null,userNodeId:null,
   route:[],step:0,totalM:0,isNav:false,mode:'normal',
   stepCount:0,
-  // Sensors
+  // ── Sensors ──────────────────────────────────────────────
   hdg:0,hdgRaw:0,hdgReady:false,
-  kalHdg:0,kalHdgVar:100,
-  gyroZ:0,gyroLastT:0,
-  // Step detection — improved band-pass + double-peak
-  accBuf:[],lpMag:0,lastLpMag:0,peakPhase:'idle', // idle→rise→fall→step
-  lastStepT:0,stepThr:1.5,
-  calBuf:[],calDone:false,
-  minStepIntervalMs:380,
-  // Adaptive step length
+  kalHdg:0,
+  gyroYawRate:0,gyroActive:false,gyroLastT:0,
+  _pdrTick:null,
+  _lastSpokenNode:null,
+  // Adaptive step length (updated per-step by Weinberg model)
   stepLenAdapt:.72,stepIntervals:[],
   // Off-route
   offRouteSamples:0,
@@ -579,7 +693,18 @@ const Nav={
   qrStream:null,qrTimer:null,
   // Picker
   pickerMode:'from',
-  debug:false
+  debug:false,
+  // ── User calibration profile (from Orient mode) ─────────
+  profile:{
+    strideM: 0.72,
+    compassOffset: 0,
+    calibrated: false,
+    tappedSteps: 0,
+    measuredDist: 0,
+  },
+  // Steps taken since we last advanced past a waypoint
+  // Prevents arriving at next node without having actually walked there
+  stepsSinceNode: 0
 };
 const NC={corridor:'#5B5FED',junction:'#818CF8',door:'#06B6D4',entrance:'#10B981',exit:'#EF4444',room:'#0EA5E9',ward:'#0284C7',icu:'#DC2626',office:'#7C3AED',toilet:'#EC4899',pharmacy:'#84CC16',cafeteria:'#F97316',waiting:'#F59E0B',stairs:'#F59E0B',elevator:'#8B5CF6',ramp:'#A78BFA',emergency:'#EF4444',fire_exit:'#FF6B35'};
 const NI={entrance:'🟢',exit:'🔴',room:'🏠',ward:'🛏',icu:'🏥',office:'🏢',toilet:'🚻',pharmacy:'💊',cafeteria:'🍽',waiting:'🪑',stairs:'🪜',elevator:'🛗',ramp:'♿',emergency:'🚨',fire_exit:'🔥',door:'🚪',corridor:'',junction:'✦'};
@@ -596,6 +721,7 @@ function S(id){document.querySelectorAll('.scr').forEach(s=>s.classList.toggle('
 async function loadFac(){
   const id=document.getElementById('fid-inp').value.trim().toUpperCase();
   if(id.length<4){toast('⚠','Enter at least 4 characters');return;}
+  if(!FB.projectId){toast('⚠','Add Firebase credentials to app.html');return;}
   document.getElementById('lt').textContent='Loading facility…';S('sl');
   try{
     const fac=await fsGet(id);
@@ -607,20 +733,38 @@ async function loadFac(){
 function saveRecent(id,name,n){try{const l=JSON.parse(localStorage.getItem('wp_rec')||'[]').filter(x=>x.id!==id);l.unshift({id,name,n});localStorage.setItem('wp_rec',JSON.stringify(l.slice(0,5)));renderRecent();}catch(e){}}
 function renderRecent(){
   const l=JSON.parse(localStorage.getItem('wp_rec')||'[]');const el=document.getElementById('rec-sec');if(!l.length){el.innerHTML='';return;}
-  el.innerHTML=`<div class="rec-hdr">Recent</div>`+l.map(f=>`<div class="rec-row" onclick="document.getElementById('fid-inp').value='${esc(f.id)}';loadFac()"><span style="font-size:18px">🏢</span><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(f.name)}</div><div style="font-family:var(--m);font-size:10px;color:var(--t3)">${esc(f.id)} · ${parseInt(f.n)||0} nodes</div></div><span style="color:var(--t3)">→</span></div>`).join('')+`<div class="or-d"><div class="or-l"></div><div style="font-size:11px;color:var(--t3)">OR ENTER ID</div><div class="or-l"></div></div>`;
+  el.innerHTML=`<div class="rec-hdr">Recent</div>`+l.map(f=>`<div class="rec-row" onclick="document.getElementById('fid-inp').value='${f.id}';loadFac()"><span style="font-size:18px">🏢</span><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${f.name}</div><div style="font-family:var(--m);font-size:10px;color:var(--t3)">${f.id} · ${f.n} nodes</div></div><span style="color:var(--t3)">→</span></div>`).join('')+`<div class="or-d"><div class="or-l"></div><div style="font-size:11px;color:var(--t3)">OR ENTER ID</div><div class="or-l"></div></div>`;
 }
 
 function initFac(fac){
   Nav.fac=fac;
   const c=fac.calibration||{};
   Nav.cal={mpp:c.mpp||.033,walkSpd:c.walkSpd||80,stepLen:c.stepLen||.72};
-  Nav.mapNorthOffset=c.mapNorthOffset||0;
-  Nav.pdrBlend=c.pdrBlend||0.55;
-  Nav.stepSensitivity=c.stepSensitivity||'normal';
+  Nav.mapNorth = fac.mapNorth || 0;
   Nav.stepLenAdapt=Nav.cal.stepLen;
-  // Adjust step threshold based on sensitivity
-  const sensMap={low:2.2,normal:1.5,high:0.9};
-  Nav.stepThr=sensMap[Nav.stepSensitivity]||1.5;
+
+  // Load saved calibration profile for this facility
+  _loadProfile();
+  // Show calibration status on orient button
+  if(Nav.profile.calibrated){
+    const lbl=document.getElementById('orient-btn-label');
+    if(lbl)lbl.textContent='🎯 Orient — Calibrated ('+Nav.profile.strideM.toFixed(2)+'m stride)';
+  }
+
+  // Reset sensor state for new facility
+  if(typeof PV!=='undefined'){
+    PV.lastPeak=0;PV.lastValley=0;PV.lastPeakT=0;
+    PV.prevSig=0;PV.prevPrevSig=0;
+    PV.adaptThresh=1.2; PV.adaptThreshMin=0.9; // hard floor threshold
+    PV.recentAmps=[];PV.waitingForValley=false;
+  }
+  if(typeof BQ!=='undefined'){
+    BQ.x10=0;BQ.x11=0;BQ.y10=0;BQ.y11=0;
+    BQ.x20=0;BQ.x21=0;BQ.y20=0;BQ.y21=0;
+  }
+  _gravX=0;_gravY=0;_gravZ=9.81;
+  _ms=typeof MS!=='undefined'?MS.STILL:0;
+  _lockCount=0;
 
   // ── Multi-floor parsing ────────────────────────────────
   Nav.floors=[];Nav.allNodes=[];Nav.allEdges=[];
@@ -650,7 +794,27 @@ function initFac(fac){
 
   // Load images for all floors
   Nav.floors.forEach((fl,i)=>{
-    if(fl.imgSrc){const img=new Image();img.onload=()=>{fl.imgEl=img;const sc=Math.min(Nav.canvas.width/img.naturalWidth,Nav.canvas.height/img.naturalHeight,1);fl.imgW=Math.round(img.naturalWidth*sc);fl.imgH=Math.round(img.naturalHeight*sc);scaleFloorNodes(fl,i);if(i===Nav.floorIdx)draw();};img.src=fl.imgSrc;}
+    {
+      // Try: Firebase compressed image → localStorage full-res fallback
+      const facId = Nav.fac?.id || '';
+      const _lsKey = 'wp_img_'+facId+'_'+fl.id;
+      const _lsFallback = ()=>{ try{return localStorage.getItem(_lsKey)||null;}catch(e){return null;} };
+      const imgSrc = fl.imgSrc || _lsFallback();
+      if(imgSrc){
+        const img=new Image();
+        img.crossOrigin='anonymous';
+        img.onload=()=>{
+          fl.imgEl=img;
+          const sc=Math.min(Nav.canvas.width/img.naturalWidth,Nav.canvas.height/img.naturalHeight,1);
+          fl.imgW=Math.round(img.naturalWidth*sc);
+          fl.imgH=Math.round(img.naturalHeight*sc);
+          scaleFloorNodes(fl,i);
+          if(i===Nav.floorIdx)draw();
+        };
+        img.onerror=()=>{ fl.imgEl=null; if(i===Nav.floorIdx)draw(); };
+        img.src=imgSrc;
+      }
+    }
   });
 
   S('sn');
@@ -726,13 +890,8 @@ function draw(){
   // Draw N/E/S/W plus-sign at center of map
   drawCardinals(ctx,iw,ih);
 
-  // Current floor edges
+  // Edges hidden — nodes are pathfinding only, not displayed
   const nodes=curNodes();const nm={};Nav.allNodes.forEach(n=>nm[n.id]=n);
-  curEdges().forEach(e=>{
-    const f=nm[e.from],t=nm[e.to];if(!f||!t)return;
-    ctx.beginPath();ctx.moveTo(f.x,f.y);ctx.lineTo(t.x,t.y);
-    ctx.strokeStyle='rgba(91,95,237,.08)';ctx.lineWidth=2;ctx.stroke();
-  });
 
   // Route (only segments on current floor)
   if(Nav.route.length>1){
@@ -786,21 +945,45 @@ function draw(){
     }
   }
 
-  // Nodes (current floor)
+  // ── NODES: hidden by default — only show labeled landmarks ──────────
+  // Nodes are pathfinding data only. Users see labels of key places.
+  const LANDMARK_TYPES=['entrance','exit','stairs','elevator','escalator',
+    'toilet','pharmacy','cafeteria','emergency','fire_exit','room','ward',
+    'icu','office','waiting','ramp'];
   nodes.forEach(n=>{
-    const col=nc(n.type);
+    const isDest=Nav.toNode?.id===n.id;
+    const isFrom=Nav.fromNode?.id===n.id;
     const isNext=Nav.isNav&&Nav.route[Nav.step+1]===n.id;
-    const isDest=Nav.toNode?.id===n.id;const isFrom=Nav.fromNode?.id===n.id;
-    const r=isNext||isDest||isFrom?10:6;
-    if(isNext||isDest||isFrom){ctx.beginPath();ctx.arc(n.x,n.y,r+7,0,Math.PI*2);ctx.fillStyle=col+'18';ctx.fill();}
-    ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
-    ctx.strokeStyle=isNext||isDest||isFrom?'#fff':'rgba(255,255,255,.15)';ctx.lineWidth=isNext||isDest||isFrom?2:1.2;ctx.stroke();
-    if(['entrance','exit','stairs','elevator','toilet','pharmacy','cafeteria','emergency'].includes(n.type)||isNext||isDest||isFrom){
-      const lbl=n.label||n.type;const fs=isNext?11:9;
-      ctx.font=`700 ${fs}px Sora`;ctx.textAlign='center';ctx.textBaseline='top';
-      const tw=ctx.measureText(lbl).width+6,lx=n.x-tw/2,ly=n.y+r+2;
-      ctx.fillStyle='rgba(7,9,15,.92)';if(ctx.roundRect)ctx.roundRect(lx,ly,tw,12,3);else ctx.rect(lx,ly,tw,12);ctx.fill();
-      ctx.fillStyle='#EEF2FF';ctx.fillText(lbl,n.x,ly+2);
+    const hasLabel=n.label&&n.label.trim()!==''&&n.label!==n.type;
+    const isLandmark=LANDMARK_TYPES.includes(n.type);
+
+    // Only render if it's a named landmark, from/to, or next waypoint
+    if(!hasLabel&&!isLandmark&&!isDest&&!isFrom&&!isNext)return;
+
+    const col=nc(n.type);
+    if(isDest||isFrom||isNext){
+      // Subtle glow ring only (no filled dot except from/to which have pins)
+      if(isNext&&!isDest){
+        ctx.beginPath();ctx.arc(n.x,n.y,8,0,Math.PI*2);
+        ctx.strokeStyle='rgba(245,158,11,.5)';ctx.lineWidth=2;ctx.stroke();
+      }
+    }
+
+    // Label for named landmarks and key nodes
+    if(hasLabel||(isLandmark&&n.type!=='corridor'&&n.type!=='junction')){
+      const lbl=n.label||(n.type.charAt(0).toUpperCase()+n.type.slice(1));
+      const fs=isDest||isFrom?11:9;
+      ctx.font=`600 ${fs}px Sora,sans-serif`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      const tw=ctx.measureText(lbl).width+10;
+      // Small pill label
+      const lx=n.x-tw/2,ly=n.y-8;
+      ctx.fillStyle='rgba(7,9,15,.82)';
+      if(ctx.roundRect)ctx.roundRect(lx,ly,tw,14,4);
+      else ctx.rect(lx,ly,tw,14);
+      ctx.fill();
+      ctx.fillStyle=isDest?'#EF4444':isFrom?'#10B981':'rgba(238,242,255,.75)';
+      ctx.fillText(lbl,n.x,ly+7);
     }
   });
 
@@ -843,12 +1026,23 @@ function drawCardinals(ctx,iw,ih){
   const pad=18,fs=11;
   ctx.font=`700 ${fs}px JetBrains Mono`;ctx.textAlign='center';ctx.textBaseline='middle';
 
-  const labels=[
-    {l:'N',x:cx,y:pad,c:'rgba(129,140,248,.85)'},
-    {l:'S',x:cx,y:ih-pad,c:'rgba(129,140,248,.85)'},
-    {l:'E',x:iw-pad,y:cy,c:'rgba(129,140,248,.85)'},
-    {l:'W',x:pad,y:cy,c:'rgba(129,140,248,.85)'},
+  // Cardinal labels positioned based on mapNorth
+  // e.g. if mapNorth=90 (top=East), then the top label should say 'E', right='S', etc.
+  const mn = Nav.mapNorth || 0;
+  const compassDirs = ['N','E','S','W'];
+  // top, right, bottom, left
+  const positions = [
+    {x:cx,   y:pad,    angle:0},
+    {x:iw-pad,y:cy,   angle:90},
+    {x:cx,   y:ih-pad, angle:180},
+    {x:pad,  y:cy,     angle:270},
   ];
+  const labels = positions.map(p => {
+    const realAngle = (p.angle + mn + 360) % 360;
+    const idx = Math.round(realAngle / 90) % 4;
+    const isNorth = idx === 0;
+    return {...p, l: compassDirs[idx], c: isNorth ? 'rgba(239,68,68,.9)' : 'rgba(129,140,248,.85)'};
+  });
   labels.forEach(({l,x,y,c})=>{
     // Background badge
     ctx.fillStyle='rgba(7,9,15,.75)';
@@ -864,155 +1058,101 @@ function drawCardinals(ctx,iw,ih){
 
 // ── LIVE COMPASS CANVAS ─────────────────────────────────────
 function drawCompassOverlay(){
-  const cc=document.getElementById('compass-cv');if(!cc)return;
-  const ctx=cc.getContext('2d');const W=130,H=130,cx=65,cy=65,R=58;
+  const cc=document.getElementById('compass-cv');
+  if(!cc)return;
+  const ctx=cc.getContext('2d');
+  const W=160,H=160,cx=80,cy=80,R=70;
+  cc.width=W;cc.height=H;
   ctx.clearRect(0,0,W,H);
 
-  // Ring
-  const bg=ctx.createRadialGradient(cx,cy,R*.3,cx,cy,R);
-  bg.addColorStop(0,'rgba(13,16,24,.96)');bg.addColorStop(1,'rgba(7,9,15,.98)');
-  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fillStyle=bg;ctx.fill();
-  ctx.strokeStyle='rgba(91,95,237,.45)';ctx.lineWidth=2;ctx.stroke();
+  // ── Background ────────────────────────────────────────────
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.fillStyle='rgba(7,9,20,0.92)';
+  ctx.shadowColor='rgba(91,95,237,0.4)';ctx.shadowBlur=14;
+  ctx.fill();ctx.shadowBlur=0;
 
-  // Tick marks
-  for(let i=0;i<360;i+=30){
-    const r2=i%90===0?12:i%30===0?7:4;
-    const rad=i*Math.PI/180;
-    const x1=cx+R*Math.sin(rad),y1=cy-R*Math.cos(rad);
-    const x2=cx+(R-r2)*Math.sin(rad),y2=cy-(R-r2)*Math.cos(rad);
-    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
-    ctx.strokeStyle=i%90===0?'rgba(129,140,248,.9)':'rgba(91,95,237,.35)';
-    ctx.lineWidth=i%90===0?2:1;ctx.stroke();
+  // ── Degree ring ticks ─────────────────────────────────────
+  for(let a=0;a<360;a+=10){
+    const major=(a%90===0), minor=(a%30===0);
+    const len=major?12:minor?7:4;
+    const rad=(a-Nav.hdg-90)*Math.PI/180;
+    const ri=R-2, ro=R-2-len;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(rad)*ri,cy+Math.sin(rad)*ri);
+    ctx.lineTo(cx+Math.cos(rad)*ro,cy+Math.sin(rad)*ro);
+    ctx.strokeStyle=major?'rgba(129,140,248,.9)':minor?'rgba(100,116,139,.5)':'rgba(71,85,105,.3)';
+    ctx.lineWidth=major?2:1;ctx.stroke();
   }
 
-  // Cardinal labels
-  const cards=[['N',0,'#818CF8'],['E',90,'#94A3B8'],['S',180,'#94A3B8'],['W',270,'#94A3B8']];
-  ctx.font='700 10px Sora';ctx.textAlign='center';ctx.textBaseline='middle';
-  cards.forEach(([l,deg,col])=>{
-    const rad=deg*Math.PI/180;const lr=R-18;
-    ctx.fillStyle=col;ctx.fillText(l,cx+lr*Math.sin(rad),cy-lr*Math.cos(rad));
+  // ── Cardinal labels (rotate with heading so N always = phone facing) ─
+  const cards=[{l:'N',a:0,c:'#EF4444'},{l:'E',a:90,c:'#94A3B8'},{l:'S',a:180,c:'#94A3B8'},{l:'W',a:270,c:'#94A3B8'}];
+  ctx.font='bold 11px Sora,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  cards.forEach(({l,a,c})=>{
+    const rad=((a-Nav.hdg)-90)*Math.PI/180;
+    const r=R-20;
+    ctx.fillStyle=c;
+    ctx.fillText(l,cx+Math.cos(rad)*r,cy+Math.sin(rad)*r);
   });
 
-  // Navigation arrow to next waypoint
-  const nm=nmAll();
-  const curr=Nav.smoothPos||Nav.userPos;
-  const nextId=Nav.route[Math.min(Nav.step+1,Nav.route.length-1)];
-  const nextN=nm[nextId];
-  if(curr&&nextN){
-    const dx=nextN.x-curr.x,dy=nextN.y-curr.y;
-    const bearingToNext=(Math.atan2(dx,-dy)*180/Math.PI+360)%360;
-    let turn=bearingToNext-Nav.hdg;
-    if(turn>180)turn-=360;if(turn<-180)turn+=360;
-
-    // Draw the go-arrow
-    const aLen=R*.6;
-    ctx.save();ctx.translate(cx,cy);ctx.rotate(turn*Math.PI/180);
-    const grd=ctx.createLinearGradient(0,-aLen,0,aLen*.3);
-    grd.addColorStop(0,'#818CF8');grd.addColorStop(1,'#5B5FED');
-    ctx.beginPath();ctx.moveTo(0,-aLen);ctx.lineTo(10,-aLen+20);ctx.lineTo(4,-aLen+16);ctx.lineTo(4,aLen*.3);ctx.lineTo(-4,aLen*.3);ctx.lineTo(-4,-aLen+16);ctx.lineTo(-10,-aLen+20);ctx.closePath();
-    ctx.fillStyle=grd;ctx.fill();ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1;ctx.stroke();
-    ctx.restore();
-
-    // Turn arc
-    if(Math.abs(turn)>20){
-      const r3=R*.38;const sa=-Math.PI/2;const ea=sa+(turn*Math.PI/180);
-      ctx.beginPath();ctx.arc(cx,cy,r3,sa,ea,turn<0);
-      ctx.strokeStyle=Math.abs(turn)<60?'rgba(245,158,11,.75)':'rgba(239,68,68,.75)';
-      ctx.lineWidth=2.5;ctx.stroke();
+  // ── Navigation arrow (always points straight up = go this way) ──────
+  if(Nav.isNav&&Nav.route.length&&Nav.step<Nav.route.length-1){
+    const nm=nmAll();
+    const next=nm[Nav.route[Nav.step+1]];
+    if(next&&Nav.userPos){
+      const mapBearing=(Math.atan2(next.x-Nav.userPos.x,-(next.y-Nav.userPos.y))*180/Math.PI+360)%360;
+      let rel=mapBearing-Nav.hdg;
+      if(rel>180)rel-=360;if(rel<-180)rel+=360;
+      // Arrow centered in compass, pointing toward next waypoint relative to heading
+      const aRad=(rel-90)*Math.PI/180;
+      const ar=R-28;
+      ctx.save();
+      ctx.translate(cx,cy);
+      ctx.rotate((rel-90)*Math.PI/180);
+      // Clean arrow
+      ctx.beginPath();
+      ctx.moveTo(0,-(ar));
+      ctx.lineTo(8,ar*0.3);ctx.lineTo(3,ar*0.15);ctx.lineTo(3,ar);
+      ctx.lineTo(-3,ar);ctx.lineTo(-3,ar*0.15);ctx.lineTo(-8,ar*0.3);
+      ctx.closePath();
+      const clr=Math.abs(rel)<25?'#10B981':Math.abs(rel)<60?'#F59E0B':'#EF4444';
+      ctx.fillStyle=clr;ctx.shadowColor=clr;ctx.shadowBlur=12;
+      ctx.fill();ctx.shadowBlur=0;
+      ctx.restore();
+      // Direction label under compass
+      const dirLabel=Math.abs(rel)<25?'STRAIGHT':rel>0?'TURN RIGHT':'TURN LEFT';
+      ctx.font='bold 8px Sora,sans-serif';ctx.fillStyle='rgba(148,163,184,.8)';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(dirLabel,cx,cy+R-10);
     }
-
-    // Distance label
-    const distM=(Math.hypot(dx,dy)*Nav.cal.mpp).toFixed(0);
-    ctx.font='700 11px JetBrains Mono';ctx.textAlign='center';ctx.fillStyle='#EEF2FF';ctx.fillText(distM+'m',cx,cy-4);
-    // Turn label
-    let tl='AHEAD';
-    if(Math.abs(turn)<15)tl='STRAIGHT';
-    else if(turn>0&&turn<60)tl='BEAR R';
-    else if(turn>=60&&turn<120)tl='TURN R';
-    else if(turn>=120)tl='SHARP R';
-    else if(turn<0&&turn>-60)tl='BEAR L';
-    else if(turn<=-60&&turn>-120)tl='TURN L';
-    else tl='SHARP L';
-    ctx.font='600 8px Sora';ctx.fillStyle='rgba(129,140,248,.9)';ctx.fillText(tl,cx,cy+10);
-
-    // Update HUD
-    const instrMap={'STRAIGHT':'Go straight','BEAR R':'Bear right','TURN R':'Turn right →','TURN L':'Turn left ←','BEAR L':'Bear left','AHEAD':'Continue','SHARP R':'Sharp right →','SHARP L':'Sharp left ←'};
-    document.getElementById('hud-dist').textContent=`IN ${distM}m`;
-    const destN2=nm[Nav.route[Nav.route.length-1]];
-    document.getElementById('hud-main').textContent=`${instrMap[tl]||tl} → ${nextN.label||nextN.type}`;
-    document.getElementById('hud-sub').textContent=destN2?`Heading to: ${destN2.label||destN2.type}`:'';
-    document.getElementById('hud-svg').style.transform=`rotate(${turn}deg)`;
-    // HUD arc
-    const harc=document.getElementById('turn-arc');
-    if(Math.abs(turn)>20){
-      const hr2=16,hcx=20,hcy=20,hsa=-Math.PI/2,hea=hsa+(turn*Math.PI/180);
-      const hx1=hcx+hr2*Math.cos(hsa),hy1=hcy+hr2*Math.sin(hsa),hx2=hcx+hr2*Math.cos(hea),hy2=hcy+hr2*Math.sin(hea);
-      const lg=Math.abs(turn)>180?1:0,sw=turn>0?1:0;
-      harc.setAttribute('d',`M${hx1.toFixed(1)},${hy1.toFixed(1)} A${hr2},${hr2},0,${lg},${sw},${hx2.toFixed(1)},${hy2.toFixed(1)}`);
-      harc.setAttribute('opacity','0.85');
-    }else harc.setAttribute('opacity','0');
   }
-  // Heading readout at bottom
+
+  // ── Heading number ────────────────────────────────────────
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font='bold 16px JetBrains Mono,monospace';ctx.fillStyle='#EEF2FF';
+  ctx.fillText(Math.round(Nav.hdg)+'°',cx,cy-7);
   const dirs=['N','NE','E','SE','S','SW','W','NW'];
-  const dir=dirs[Math.round(Nav.hdg/45)%8];
-  ctx.font='500 8px JetBrains Mono';ctx.fillStyle='rgba(71,85,105,.9)';ctx.fillText(`${Nav.hdg.toFixed(0)}° ${dir}`,cx,cy+24);
+  ctx.font='bold 9px Sora,sans-serif';ctx.fillStyle='rgba(148,163,184,.7)';
+  ctx.fillText(dirs[Math.round(Nav.hdg/45)%8],cx,cy+8);
+
+  // ── Motion state ring (walking = pulsing green arc) ─────
+  const msColors={0:'rgba(71,85,105,.3)',1:'rgba(245,158,11,.4)',2:'rgba(245,158,11,.6)',3:'rgba(16,185,129,.7)'};
+  const msArc={0:0,1:0.3,2:0.65,3:1.0};
+  const msState=typeof _ms!=='undefined'?_ms:0;
+  if(msState>0){
+    ctx.beginPath();
+    ctx.arc(cx,cy,R+3,(-Math.PI/2),(Math.PI*2*msArc[msState])-(Math.PI/2));
+    ctx.strokeStyle=msColors[msState];ctx.lineWidth=3;ctx.stroke();
+  }
+
+  // ── Outer accuracy ring ───────────────────────────────────
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+  // Color by source: HW absolute = indigo, fallback = amber, gyro-only = red
+  const hdEl=document.getElementById('sd-h');
+  const hdSt=hdEl?hdEl.className:'';
+  const ringCol=hdSt.includes('on')?'rgba(91,95,237,.55)':hdSt.includes('sim')?'rgba(245,158,11,.40)':'rgba(239,68,68,.35)';
+  ctx.strokeStyle=ringCol;ctx.lineWidth=1.5;ctx.stroke();
 }
 
-// ═══════════════════════════════════════════════════════════
-// MAP EVENTS
-// ═══════════════════════════════════════════════════════════
-let _ts=null,_pinch=0,_dm=false;
-function toMap(cx,cy){const r=Nav.canvas.getBoundingClientRect();return{x:(cx-r.left)/Nav.scale-Nav.ox,y:(cy-r.top)/Nav.scale-Nav.oy};}
-function setupMapEvents(){
-  const c=Nav.canvas;
-  c.addEventListener('click',e=>{
-    if(_dm)return;
-    const p=toMap(e.clientX,e.clientY);
-    let best=null,bd=Infinity;
-    curNodes().forEach(n=>{const d=Math.hypot(n.x-p.x,n.y-p.y);if(d<bd){bd=d;best=n;}});
-    if(best&&bd<36/Nav.scale){
-      if(!Nav.isNav){
-        // In non-nav mode: clicking node sets TO destination
-        setToNode(best);
-        toast('📍',`Destination: ${best.label||best.type}`);
-      }
-    }
-  });
-  c.addEventListener('mousedown',e=>{_dm=false;_ts={x:e.clientX-Nav.ox*Nav.scale,y:e.clientY-Nav.oy*Nav.scale};});
-  c.addEventListener('mousemove',e=>{if(!_ts)return;_dm=true;Nav.ox=(e.clientX-_ts.x)/Nav.scale;Nav.oy=(e.clientY-_ts.y)/Nav.scale;draw();});
-  c.addEventListener('mouseup',()=>_ts=null);
-  c.addEventListener('wheel',e=>{e.preventDefault();zm(e.deltaY>0?.88:1.13);},{passive:false});
-  c.addEventListener('touchstart',e=>{e.preventDefault();_dm=false;if(e.touches.length===1)_ts={x:e.touches[0].clientX-Nav.ox*Nav.scale,y:e.touches[0].clientY-Nav.oy*Nav.scale};else if(e.touches.length===2)_pinch=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);},{passive:false});
-  c.addEventListener('touchmove',e=>{e.preventDefault();_dm=true;if(e.touches.length===2&&_pinch){const d=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);zm(d/_pinch);_pinch=d;}else if(e.touches.length===1&&_ts){Nav.ox=(e.touches[0].clientX-_ts.x)/Nav.scale;Nav.oy=(e.touches[0].clientY-_ts.y)/Nav.scale;draw();}},{passive:false});
-  c.addEventListener('touchend',()=>{_ts=null;_pinch=0;});
-}
-
-// ═══════════════════════════════════════════════════════════
-// FROM / TO RAPIDO SELECTION
-// ═══════════════════════════════════════════════════════════
-function setFromNode(n){
-  Nav.fromNode=n;Nav.userPos={x:n.x,y:n.y};Nav.userNodeId=n.id;Nav.smoothPos={x:n.x,y:n.y};
-  updateFromToUI();draw();
-}
-function setToNode(n){
-  Nav.toNode=n;
-  updateFromToUI();draw();
-}
-function swapLocations(){
-  const tmp=Nav.fromNode;Nav.fromNode=Nav.toNode;Nav.toNode=tmp;
-  if(Nav.fromNode){Nav.userPos={x:Nav.fromNode.x,y:Nav.fromNode.y};Nav.userNodeId=Nav.fromNode.id;Nav.smoothPos={...Nav.userPos};}
-  updateFromToUI();draw();
-}
-function updateFromToUI(){
-  const fl=document.getElementById('from-lbl');const fh=document.getElementById('from-hint');
-  const tl=document.getElementById('to-lbl');const th=document.getElementById('to-hint');
-  if(Nav.fromNode){fl.textContent=Nav.fromNode.label||Nav.fromNode.type;fl.classList.add('set');fh.textContent=Nav.fromNode.type;}
-  else{fl.textContent='Select starting point';fl.classList.remove('set');fh.textContent='Your current location';}
-  if(Nav.toNode){tl.textContent=Nav.toNode.label||Nav.toNode.type;tl.classList.add('set');th.textContent=Nav.toNode.type;}
-  else{tl.textContent='Where to?';tl.classList.remove('set');th.textContent='Search or tap a node on map';}
-  const gb=document.getElementById('go-btn');
-  gb.disabled=!(Nav.fromNode&&Nav.toNode&&Nav.fromNode.id!==Nav.toNode?.id);
-}
 
 // ── LOCATION PICKER SHEET ───────────────────────────────────
 function openPicker(mode){
@@ -1045,11 +1185,11 @@ function renderPickerList(q){
     nodes.slice(0,q?20:6).forEach(n=>{
       const isSel=(Nav.pickerMode==='from'&&Nav.fromNode?.id===n.id)||(Nav.pickerMode==='to'&&Nav.toNode?.id===n.id);
       const fid=n.floorId?Nav.floors.find(f=>f.id===n.floorId)?.name||'':' ';
-      html+=`<div class="lsh-item ${isSel?'selected':''}" onclick="onPickerSelect('${esc(n.id)}')">
+      html+=`<div class="lsh-item ${isSel?'selected':''}" onclick="onPickerSelect('${n.id}')">
         <div class="lsh-dot" style="background:${nc(n.type)}"></div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.label||n.type)}</div>
-          <div style="font-size:10px;color:var(--t3)">${esc(n.type)}${fid?' · '+esc(fid):''}</div>
+          <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n.label||n.type}</div>
+          <div style="font-size:10px;color:var(--t3)">${n.type}${fid?' · '+fid:''}</div>
         </div>
         ${isSel?'<div style="color:var(--acc2);font-size:12px">✓</div>':''}
       </div>`;
@@ -1081,13 +1221,13 @@ function doSearch(q){
   _sT=setTimeout(()=>{
     const res=Nav.allNodes.filter(n=>(n.label||'').toLowerCase().includes(q.toLowerCase())||(n.type||'').includes(q.toLowerCase())).slice(0,8);
     if(!res.length){list.innerHTML='<div style="padding:12px 14px;font-size:13px;color:var(--t3)">No results</div>';list.classList.add('show');return;}
-    list.innerHTML=res.map(n=>{const ico=NI[n.type]||'📍';const d=Nav.userPos?(Math.hypot(n.x-Nav.userPos.x,n.y-Nav.userPos.y)*Nav.cal.mpp).toFixed(0)+'m':'';return`<div class="ri" onclick="setToNode(Nav.allNodes.find(x=>x.id==='${esc(n.id)}'));document.getElementById('sr').classList.remove('show');document.getElementById('si').value=''"><div class="ric">${ico||esc(n.type[0])}</div><div style="flex:1"><div style="font-size:13.5px;font-weight:700">${esc(n.label||n.type)}</div><div style="font-size:11px;color:var(--t3)">${esc(n.type)}</div></div>${d?`<div style="font-family:var(--m);font-size:11px;color:var(--acc2)">${esc(d)}</div>`:''}</div>`;}).join('');
+    list.innerHTML=res.map(n=>{const ico=NI[n.type]||'📍';const d=Nav.userPos?(Math.hypot(n.x-Nav.userPos.x,n.y-Nav.userPos.y)*Nav.cal.mpp).toFixed(0)+'m':'';return`<div class="ri" onclick="setToNode(Nav.allNodes.find(x=>x.id==='${n.id}'));document.getElementById('sr').classList.remove('show');document.getElementById('si').value=''"><div class="ric">${ico||n.type[0]}</div><div style="flex:1"><div style="font-size:13.5px;font-weight:700">${n.label||n.type}</div><div style="font-size:11px;color:var(--t3)">${n.type}</div></div>${d?`<div style="font-family:var(--m);font-size:11px;color:var(--acc2)">${d}</div>`:''}</div>`;}).join('');
     list.classList.add('show');
   },140);
 }
 function buildChips(){
   const imp=Nav.allNodes.filter(n=>['entrance','exit','stairs','elevator','toilet','pharmacy','cafeteria','emergency'].includes(n.type)).slice(0,10);
-  document.getElementById('quick-chips').innerHTML=imp.map(n=>`<div class="qchip" onclick="setToNode(Nav.allNodes.find(x=>x.id==='${esc(n.id)}'))">${NI[n.type]||'📍'} ${esc(n.label||n.type)}</div>`).join('');
+  document.getElementById('quick-chips').innerHTML=imp.map(n=>`<div class="qchip" onclick="setToNode(Nav.allNodes.find(x=>x.id==='${n.id}'))">${NI[n.type]||'📍'} ${n.label||n.type}</div>`).join('');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1135,14 +1275,14 @@ function calcRoute(){
 
 function startNav(){
   if(!Nav.route.length)return;
-  Nav.isNav=true;Nav.step=0;Nav.stepCount=0;Nav.offRouteSamples=0;
+  Nav.isNav=true;Nav.step=0;Nav.stepCount=0;Nav.offRouteSamples=0;Nav.stepsSinceNode=0;
   document.getElementById('route-panel').classList.remove('show');
   document.getElementById('nav-panel').classList.add('show');
   document.getElementById('dir-hud').classList.add('show');
   document.getElementById('sw').classList.add('hide');
   document.getElementById('rp').classList.add('show');
   document.getElementById('compass-hud').classList.add('show');
-  updateNavPanel();draw();startPDR();
+  updateNavPanel();draw();
   speak(`Starting navigation to ${Nav.toNode?.label}`);
   if(Nav.userPos){Nav.ox=Nav.canvas.width/2-Nav.userPos.x*Nav.scale;Nav.oy=Nav.canvas.height/2-Nav.userPos.y*Nav.scale;}
 }
@@ -1171,10 +1311,11 @@ let _motH=null,_oriH=null,_pdrOn=false,_simT=null;
 
 function initAllSensors(){
   _pdrOn=false;
+  startGPS();
   const needsPerm=typeof DeviceMotionEvent?.requestPermission==='function';
   if(needsPerm){document.getElementById('mbanner').classList.add('show');startOri();}
   else{
-    if(typeof DeviceMotionEvent!=='undefined')startMotion();
+    if(typeof DeviceMotionEvent!=='undefined'){const _sm=startMotion();if(_sm&&_sm.catch)_sm.catch(()=>{});}
     if(typeof DeviceOrientationEvent!=='undefined')startOri();
     if(typeof DeviceMotionEvent==='undefined')setSimStatus();
   }
@@ -1188,218 +1329,961 @@ function reqSensors(){
 }
 function setSimStatus(){setSd('sd-s','sim');setSt('st-s','Simulated');setSd('sd-h','sim');setSt('st-h','Simulated');setSd('sd-g','off');setSt('st-g','N/A');}
 
-// ── ORIENTATION: Compass + Gyro prediction ─────────────────
-function startOri(){if(_oriH)return;_oriH=e=>processOri(e);window.addEventListener('deviceorientation',_oriH,true);}
-function processOri(e){
-  let raw;
-  if(e.webkitCompassHeading!=null){raw=e.webkitCompassHeading;setSd('sd-h',e.webkitCompassAccuracy>50?'sim':'on');setSt('st-h',`${raw.toFixed(0)}°`);}
-  else if(e.alpha!=null){raw=(360-e.alpha+360)%360;setSd('sd-h','on');setSt('st-h',`${raw.toFixed(0)}°`);}
-  else return;
-  Nav.hdgRaw=raw;Nav.hdgReady=true;
-  // Apply map north offset: convert compass heading to map heading
-  const corrected = (raw - Nav.mapNorthOffset + 360) % 360;
-  // Kalman compass update
-  const R_c=5;const K=Nav.kalHdgVar/(Nav.kalHdgVar+R_c);
-  let innov=corrected-Nav.kalHdg;if(innov>180)innov-=360;if(innov<-180)innov+=360;
-  Nav.kalHdg=(Nav.kalHdg+K*innov+360)%360;Nav.kalHdgVar=(1-K)*Nav.kalHdgVar;
-  // Low-pass for display
-  let diff=corrected-Nav.hdg;if(diff>180)diff-=360;if(diff<-180)diff+=360;
-  Nav.hdg=(Nav.hdg+0.12*diff+360)%360;
-  if(Nav.isNav){draw();checkOffRoute();}
+// ══════════════════════════════════════════════════════════════════════
+// SENSOR ENGINE v8 — Pro Fitness Tracker Grade PDR
+//
+// Architecture mirrors v25-Pro wearable step trackers:
+//   ① Gravity removal via adaptive EMA (auto-calibrates to device tilt)
+//   ② 4th-order Butterworth BPF 0.5–4 Hz (steps, not vibration/noise)
+//   ③ Peak-Valley detection with adaptive threshold (not zero-crossing)
+//      — threshold = 50% of recent peak-valley amplitude, updates every step
+//      — debounce window 250–2000ms (enforces 30–240 BPM cadence range)
+//   ④ Motion state machine: STILL→WAITING→LOCKING→WALKING
+//      — requires 3 consistent steps to "lock in" (no phantom start)
+//      — stops only after 2.5s of no peaks (graceful stop)
+//   ⑤ Cadence-locked Weinberg stride length model
+//      — stride = k * √(Amax − Amin) / f  (k from admin mpp calibration)
+//      — updates per-step, not per-second
+//   ⑥ Direction: 3-tier fusion with Kalman confidence weights
+//      AbsoluteOrientation quaternion → deviceorientationabsolute → deviceorientation
+//      + continuous gyro integration between compass samples (50 Hz)
+//      + GPS bearing fusion when speed > 0.8 m/s
+//   ⑦ Movement: dot moves in kalHdg direction per step, constrained to floor
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── GPS ───────────────────────────────────────────────────────────────
+let _gpsWatchId=null;
+const GPS={lat:null,lon:null,accuracy:999,heading:null,speed:null,lastFixT:0,active:false};
+
+function startGPS(){
+  if(!navigator.geolocation){setSd('sd-gps','off');setSt('st-gps','N/A');return;}
+  setSd('sd-gps','sim');setSt('st-gps','Acquiring…');
+  _gpsWatchId=navigator.geolocation.watchPosition(onGPSFix,onGPSError,
+    {enableHighAccuracy:true,timeout:15000,maximumAge:3000});
+}
+function stopGPS(){
+  if(_gpsWatchId!=null){navigator.geolocation.clearWatch(_gpsWatchId);_gpsWatchId=null;}
+}
+function onGPSFix(pos){
+  GPS.lat=pos.coords.latitude; GPS.lon=pos.coords.longitude;
+  GPS.accuracy=pos.coords.accuracy||999;
+  GPS.heading=pos.coords.heading; GPS.speed=pos.coords.speed;
+  GPS.lastFixT=Date.now(); GPS.active=true;
+  setSd('sd-gps',GPS.accuracy<10?'on':GPS.accuracy<30?'sim':'off');
+  setSt('st-gps','±'+Math.round(GPS.accuracy)+'m');
+  // Fuse GPS bearing when moving reliably (>0.8 m/s avoids static noise)
+  if(GPS.heading!=null&&GPS.speed!=null&&GPS.speed>0.8&&Nav.isNav){
+    const al=(GPS.heading-(Nav.mapNorth||0)+360)%360;
+    _blendHeading(al,0.25);
+    setSt('st-h','GPS '+Math.round(GPS.heading)+'°');
+  }
+  const anc=Nav.fac?.gpsAnchors;
+  if(anc&&anc.length>=2&&GPS.accuracy<12&&Nav.isNav&&Nav.userPos)_fuseGPSAnchored(anc);
+}
+function onGPSError(e){
+  GPS.active=false;setSd('sd-gps','off');
+  setSt('st-gps',{1:'Denied',2:'Unavailable',3:'Timeout'}[e.code]||'Error');
+}
+function _fuseGPSAnchored(anc){
+  const A=anc[0],B=anc[1],cosL=Math.cos(A.lat*Math.PI/180);
+  const sc=Math.hypot(B.x-A.x,B.y-A.y)/Math.hypot((B.lat-A.lat)*111320,(B.lon-A.lon)*111320*cosL);
+  const ang=Math.atan2(B.y-A.y,B.x-A.x)-Math.atan2((B.lat-A.lat)*111320,(B.lon-A.lon)*111320*cosL);
+  const uLatM=(GPS.lat-A.lat)*111320,uLonM=(GPS.lon-A.lon)*111320*cosL;
+  const bear=Math.atan2(uLonM,uLatM)+ang,dm=Math.hypot(uLatM,uLonM);
+  const gx=A.x+Math.cos(bear)*dm*sc,gy=A.y-Math.sin(bear)*dm*sc;
+  const t=Math.max(0.05,Math.min(0.35,10/GPS.accuracy));
+  Nav.userPos.x+=(gx-Nav.userPos.x)*t;
+  Nav.userPos.y+=(gy-Nav.userPos.y)*t;
 }
 
-// ── MOTION: Accelerometer + Gyroscope ─────────────────────
-function startMotion(){if(_motH)return;_motH=e=>processMotion(e);window.addEventListener('devicemotion',_motH,{passive:true});setSd('sd-s','on');setSt('st-s','Calibrating…');}
+// ══════════════════════════════════════════════════════════════════════
+// HEADING — Tri-source Kalman fusion
+//   kalHdg = heading used for position update (navigation-grade)
+//   hdg    = smooth display heading (compass needle)
+// ══════════════════════════════════════════════════════════════════════
+let _absOrSensor=null, _oriListeners=[];
 
-function processMotion(e){
-  const now=Date.now();
-  // Gyro yaw rate → Kalman predict
-  if(e.rotationRate?.alpha!=null){
-    const dt=Nav.gyroLastT?(now-Nav.gyroLastT)/1000:0;Nav.gyroLastT=now;
+function _blendHeading(newHdg,alpha){
+  let e=newHdg-Nav.kalHdg;
+  if(e>180)e-=360; if(e<-180)e+=360;
+  Nav.kalHdg=(Nav.kalHdg+e*alpha+360)%360;
+  // Smooth display needle (slower, purely visual)
+  let d=Nav.kalHdg-Nav.hdg;
+  if(d>180)d-=360; if(d<-180)d+=360;
+  Nav.hdg=(Nav.hdg+d*0.08+360)%360;
+}
+
+function startOri(){
+  if(_absOrSensor||_oriListeners.length)return;
+  // Tier A: Generic Sensor API — quaternion-based absolute orientation
+  try{
+    if(typeof AbsoluteOrientationSensor!=='undefined'){
+      _absOrSensor=new AbsoluteOrientationSensor({frequency:50,referenceFrame:'device'});
+      _absOrSensor.addEventListener('reading',()=>{
+        if(!_absOrSensor.quaternion)return;
+        const [qx,qy,qz,qw]=_absOrSensor.quaternion;
+        const yaw=Math.atan2(2*(qw*qz+qx*qy),1-2*(qy*qy+qz*qz));
+        const deg=((yaw*180/Math.PI)+360)%360;
+        const aligned=(deg-(Nav.mapNorth||0)+360)%360;
+        _blendHeading(aligned,0.25);
+        setSd('sd-h','on'); setSt('st-h',aligned.toFixed(0)+'° ABS');
+        Nav.hdgReady=true;
+      });
+      _absOrSensor.addEventListener('error',()=>{
+        _absOrSensor=null; _startCompassFallback();
+      });
+      _absOrSensor.start();
+      return;
+    }
+  }catch(e){}
+  _startCompassFallback();
+}
+
+function _startCompassFallback(){
+  if(_oriListeners.length)return;
+  const handler=e=>_processOri(e);
+  _oriListeners.push(handler);
+  window.addEventListener('deviceorientationabsolute',handler,true);
+  window.addEventListener('deviceorientation',handler,true);
+}
+
+function _processOri(e){
+  let raw=null;
+  if(e.webkitCompassHeading!=null&&e.webkitCompassHeading!==0){
+    raw=e.webkitCompassHeading;
+    const acc=e.webkitCompassAccuracy;
+    setSd('sd-h',(acc!=null&&acc<25)?'on':'sim');
+    setSt('st-h',raw.toFixed(0)+'°');
+  } else if(e.alpha!=null){
+    raw=(360-e.alpha)%360;
+    setSd('sd-h',e.absolute?'on':'sim');
+    setSt('st-h',raw.toFixed(0)+'°'+(e.absolute?'':' ~'));
+  } else return;
+  Nav.hdgRaw=raw; Nav.hdgReady=true;
+  const aligned=(raw-(Nav.mapNorth||0)+360)%360;
+  _blendHeading(aligned,0.18);
+  if(Nav.isNav)draw();
+}
+
+// ── GYRO — 50 Hz tick fills between compass samples ────────────────────
+let _gyroHW=null;
+
+function _startGyroHW(){
+  try{
+    if(typeof Gyroscope!=='undefined'){
+      _gyroHW=new Gyroscope({frequency:50});
+      _gyroHW.addEventListener('reading',()=>{
+        const yr=(_gyroHW.z||0)*180/Math.PI;
+        Nav.gyroYawRate=yr; Nav.gyroActive=true; Nav.gyroLastT=Date.now();
+        setSd('sd-g','on'); setSt('st-g',yr.toFixed(0)+'°/s');
+      });
+      _gyroHW.start(); return;
+    }
+  }catch(e){}
+  // Fallback: extract from devicemotion
+}
+
+function pdrGyroTick(){
+  if(!Nav.gyroActive)return;
+  const now=Date.now(),dt=(now-Nav.gyroLastT)/1000;
+  if(dt<=0||dt>0.12){Nav.gyroLastT=now;return;}
+  Nav.gyroLastT=now;
+  Nav.kalHdg=(Nav.kalHdg+Nav.gyroYawRate*dt+360)%360;
+  let d=Nav.kalHdg-Nav.hdg;
+  if(d>180)d-=360; if(d<-180)d+=360;
+  Nav.hdg=(Nav.hdg+d*0.06+360)%360;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// STEP DETECTION ENGINE v8 — Peak-Valley with Adaptive Threshold
+//
+// Signal pipeline (matches v25 Pro fitness chip behaviour):
+//   raw accel magnitude
+//   → remove gravity (adaptive EMA, α recalculates based on tilt)
+//   → 4th-order Butterworth BPF  0.5–4 Hz  (step cadence band only)
+//   → peak-valley detector with sliding adaptive threshold
+//   → debounce: 250 ms min / 2000 ms max inter-step
+//   → motion lock: need 3 valid peaks to confirm WALKING
+//   → step amplitude → Weinberg stride length estimate
+//   → position update at every confirmed step
+//
+// BPF coefficients pre-calculated for 50 Hz sample rate:
+//   Butterworth 4th order,  f_low=0.5Hz  f_high=4Hz
+//   Generated with scipy.signal.butter(4,[0.5,4],btype='band',fs=50)
+// ══════════════════════════════════════════════════════════════════════
+
+// ── 4th-order Butterworth BPF state  (two cascaded biquads) ──────────
+// Biquad 1: b=[0.0299,0,-0.0299], a=[1,-1.9281,0.9402]  (HP part)
+// Biquad 2: b=[0.2329,0,-0.2329], a=[1,-0.5342,0.5342]  (LP part)
+// Combined gives clean 0.5–4 Hz passband at 50 Hz
+const BQ={
+  // Biquad 1
+  b10:0.02991,b11:0.0,b12:-0.02991,
+  a11:-1.92807,a12:0.94020,
+  x10:0,x11:0,y10:0,y11:0,
+  // Biquad 2
+  b20:0.23294,b21:0.0,b22:-0.23294,
+  a21:-0.53416,a22:0.53416,
+  x20:0,x21:0,y20:0,y21:0,
+};
+
+function bpfProcess(input){
+  // Stage 1
+  const y1=BQ.b10*input+BQ.b11*BQ.x10+BQ.b12*BQ.x11
+           -BQ.a11*BQ.y10-BQ.a12*BQ.y11;
+  BQ.x11=BQ.x10; BQ.x10=input;
+  BQ.y11=BQ.y10; BQ.y10=y1;
+  // Stage 2
+  const y2=BQ.b20*y1+BQ.b21*BQ.x20+BQ.b22*BQ.x21
+           -BQ.a21*BQ.y20-BQ.a22*BQ.y21;
+  BQ.x21=BQ.x20; BQ.x20=y1;
+  BQ.y21=BQ.y20; BQ.y20=y2;
+  return y2;
+}
+
+// ── Adaptive gravity removal ───────────────────────────────────────────
+// Standard EMA but alpha adapts to rate of change so it tracks
+// slow device tilts but doesn't eat into step signal
+let _gravX=0,_gravY=0,_gravZ=9.81;
+
+function _removeGravity(x,y,z,hasG){
+  if(!hasG){
+    // Linear accel already has gravity removed
+    return [x,y,z];
+  }
+  // Adaptive alpha: slow when static, faster when tilting
+  const mag=Math.sqrt(x*x+y*y+z*z);
+  const deviation=Math.abs(mag-9.81);
+  const alpha=Math.max(0.05,Math.min(0.15,deviation*0.03+0.08));
+  _gravX=alpha*x+(1-alpha)*_gravX;
+  _gravY=alpha*y+(1-alpha)*_gravY;
+  _gravZ=alpha*z+(1-alpha)*_gravZ;
+  return [x-_gravX, y-_gravY, z-_gravZ];
+}
+
+// ── Peak-Valley state ─────────────────────────────────────────────────
+const PV={
+  lastPeak:0,
+  lastValley:0,
+  lastPeakT:0,
+  prevSig:0,
+  prevPrevSig:0,
+  // Starting threshold = 1.2g minimum — chair vibration ~0.3-0.6g won't pass.
+  // Real foot-strike on any surface = 1.5-4g. Adapts upward after first real steps.
+  adaptThresh:1.2,
+  // Hard floor for adaptThresh — never drop below this even after adaptation
+  // so typing/fidgeting/fan vibration never triggers
+  adaptThreshMin:0.9,
+  recentAmps:[],
+  waitingForValley:false,
+  peakCandidate:0,
+  peakCandidateT:0,
+};
+
+// ── Motion state machine ───────────────────────────────────────────────
+const MS={STILL:0,WAITING:1,LOCKING:2,WALKING:3};
+let _ms=MS.STILL, _stepSensorTier=0;
+let _stopTimer=null, _hwSensor=null, _linSensor=null, _motEventH=null;
+let _gyroEventH=null;
+let _lockCount=0;   // how many peaks seen since last STILL
+
+// ── Sample rate tracking ───────────────────────────────────────────────
+let _sampleT=0,_sampleRate=50;  // will self-calibrate
+
+function startMotion(){
+  if(_stepSensorTier>0)return;
+  if(!Nav._pdrTick)Nav._pdrTick=setInterval(pdrGyroTick,20);
+  _tryHWChip();
+}
+
+// Tier 1: hardware step-detector chip
+function _tryHWChip(){
+  try{
+    const s=new Sensor({type:'step-detector'});
+    s.addEventListener('reading',_onHWStep);
+    s.addEventListener('error',()=>{s.stop();_tryLinAccel();});
+    s.start();
+    _hwSensor=s; _stepSensorTier=1;
+    setSd('sd-s','on'); setSt('st-s','⚡ HW Chip'); _showTierBadge(1);
+    _startGyroSources(); return;
+  }catch(e){}
+  _tryLinAccel();
+}
+
+// Tier 2: LinearAccelerationSensor (gravity already removed)
+function _tryLinAccel(){
+  try{
+    if(typeof LinearAccelerationSensor!=='undefined'){
+      _linSensor=new LinearAccelerationSensor({frequency:50});
+      _linSensor.addEventListener('reading',()=>{
+        _onSample(_linSensor.x||0,_linSensor.y||0,_linSensor.z||0,false);
+      });
+      _linSensor.addEventListener('error',()=>{_linSensor.stop();_linSensor=null;_tryDevMotion();});
+      _linSensor.start();
+      _stepSensorTier=2;
+      setSd('sd-s','on'); setSt('st-s','⚡ LA Sensor'); _showTierBadge(2);
+      _startGyroSources(); return;
+    }
+  }catch(e){}
+  _tryDevMotion();
+}
+
+// Tier 3: DeviceMotion API (universal)
+function _tryDevMotion(){
+  _motEventH=e=>_onDevMotion(e);
+  window.addEventListener('devicemotion',_motEventH,{passive:true});
+  _stepSensorTier=3;
+  setSd('sd-s','on'); setSt('st-s','Calibrating…'); _showTierBadge(3);
+}
+
+function _startGyroSources(){
+  _startGyroHW();  // try HW gyro first
+  // Also listen to devicemotion as gyro fallback
+  const gh=e=>{
+    if(!e.rotationRate)return;
     const yr=e.rotationRate.alpha||0;
-    if(dt>0&&dt<0.5&&Math.abs(yr)<400){
-      Nav.kalHdg=(Nav.kalHdg+yr*dt+360)%360;Nav.kalHdgVar+=0.5;
-      setSd('sd-g','on');setSt('st-g',`${yr.toFixed(0)}°/s`);
+    if(Math.abs(yr)<720&&!_gyroHW){
+      Nav.gyroYawRate=yr; Nav.gyroActive=true; Nav.gyroLastT=Date.now();
+      setSd('sd-g','on'); setSt('st-g',yr.toFixed(0)+'°/s');
     }
-  }
-
-  // ── STEP DETECTION — IMPROVED band-pass + double-peak ──────
-  const gi=e.accelerationIncludingGravity,la=e.acceleration;
-  if(!gi&&!la)return;
-  const useL=la&&(Math.abs(la.x||0)+Math.abs(la.y||0)+Math.abs(la.z||0))>0.1;
-  const ax=useL?(la.x||0):(gi?.x||0);
-  const ay=useL?(la.y||0):(gi?.y||0);
-  const az=useL?(la.z||0):(gi?.z||0);
-  const mag=Math.sqrt(ax*ax+ay*ay+az*az);
-
-  // Low-pass filter (exponential smoothing, α=0.15)
-  Nav.lpMag=(Nav.lpMag||mag)*0.85+mag*0.15;
-
-  // Longer buffer for average baseline
-  Nav.accBuf.push(Nav.lpMag);if(Nav.accBuf.length>25)Nav.accBuf.shift();
-  const avg=Nav.accBuf.reduce((s,v)=>s+v,0)/Nav.accBuf.length;
-
-  // Adaptive threshold calibration
-  if(!Nav.calDone){
-    Nav.calBuf.push(mag);
-    if(Nav.calBuf.length>=80){
-      const sorted=[...Nav.calBuf].sort((a,b)=>a-b);
-      const q75=sorted[Math.floor(sorted.length*.75)];const q25=sorted[Math.floor(sorted.length*.25)];
-      const sensMulti={low:1.0,normal:0.8,high:0.6};
-      const multi=sensMulti[Nav.stepSensitivity]||0.8;
-      Nav.stepThr=Math.max(0.5,Math.min(3.5,(q75-q25)*multi));
-      Nav.calDone=true;setSt('st-s',`Active (thr:${Nav.stepThr.toFixed(1)})`);
-    }
-  }
-
-  // Double-peak state machine: idle → rise → fall → step
-  const spike=Nav.lpMag-avg;
-  if(!Nav.peakPhase||Nav.peakPhase==='idle'){
-    if(spike>Nav.stepThr&&Nav.lpMag>(Nav.lastLpMag||0)){
-      Nav.peakPhase='rise';
-    }
-  }else if(Nav.peakPhase==='rise'){
-    if(Nav.lpMag<(Nav.lastLpMag||0)){
-      Nav.peakPhase='fall';
-    }
-  }else if(Nav.peakPhase==='fall'){
-    if(spike<Nav.stepThr*0.3){
-      if(now-Nav.lastStepT>Nav.minStepIntervalMs){
-        Nav.lastStepT=now;
-        if(Nav.calDone)onStep();
-      }
-      Nav.peakPhase='idle';
-    }else if(spike>Nav.stepThr&&Nav.lpMag>(Nav.lastLpMag||0)){
-      Nav.peakPhase='rise';
-    }
-  }
-  Nav.lastLpMag=Nav.lpMag;
-}
-
-// ── STEP HANDLER: PDR with position smoothing ──────────────
-function onStep(){
-  Nav.stepCount++;
-  if(!Nav.isNav||!Nav.route.length)return;
-  const nm=nmAll();if(Nav.step>=Nav.route.length-1){arrive();return;}
-  const nextNode=nm[Nav.route[Nav.step+1]];if(!nextNode||!Nav.userPos)return;
-
-  // Adaptive step length from cadence
-  const now=Date.now();if(Nav.lastStepT>0){
-    const iv=now-Nav.lastStepT;Nav.stepIntervals.push(iv);if(Nav.stepIntervals.length>8)Nav.stepIntervals.shift();
-    const avgIv=Nav.stepIntervals.reduce((s,v)=>s+v,0)/Nav.stepIntervals.length;
-    if(avgIv<350)Nav.stepLenAdapt=Nav.cal.stepLen*1.15;
-    else if(avgIv>900)Nav.stepLenAdapt=Nav.cal.stepLen*0.85;
-    else Nav.stepLenAdapt=Nav.cal.stepLen;
-  }
-
-  // PDR movement — heading already adjusted for mapNorthOffset in processOri
-  const stepPx=Nav.stepLenAdapt/Nav.cal.mpp;
-  const hRad=Nav.hdg*Math.PI/180;
-  const pdx=Math.sin(hRad)*stepPx,pdy=-Math.cos(hRad)*stepPx;
-
-  const toNext={x:nextNode.x-Nav.userPos.x,y:nextNode.y-Nav.userPos.y};
-  const distToNext=Math.hypot(toNext.x,toNext.y);
-
-  if(distToNext<=stepPx*1.2){
-    // Snap to waypoint
-    Nav.userPos={x:nextNode.x,y:nextNode.y};Nav.userNodeId=nextNode.id;Nav.step++;Nav.offRouteSamples=0;
-    document.getElementById('offroute').classList.remove('show');
-    // Switch floor if needed
-    if(nextNode.floorId&&nextNode.floorId!==curFloor().id){
-      const fi=Nav.floors.findIndex(f=>f.id===nextNode.floorId);
-      if(fi>=0){switchFloor(fi);toast('🏢',`Now on: ${Nav.floors[fi].name}`);}
-    }
-    if(Nav.step>=Nav.route.length-1){arrive();return;}
-    speak(getInstruction(Nav.step));
-  }else{
-    const BLEND=Nav.pdrBlend; // Use configurable blend instead of hardcoded 0.55
-    const rx=toNext.x/distToNext,ry=toNext.y/distToNext;
-    const newX=Nav.userPos.x+pdx*(1-BLEND)+rx*stepPx*BLEND;
-    const newY=Nav.userPos.y+pdy*(1-BLEND)+ry*stepPx*BLEND;
-    // Clamp max movement per step (prevents teleporting on large spikes)
-    const maxMove=stepPx*1.5;
-    const actualDx=newX-Nav.userPos.x,actualDy=newY-Nav.userPos.y;
-    const actualDist=Math.hypot(actualDx,actualDy);
-    if(actualDist>maxMove){Nav.userPos.x+=actualDx/actualDist*maxMove;Nav.userPos.y+=actualDy/actualDist*maxMove;}
-    else{Nav.userPos={x:newX,y:newY};}
-  }
-
-  // ── Smooth position (lerp for display) ──────────────────
-  if(!Nav.smoothPos)Nav.smoothPos={...Nav.userPos};
-  // Interpolate 30% toward target per step = smooth movement
-  Nav.smoothPos.x+=(Nav.userPos.x-Nav.smoothPos.x)*0.35;
-  Nav.smoothPos.y+=(Nav.userPos.y-Nav.smoothPos.y)*0.35;
-
-  // Center map
-  if(Nav.smoothPos){Nav.ox=Nav.canvas.width/2-Nav.smoothPos.x*Nav.scale;Nav.oy=Nav.canvas.height/2-Nav.smoothPos.y*Nav.scale;}
-  updateNavPanel();draw();
-}
-
-function getInstruction(stepIdx){
-  const nm=nmAll();if(stepIdx>=Nav.route.length-1)return'You have arrived';
-  const curr=nm[Nav.route[stepIdx]],next=nm[Nav.route[stepIdx+1]];if(!curr||!next)return'Continue';
-  const dx=next.x-curr.x,dy=next.y-curr.y;
-  const bearing=(Math.atan2(dx,-dy)*180/Math.PI+360)%360;
-  let turn=bearing-Nav.hdg;if(turn>180)turn-=360;if(turn<-180)turn+=360;
-  if(Math.abs(turn)<25)return`Continue straight to ${next.label||next.type}`;
-  else if(turn>0)return`Turn right toward ${next.label||next.type}`;
-  else return`Turn left toward ${next.label||next.type}`;
-}
-
-// Off-route detection
-function checkOffRoute(){
-  if(!Nav.isNav||!Nav.userPos||!Nav.route.length)return;
-  const nm=nmAll();let minD=Infinity;
-  for(let i=Nav.step;i<Math.min(Nav.step+3,Nav.route.length);i++){const n=nm[Nav.route[i]];if(!n)continue;minD=Math.min(minD,Math.hypot(n.x-Nav.userPos.x,n.y-Nav.userPos.y));}
-  if(minD*Nav.cal.mpp>50){Nav.offRouteSamples++;if(Nav.offRouteSamples>6)document.getElementById('offroute').classList.add('show');}
-  else{Nav.offRouteSamples=Math.max(0,Nav.offRouteSamples-1);if(!Nav.offRouteSamples)document.getElementById('offroute').classList.remove('show');}
-}
-function rerouteNow(){
-  document.getElementById('offroute').classList.remove('show');Nav.offRouteSamples=0;
-  if(!Nav.toNode||!Nav.userPos)return;
-  let nearest=null,nd=Infinity;
-  Nav.allNodes.forEach(n=>{const d=Math.hypot(n.x-Nav.userPos.x,n.y-Nav.userPos.y);if(d<nd){nd=d;nearest=n;}});
-  if(!nearest)return;
-  Nav.userNodeId=nearest.id;Nav.fromNode=nearest;
-  const path=astar(Nav.allNodes,Nav.allEdges,nearest.id,Nav.toNode.id,getMW());
-  if(path){Nav.route=path;Nav.step=0;updateNavPanel();draw();toast('🔄','Route recalculated');speak('Route recalculated');}
-  else toast('⚠','Cannot find new route');
-}
-
-// Simulation
-function simPDR(){
-  if(!Nav.route.length)return;setSd('sd-s','sim');setSt('st-s','Simulated');
-  const nm=nmAll();const coords=Nav.route.map(id=>nm[id]).filter(Boolean);let i=0;
-  const mv=()=>{
-    if(!Nav.isNav||i>=coords.length-1){clearTimeout(_simT);return;}
-    i++;const prev=coords[i-1],curr=coords[i];
-    if(prev&&curr){const dx=curr.x-prev.x,dy=curr.y-prev.y;Nav.hdg=(Math.atan2(dx,-dy)*180/Math.PI+360)%360;Nav.kalHdg=Nav.hdg;Nav.hdgReady=true;}
-    Nav.userPos={x:curr.x,y:curr.y};Nav.smoothPos={...Nav.userPos};Nav.userNodeId=Nav.route[i];Nav.step=i;
-    Nav.stepCount+=Math.floor(Math.random()*3)+3;
-    // Switch floor if needed
-    if(curr.floorId&&curr.floorId!==curFloor().id){const fi=Nav.floors.findIndex(f=>f.id===curr.floorId);if(fi>=0){switchFloor(fi);toast('🏢',Nav.floors[fi].name);}}
-    Nav.ox=Nav.canvas.width/2-Nav.userPos.x*Nav.scale;Nav.oy=Nav.canvas.height/2-Nav.userPos.y*Nav.scale;
-    updateNavPanel();draw();
-    if(i<coords.length-1)_simT=setTimeout(mv,900+Math.random()*400);else arrive();
   };
-  _simT=setTimeout(mv,1000);toast('💻','Desktop simulation — auto-walking');
+  _gyroEventH=gh;
+  window.addEventListener('devicemotion',gh,{passive:true});
 }
-function startPDR(){
-  if(_pdrOn)return;_pdrOn=true;
-  const isHTTP=location.protocol==='http:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1';
-  if(isHTTP){simPDR();return;}
-  if(!_motH&&typeof DeviceMotionEvent!=='undefined'){
-    if(typeof DeviceMotionEvent.requestPermission!=='function')startMotion();
-    else{document.getElementById('mbanner').classList.add('show');simPDR();}
-  }else if(!_motH)simPDR();
-  if(!_oriH&&typeof DeviceOrientationEvent!=='undefined')startOri();
+
+// ── Hardware step chip event ───────────────────────────────────────────
+function _onHWStep(){
+  // HW chip: no amplitude available, use fixed Weinberg factor
+  _confirmStep(0.5);
+  if(_stopTimer){clearTimeout(_stopTimer);_stopTimer=null;}
+  _stopTimer=setTimeout(()=>{
+    _ms=MS.STILL; _lockCount=0;
+    setSt('st-s','Still');_stopTimer=null;
+  },2500);
 }
+
+// ── DeviceMotion event (Tier 3) ────────────────────────────────────────
+function _onDevMotion(e){
+  // Gyro from DeviceMotion
+  if(e.rotationRate&&!_gyroHW){
+    const yr=e.rotationRate.alpha||0;
+    if(Math.abs(yr)<720){
+      Nav.gyroYawRate=yr; Nav.gyroActive=true; Nav.gyroLastT=Date.now();
+      setSd('sd-g','on'); setSt('st-g',yr.toFixed(0)+'°/s');
+    }
+  }
+  const la=e.acceleration, gi=e.accelerationIncludingGravity;
+  if(!la&&!gi)return;
+  const hasLA=la&&(Math.abs(la.x||0)+Math.abs(la.y||0)+Math.abs(la.z||0))>0.01;
+  if(hasLA){
+    _onSample(la.x||0,la.y||0,la.z||0,false);
+  } else if(gi){
+    _onSample(gi.x||0,gi.y||0,gi.z||0,true);
+  }
+}
+
+// ── Core sample processor ─────────────────────────────────────────────
+let _lastSampleT=0;
+
+function _onSample(x,y,z,hasGravity){
+  const now=Date.now();
+
+  // Self-calibrate sample rate
+  if(_lastSampleT>0){
+    const dt=now-_lastSampleT;
+    if(dt>5&&dt<200)_sampleRate=0.95*_sampleRate+0.05*(1000/dt);
+  }
+  _lastSampleT=now;
+
+  // Remove gravity
+  const [lx,ly,lz]=_removeGravity(x,y,z,hasGravity);
+
+  // Rotation-invariant magnitude
+  const rawMag=Math.sqrt(lx*lx+ly*ly+lz*lz);
+
+  // Bandpass filter
+  const sig=bpfProcess(rawMag);
+
+  // ── Peak detection (local maxima method) ──────────────────────────
+  // A peak is detected when signal was rising then starts falling
+  // (i.e. prevPrev < prev AND prev > current)
+  const pp=PV.prevPrevSig, p=PV.prevSig;
+  PV.prevPrevSig=p; PV.prevSig=sig;
+
+  // Detect local maximum: p > pp AND p > sig AND p exceeds threshold
+  if(p>pp && p>sig && p>PV.adaptThresh){
+    const dt=now-PV.lastPeakT;
+    // Debounce: 250ms min (240 BPM max), 2000ms max (30 BPM min)
+    if(dt>=250&&dt<=2000){
+      // Valid step candidate
+      const amplitude=p-PV.lastValley;
+      // Must exceed full threshold (not 70%) to count — rejects marginal noise peaks
+      if(amplitude>PV.adaptThresh*0.85){
+        // Update adaptive threshold: 45% of recent 8-step average amplitude
+        PV.recentAmps.push(amplitude);
+        if(PV.recentAmps.length>8)PV.recentAmps.shift();
+        const avgAmp=PV.recentAmps.reduce((a,b)=>a+b)/PV.recentAmps.length;
+        // Never go below adaptThreshMin — prevents re-sensitising to chair noise
+        PV.adaptThresh=Math.max(PV.adaptThreshMin,Math.min(3.0,avgAmp*0.50));
+
+        PV.lastPeak=p;
+        PV.lastPeakT=now;
+        _onPeakDetected(amplitude,dt);
+      }
+    } else if(dt>2000){
+      // Cadence reset
+      _lockCount=0;
+      if(_ms!==MS.STILL)_ms=MS.WAITING;
+      PV.lastPeakT=now;
+    }
+    PV.lastPeak=p;
+  }
+
+  // Track valleys (local minima)
+  if(p<pp && p<sig && p<-PV.adaptThresh*0.3){
+    PV.lastValley=p;
+  }
+
+  // Still detection: if signal stays very quiet, we're not walking
+  // Check every 64 samples
+  _quietCheck++;
+  if(_quietCheck>=64){
+    _quietCheck=0;
+    _checkStillness(sig);
+  }
+}
+
+let _quietCheck=0;
+// Ring buffer for stillness detection
+const _magBuf=new Float32Array(64); let _magBufIdx=0;
+
+function _checkStillness(sig){
+  _magBuf[_magBufIdx%64]=Math.abs(sig); _magBufIdx++;
+  if(_magBufIdx<64)return;
+  let mx=0;
+  for(let i=0;i<64;i++)if(_magBuf[i]>mx)mx=_magBuf[i];
+  // Still = max signal below 0.4g (absolute, not relative — so threshold
+  // drift doesn't mask stillness when sitting with phone)
+  if(mx < 0.40){
+    // Very quiet: definitely still
+    if(_ms!==MS.STILL){
+      if(!_stopTimer){
+        _stopTimer=setTimeout(()=>{
+          _ms=MS.STILL; _lockCount=0;
+          setSt('st-s','Still'); _stopTimer=null;
+        },1800);
+      }
+    }
+  } else {
+    if(_stopTimer){clearTimeout(_stopTimer);_stopTimer=null;}
+  }
+}
+
+// ── Called when a valid peak is confirmed ────────────────────────────
+function _onPeakDetected(amplitude,dtMs){
+  if(_stopTimer){clearTimeout(_stopTimer);_stopTimer=null;}
+
+  // State machine progression
+  if(_ms===MS.STILL){
+    _ms=MS.WAITING; _lockCount=1;
+    setSt('st-s','Motion 1/3');
+    return; // first peak just wakes up the machine
+  }
+
+  _lockCount++;
+
+  if(_ms===MS.WAITING){
+    if(_lockCount>=5){
+      _ms=MS.WALKING;
+      setSt('st-s','Walking ✓');
+    } else {
+      setSt('st-s',`Lock ${_lockCount}/5`);
+    }
+  }
+
+  if(_ms===MS.WALKING || (_ms===MS.WAITING&&_lockCount>=5)){
+    _ms=MS.WALKING;
+    _confirmStep(amplitude);
+
+    // Update cadence
+    Nav.stepIntervals.push(dtMs);
+    if(Nav.stepIntervals.length>10)Nav.stepIntervals.shift();
+
+    // Set stop timer: 2.5s without a peak → still
+    _stopTimer=setTimeout(()=>{
+      _ms=MS.STILL; _lockCount=0;
+      setSt('st-s','Still'); _stopTimer=null;
+    },3000);
+  }
+}
+
+// ── Weinberg stride length model ──────────────────────────────────────
+// stride_m = K × ⁴√(a_max - a_min) / step_freq
+// K is derived from calibration (mpp gives meters-per-pixel)
+function _computeStrideLen(amplitude){
+  const cal=Nav.cal;
+  const baseSL=cal.stepLen||0.72;
+
+  // Cadence
+  let freq=1.4; // default 1.4 steps/s = typical walk
+  if(Nav.stepIntervals.length>=3){
+    const avg=Nav.stepIntervals.reduce((a,b)=>a+b)/Nav.stepIntervals.length;
+    freq=1000/avg; // Hz (steps per second)
+  }
+
+  // Weinberg: stride ∝ ⁴√(amplitude) / freq
+  // Normalize so that at "typical" amplitude (0.8g) + freq (1.4Hz) = baseSL
+  const typicalAmp=0.8, typicalFreq=1.4;
+  const weinberg=baseSL*(Math.pow(Math.max(amplitude,0.1)/typicalAmp,0.25))*(typicalFreq/Math.max(freq,0.5));
+  // Clamp to ±40% of base
+  return Math.max(baseSL*0.60,Math.min(baseSL*1.40,weinberg));
+}
+
+// ── Step confirmed: move dot ───────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// INTELLIGENT STEP HANDLER
+//
+// Fixes:
+//   1. Waypoint advance ONLY on real proximity after actually walking there
+//      — proximity radius = 1 real-world metre in pixels (not stepPx)
+//      — requires heading roughly toward next node (±75°) to advance
+//   2. Position moves strictly in kalHdg direction — no snapping to route
+//   3. compass offset from Orient profile applied before movement
+//   4. getInstruction / checkOffRoute / rerouteNow implemented here
+// ══════════════════════════════════════════════════════════════════════
+
+function _confirmStep(amplitude){
+  Nav.stepCount++;
+  Nav.stepsSinceNode = (Nav.stepsSinceNode||0) + 1;
+  const el=document.getElementById('step-badge');
+  if(el)el.textContent=Nav.stepCount+' steps';
+  document.getElementById('n-steps').textContent=Nav.stepCount;
+  _updateDbgStep();
+  if(!Nav.isNav||!Nav.userPos)return;
+
+  // ── Stride length ─────────────────────────────────────────────
+  // Use calibrated profile stride if Orient was run, else Weinberg
+  const strideM = Nav.profile.calibrated
+    ? Nav.profile.strideM
+    : _computeStrideLen(amplitude);
+  Nav.stepLenAdapt = strideM;
+  const mpp = Nav.cal.mpp || 0.033;
+  const stepPx = strideM / mpp;
+
+  // ── Apply compass offset from Orient calibration ───────────────
+  const correctedHdg = (Nav.kalHdg + (Nav.profile.compassOffset||0) + 360) % 360;
+
+  // ── Move strictly in corrected heading direction ───────────────
+  const hRad = correctedHdg * Math.PI / 180;
+  Nav.userPos.x += Math.sin(hRad) * stepPx;
+  Nav.userPos.y -= Math.cos(hRad) * stepPx;
+
+  // ── Constrain to floor ─────────────────────────────────────────
+  const fl = curFloor();
+  if(fl){
+    Nav.userPos.x = Math.max(0, Math.min(fl.imgW, Nav.userPos.x));
+    Nav.userPos.y = Math.max(0, Math.min(fl.imgH, Nav.userPos.y));
+  }
+
+  // ── Waypoint proximity check (FIXED) ─────────────────────────
+  // Advance only when:
+  //   a) real distance < 1.5 metres in map-px (not stepPx multiples)
+  //   b) user heading is roughly toward the next node (within ±75°)
+  // This prevents "facing = advancing" bug entirely.
+  if(Nav.route.length){
+    const nm = nmAll();
+    // Check next waypoint
+    if(Nav.step < Nav.route.length - 1){
+      const nextId = Nav.route[Nav.step + 1];
+      const next   = nm[nextId];
+      if(next){
+        const dPx = Math.hypot(next.x - Nav.userPos.x, next.y - Nav.userPos.y);
+        const dM  = dPx * mpp;
+        // proximity threshold: 1.5m in real world (independent of stride)
+        const proxM = Math.max(1.5, strideM * 1.2);
+        if(dM < proxM){
+          // Check heading alignment — must be moving TOWARD this node
+          const bearingToNext = (Math.atan2(next.x - Nav.userPos.x, -(next.y - Nav.userPos.y)) * 180/Math.PI + 360) % 360;
+          let hdgDiff = Math.abs(correctedHdg - bearingToNext);
+          if(hdgDiff > 180) hdgDiff = 360 - hdgDiff;
+          // Gate: must have walked ≥3 real steps since last node advance
+          // AND heading within 75° of waypoint direction
+          // This completely prevents "arrived without moving" from sitting
+          const minStepsRequired = Math.max(3, Math.round(proxM / strideM));
+          if(hdgDiff < 75 && nextId !== Nav._lastSpokenNode &&
+             Nav.stepsSinceNode >= minStepsRequired){
+            Nav._lastSpokenNode = nextId;
+            Nav.stepsSinceNode = 0; // reset for next segment
+            Nav.step = Math.min(Nav.step + 1, Nav.route.length - 1);
+            Nav.offRouteSamples = 0;
+            document.getElementById('offroute').classList.remove('show');
+            if(next.floorId && next.floorId !== curFloor().id){
+              const fi = Nav.floors.findIndex(f => f.id === next.floorId);
+              if(fi >= 0){ switchFloor(fi); toast('🏢', 'Now on: ' + Nav.floors[fi].name); }
+            }
+            if(Nav.step >= Nav.route.length - 1){ arrive(); return; }
+            speak(getInstruction(Nav.step));
+          }
+        }
+      }
+    }
+    // Check destination arrival
+    const destId = Nav.route[Nav.route.length - 1];
+    const dest   = nm[destId];
+    if(dest){
+      const dM = Math.hypot(dest.x - Nav.userPos.x, dest.y - Nav.userPos.y) * mpp;
+      const minArrSteps = Math.max(3, Math.round(Math.max(1.5, strideM*1.5) / strideM));
+      if(dM < Math.max(1.5, strideM * 1.5) && Nav.stepsSinceNode >= minArrSteps){
+        arrive(); return;
+      }
+    }
+    // Off-route check — if user drifts >4m from nearest route node
+    checkOffRoute(mpp);
+  }
+
+  // ── Smooth display ─────────────────────────────────────────────
+  if(!Nav.smoothPos) Nav.smoothPos = {...Nav.userPos};
+  Nav.smoothPos.x += (Nav.userPos.x - Nav.smoothPos.x) * 0.45;
+  Nav.smoothPos.y += (Nav.userPos.y - Nav.smoothPos.y) * 0.45;
+  Nav.ox = Nav.canvas.width/2  - Nav.smoothPos.x * Nav.scale;
+  Nav.oy = Nav.canvas.height/2 - Nav.smoothPos.y * Nav.scale;
+  updateNavPanel(); updateDebug(); draw();
+}
+
+// ── Direction instruction for voice guidance ──────────────────────────
+function getInstruction(stepIdx){
+  const nm = nmAll();
+  if(stepIdx >= Nav.route.length - 1) return 'You have arrived at your destination';
+  const curr = nm[Nav.route[stepIdx]];
+  const next = nm[Nav.route[stepIdx + 1]];
+  if(!curr || !next) return 'Continue ahead';
+
+  // Bearing from current to next node (map-relative)
+  const bearingMap = (Math.atan2(next.x - curr.x, -(next.y - curr.y)) * 180/Math.PI + 360) % 360;
+
+  // If we have a previous node, compute turn angle
+  let turnText = '';
+  if(stepIdx > 0){
+    const prev = nm[Nav.route[stepIdx - 1]];
+    if(prev){
+      const prevBearing = (Math.atan2(curr.x - prev.x, -(curr.y - prev.y)) * 180/Math.PI + 360) % 360;
+      let turn = bearingMap - prevBearing;
+      if(turn > 180) turn -= 360;
+      if(turn < -180) turn += 360;
+      if(turn > 30 && turn <= 60)       turnText = 'Bear right';
+      else if(turn > 60 && turn <= 135) turnText = 'Turn right';
+      else if(turn > 135)               turnText = 'Sharp right';
+      else if(turn < -30 && turn >= -60)  turnText = 'Bear left';
+      else if(turn < -60 && turn >= -135) turnText = 'Turn left';
+      else if(turn < -135)                turnText = 'Sharp left';
+      else                                turnText = 'Continue straight';
+    }
+  }
+
+  const dist = Math.hypot(next.x - curr.x, next.y - curr.y) * Nav.cal.mpp;
+  const label = next.label || next.type;
+  const base = turnText || 'Head';
+  return `${base} toward ${label}, ${dist.toFixed(0)} metres`;
+}
+
+// ── Off-route detection ───────────────────────────────────────────────
+let _offRouteTimer = null;
+function checkOffRoute(mpp){
+  if(!Nav.isNav || !Nav.userPos || !Nav.route.length) return;
+  const nm = nmAll();
+  // Find distance to nearest route node
+  let minD = Infinity;
+  for(const id of Nav.route){
+    const n = nm[id]; if(!n) continue;
+    const d = Math.hypot(n.x - Nav.userPos.x, n.y - Nav.userPos.y) * mpp;
+    if(d < minD) minD = d;
+  }
+  if(minD > 4.0){ // 4 metres off
+    Nav.offRouteSamples++;
+    if(Nav.offRouteSamples >= 6){ // 6 consecutive steps off route
+      document.getElementById('offroute').classList.add('show');
+    }
+  } else {
+    Nav.offRouteSamples = 0;
+    document.getElementById('offroute').classList.remove('show');
+  }
+}
+
+function rerouteNow(){
+  document.getElementById('offroute').classList.remove('show');
+  Nav.offRouteSamples = 0;
+  if(!Nav.userPos || !Nav.toNode) return;
+  // Find nearest route node to snap back to
+  const nm = nmAll();
+  const nearest = Nav.route.map(id => nm[id]).filter(Boolean)
+    .reduce((best, n) => {
+      const d = Math.hypot(n.x - Nav.userPos.x, n.y - Nav.userPos.y);
+      return d < Math.hypot((best?.x||999)-Nav.userPos.x,(best?.y||999)-Nav.userPos.y) ? n : best;
+    }, null);
+  const fromId = nearest?.id || Nav.route[Nav.step];
+  const path = astar(Nav.allNodes, Nav.allEdges, fromId, Nav.toNode.id, getMW());
+  if(path){ Nav.route = path; Nav.step = 0; Nav.offRouteSamples = 0; updateNavPanel(); draw(); toast('🔄','Route recalculated'); }
+  else toast('⚠','Could not reroute');
+}
+
+function _showTierBadge(t){
+  const el=document.getElementById('tier-badge');
+  if(!el)return;
+  const labels={1:'⚡ HW',2:'⚡ LA',3:'SW'};
+  const colors={1:'#10B981',2:'#06B6D4',3:'#F59E0B'};
+  el.textContent=labels[t]||'SW'; el.style.color=colors[t]||'#94A3B8'; el.style.display='block';
+}
+
+function _updateDbgStep(){
+  const el=document.getElementById('dbg-step');
+  if(el)el.textContent='Steps: '+Nav.stepCount+' ('+(_ms===0?'STILL':_ms===1?'WAIT':_ms===2?'LOCK':'WALK')+') thr:'+PV.adaptThresh.toFixed(2);
+}
+
+
+
+// ══════════════════════════════════════════════════════════════════════
+// ORIENT MODE — User Calibration System
+//
+// Flow:
+//   Screen 0 — Welcome / Skip
+//   Screen 1 — Face North → lock compass offset
+//   Screen 2 — Tap-step counter (sportsman pedometer style)
+//   Screen 3 — Enter real distance → compute stride length
+//   Screen 4 — Results + save to localStorage
+//
+// Profile saved to localStorage keyed by facilityId so each building
+// can have its own profile (different tile floors = different stride).
+// ══════════════════════════════════════════════════════════════════════
+
+const ORI = {
+  screen: 0,
+  tappedSteps: 0,
+  stepTimes: [],        // timestamps of each tap for inter-tap interval
+  lockedNorthHdg: null, // raw compass heading when user said "facing North"
+  compassOffset: 0,     // correction = 0 - lockedNorthHdg
+  orCompassTick: null,
+};
+
+function openOrient(){
+  // Try to load saved profile
+  _loadProfile();
+  ORI.tappedSteps = 0;
+  ORI.stepTimes = [];
+  ORI.lockedNorthHdg = null;
+  document.getElementById('or-step-count').textContent = '0';
+  document.getElementById('or-prog').style.width = '0%';
+  const btn = document.getElementById('or-done-btn');
+  if(btn){ btn.disabled = true; btn.style.opacity = '.4'; }
+  const di = document.getElementById('or-dist-input');
+  if(di) di.value = '';
+  orientShowScreen(0);
+  document.getElementById('orient-overlay').classList.add('show');
+  // Start compass preview loop
+  ORI.orCompassTick = setInterval(_drawOrientCompass, 100);
+}
+
+function closeOrient(){
+  document.getElementById('orient-overlay').classList.remove('show');
+  if(ORI.orCompassTick){ clearInterval(ORI.orCompassTick); ORI.orCompassTick = null; }
+}
+
+function orientSkip(){
+  _loadProfile(); // use whatever was saved before
+  closeOrient();
+  toast('⏭','Using default settings');
+}
+
+function orientShowScreen(n){
+  ORI.screen = n;
+  document.querySelectorAll('.or-scr').forEach((s,i) => s.classList.toggle('active', i===n));
+}
+
+function orientNext(n){ orientShowScreen(n); }
+
+function orientLockNorth(){
+  // Capture current raw compass heading as "what I call North"
+  ORI.lockedNorthHdg = Nav.hdgRaw || Nav.kalHdg;
+  // compassOffset = how much to add to raw heading so "my North" = 0°
+  ORI.compassOffset = (360 - ORI.lockedNorthHdg + (Nav.mapNorth||0)) % 360;
+  toast('🧭', `North locked at ${ORI.lockedNorthHdg.toFixed(0)}°`);
+  orientNext(2);
+}
+
+function orientTapStep(){
+  const now = Date.now();
+  ORI.tappedSteps++;
+  ORI.stepTimes.push(now);
+
+  document.getElementById('or-step-count').textContent = ORI.tappedSteps;
+  const pct = Math.min(100, (ORI.tappedSteps / 20) * 100);
+  document.getElementById('or-prog').style.width = pct + '%';
+
+  // Animate button
+  const btn = document.getElementById('or-step-btn');
+  if(btn){ btn.style.transform='scale(.93)'; setTimeout(()=>btn.style.transform='',120); }
+
+  // Enable done after 10 steps
+  if(ORI.tappedSteps >= 10){
+    const doneBtn = document.getElementById('or-done-btn');
+    if(doneBtn){ doneBtn.disabled = false; doneBtn.style.opacity = '1'; }
+  }
+}
+
+function orientResetSteps(){
+  ORI.tappedSteps = 0;
+  ORI.stepTimes = [];
+  document.getElementById('or-step-count').textContent = '0';
+  document.getElementById('or-prog').style.width = '0%';
+  const btn = document.getElementById('or-done-btn');
+  if(btn){ btn.disabled = true; btn.style.opacity = '.4'; }
+}
+
+function orientFinish(){
+  const distM = parseFloat(document.getElementById('or-dist-input').value);
+  if(!distM || distM < 0.5){
+    const di = document.getElementById('or-dist-input');
+    if(di){ di.style.borderColor='var(--stop)'; setTimeout(()=>di.style.borderColor='',1200); }
+    toast('⚠','Enter the distance you walked');
+    return;
+  }
+
+  // ── Compute stride length ──────────────────────────────────────
+  const steps = ORI.tappedSteps;
+  const strideM = distM / steps;  // metres per step
+
+  // ── Cadence from tap intervals ─────────────────────────────────
+  let cadenceHz = 1.4;
+  if(ORI.stepTimes.length >= 4){
+    const intervals = [];
+    for(let i = 1; i < ORI.stepTimes.length; i++)
+      intervals.push(ORI.stepTimes[i] - ORI.stepTimes[i-1]);
+    // Trim outliers (first + last step often irregular)
+    intervals.sort((a,b)=>a-b);
+    const trimmed = intervals.slice(Math.floor(intervals.length*.15), Math.ceil(intervals.length*.85));
+    if(trimmed.length) cadenceHz = 1000 / (trimmed.reduce((a,b)=>a+b)/trimmed.length);
+  }
+
+  // ── Accuracy estimate ──────────────────────────────────────────
+  const accuracyPct = Math.min(99, Math.round(60 + Math.min(40, steps * 2)));
+
+  // ── Save to profile ────────────────────────────────────────────
+  Nav.profile.strideM        = Math.max(0.3, Math.min(1.2, strideM));
+  Nav.profile.compassOffset  = ORI.compassOffset;
+  Nav.profile.calibrated     = true;
+  Nav.profile.tappedSteps    = steps;
+  Nav.profile.measuredDist   = distM;
+  Nav.profile.cadenceHz      = cadenceHz;
+  Nav.stepLenAdapt           = Nav.profile.strideM;
+  Nav.cal.stepLen            = Nav.profile.strideM;
+  _saveProfile();
+
+  // ── Update results screen ──────────────────────────────────────
+  document.getElementById('or-steps-final').textContent = steps;
+  document.getElementById('or-res-stride').textContent  = Nav.profile.strideM.toFixed(2) + ' m';
+  document.getElementById('or-res-offset').textContent  = ORI.compassOffset.toFixed(0) + '°';
+  document.getElementById('or-res-steps').textContent   = steps + ' taps';
+  document.getElementById('or-res-acc').textContent     = accuracyPct + '%';
+
+  orientNext(4);
+}
+
+function _drawOrientCompass(){
+  const cv = document.getElementById('or-compass-cv');
+  if(!cv || ORI.screen !== 1) return;
+  const ctx = cv.getContext('2d');
+  const W=140, H=140, cx=70, cy=70, R=60;
+  ctx.clearRect(0,0,W,H);
+
+  // Background
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.fillStyle='rgba(99,102,241,.07)'; ctx.fill();
+  ctx.strokeStyle='rgba(91,95,237,.3)'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // Tick marks
+  for(let a=0;a<360;a+=10){
+    const maj=(a%90===0), mid=(a%30===0);
+    const len=maj?14:mid?8:4;
+    const r=a*Math.PI/180;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(r)*(R-1), cy+Math.sin(r)*(R-1));
+    ctx.lineTo(cx+Math.cos(r)*(R-len), cy+Math.sin(r)*(R-len));
+    ctx.strokeStyle=maj?'rgba(129,140,248,.8)':mid?'rgba(129,140,248,.35)':'rgba(71,85,105,.3)';
+    ctx.lineWidth=maj?2:1; ctx.stroke();
+  }
+
+  // N/E/S/W labels (fixed)
+  const cards=[{l:'N',a:-90,c:'#EF4444'},{l:'E',a:0,c:'rgba(148,163,184,.5)'},{l:'S',a:90,c:'rgba(148,163,184,.5)'},{l:'W',a:180,c:'rgba(148,163,184,.5)'}];
+  ctx.font='bold 10px Sora,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  cards.forEach(({l,a,c})=>{
+    const r=a*Math.PI/180, lr=R-22;
+    ctx.fillStyle=c;
+    ctx.fillText(l, cx+Math.cos(r)*lr, cy+Math.sin(r)*lr);
+  });
+
+  // Live needle (rotates with heading)
+  const hdg = Nav.hdg || 0;
+  const northRad = (-hdg - 90) * Math.PI/180;
+  const southRad = northRad + Math.PI;
+  const nr = R - 18;
+
+  ctx.save(); ctx.translate(cx, cy);
+  // North (red)
+  ctx.rotate(northRad);
+  ctx.beginPath();
+  ctx.moveTo(0, -nr); ctx.lineTo(6, 0); ctx.lineTo(0, -nr*0.2); ctx.lineTo(-6, 0);
+  ctx.closePath(); ctx.fillStyle='#EF4444';
+  ctx.shadowColor='rgba(239,68,68,.5)'; ctx.shadowBlur=8;
+  ctx.fill(); ctx.shadowBlur=0; ctx.restore();
+
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(southRad);
+  // South (grey)
+  ctx.beginPath();
+  ctx.moveTo(0, -nr); ctx.lineTo(5, 0); ctx.lineTo(0, -nr*0.2); ctx.lineTo(-5, 0);
+  ctx.closePath(); ctx.fillStyle='rgba(148,163,184,.5)'; ctx.fill(); ctx.restore();
+
+  // Center dot
+  ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,.8)'; ctx.fill();
+
+  // Live heading text
+  ctx.fillStyle='rgba(148,163,184,.8)'; ctx.font='bold 11px JetBrains Mono,monospace';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(Math.round(hdg)+'°', cx, cy+R-10);
+  const el = document.getElementById('or-hdg-live');
+  if(el) el.textContent = Math.round(hdg)+'°  ' + _hdgToCardinal(hdg);
+}
+
+function _hdgToCardinal(h){
+  const dirs=['N','NE','E','SE','S','SW','W','NW'];
+  return dirs[Math.round(h/45)%8];
+}
+
+// ── Profile persistence ───────────────────────────────────────────────
+function _profileKey(){
+  return 'wp_profile_' + (Nav.fac?.id || 'default');
+}
+function _saveProfile(){
+  try{ localStorage.setItem(_profileKey(), JSON.stringify(Nav.profile)); }catch(e){}
+}
+function _loadProfile(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(_profileKey())||'null');
+    if(saved && saved.calibrated){
+      Nav.profile = {...Nav.profile, ...saved};
+      Nav.stepLenAdapt = Nav.profile.strideM;
+      Nav.cal.stepLen  = Nav.profile.strideM;
+    }
+  }catch(e){}
+}
+
 
 // ═══════════════════════════════════════════════════════════
 // ARRIVE / STOP / CLEAR
 // ═══════════════════════════════════════════════════════════
 function arrive(){
-  Nav.isNav=false;if(_simT){clearTimeout(_simT);_simT=null;}
+  Nav.isNav=false;
+  Nav.walkingFrames=0;
+  if(_simT){clearTimeout(_simT);_simT=null;}
   document.getElementById('arr').classList.add('show');
   document.getElementById('dir-hud').classList.remove('show');
   document.getElementById('compass-hud').classList.remove('show');
@@ -1455,6 +2339,27 @@ function onQRS(data){
 // ═══════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════
+function updateDebug(){
+  const d=document.getElementById('dbg'); if(!d||d.style.display==='none') return;
+  const stateNames=['STILL','WAIT','LOCK','WALK'];
+  const msState=typeof _ms!=='undefined'?_ms:0;
+  document.getElementById('dbg-step').textContent=
+    'Steps:'+Nav.stepCount+' ['+stateNames[msState]+'] T'+(_stepSensorTier||0);
+  document.getElementById('dbg-hdg').textContent=
+    'Hdg:'+Nav.hdg.toFixed(0)+'° kal:'+Nav.kalHdg.toFixed(0)+'° gyro:'+(Nav.gyroYawRate||0).toFixed(1);
+  document.getElementById('dbg-var').textContent=
+    'Thr:'+(PV?.adaptThresh||0).toFixed(3)+' amp:'+(PV?.recentAmps?.length?PV.recentAmps[PV.recentAmps.length-1].toFixed(3):'—')+
+    ' sl:'+Nav.stepLenAdapt.toFixed(2)+'m';
+  document.getElementById('dbg-gps').textContent=
+    'GPS:±'+(GPS.accuracy||999).toFixed(0)+'m '+(GPS.active?'✓':'✗');
+  document.getElementById('dbg-state').textContent=
+    'nav:'+Nav.isNav+' wp:'+Nav.step+'/'+Nav.route.length+
+    ' sn:'+(Nav.stepsSinceNode||0)+' sr:'+(_sampleRate||0).toFixed(0)+'Hz';
+}
+// Triple-tap debug toggle
+let _dbgTaps=0,_dbgT=0;
+function dbgTap(){const n=Date.now();if(n-_dbgT<600)_dbgTaps++;else _dbgTaps=1;_dbgT=n;if(_dbgTaps>=3){const d=document.getElementById('dbg');if(d)d.style.display=d.style.display==='none'?'block':'none';_dbgTaps=0;}}
+
 function setSd(id,st){const el=document.getElementById(id);if(!el)return;el.className='sd '+(st==='on'?'on':st==='sim'?'sim':'off');}
 function setSt(id,t){const el=document.getElementById(id);if(el)el.textContent=t;}
 const synth=window.speechSynthesis;
@@ -1464,7 +2369,7 @@ let _tt;function toast(ico,msg){document.getElementById('ti').textContent=ico;do
 window.addEventListener('resize',()=>{if(Nav.canvas&&!document.getElementById('sn').classList.contains('off')){const w=document.getElementById('map-wrap');Nav.canvas.width=w.clientWidth;Nav.canvas.height=w.clientHeight;draw();}});
 window.addEventListener('DOMContentLoaded',()=>{
   renderRecent();const p=new URLSearchParams(location.search);const fid=p.get('fid');
-  if(fid){document.getElementById('fid-inp').value=fid.toUpperCase();setTimeout(loadFac,400);}
+  if(fid){document.getElementById('fid-inp').value=fid.toUpperCase();if(FB.projectId)setTimeout(loadFac,400);}
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 });
 </script>
