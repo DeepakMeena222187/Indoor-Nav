@@ -516,39 +516,23 @@ function showLiErr(msg){
           <div class="panel">
             <div class="panel-title">🧭 Map Orientation</div>
             <div style="font-size:11.5px;color:var(--text3);margin-bottom:10px;line-height:1.6;">
-              Which real-world direction does the <strong style="color:var(--text)">top of your map image</strong> face?<br>
-              Drag the compass rose or enter an exact angle. This rotates the in-app compass needle to match your floor plan.
+              Align the North arrow to match your map. Opens an overlay on the map.
             </div>
-            <!-- Quick cardinal buttons -->
-            <div id="north-picker" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
-              <button class="north-btn active" data-deg="0"   onclick="setMapNorth(0)">&#x2B06; North</button>
-              <button class="north-btn"        data-deg="90"  onclick="setMapNorth(90)">&#x27A1; East</button>
-              <button class="north-btn"        data-deg="180" onclick="setMapNorth(180)">&#x2B07; South</button>
-              <button class="north-btn"        data-deg="270" onclick="setMapNorth(270)">&#x2B05; West</button>
-            </div>
-            <!-- Draggable compass rose + custom angle -->
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-              <canvas id="north-prev" width="110" height="110"
-                style="border-radius:50%;background:rgba(99,102,241,.08);border:1px solid var(--border2);flex-shrink:0;cursor:grab;touch-action:none;"
-                title="Drag to rotate"></canvas>
-              <div style="flex:1;">
+            <!-- Current value display -->
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <canvas id="north-prev" width="52" height="52"
+                style="border-radius:50%;background:rgba(99,102,241,.08);border:1px solid var(--border2);flex-shrink:0;"></canvas>
+              <div>
                 <div style="font-size:12px;font-weight:700;color:var(--text);" id="north-label">Top = North</div>
-                <div style="font-size:11px;color:var(--text3);margin-top:3px;margin-bottom:8px;" id="north-sub">Map already aligned to compass</div>
-                <!-- Custom angle input -->
-                <label style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px;display:block;">Custom Angle (°)</label>
-                <div style="display:flex;gap:6px;align-items:center;">
-                  <input id="north-custom" type="number" min="0" max="359" step="1" placeholder="0–359"
-                    style="width:80px;padding:6px 8px;border-radius:7px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;outline:none;"
-                    oninput="setMapNorth(((parseInt(this.value)||0)+360)%360)"/>
-                  <span style="font-size:11px;color:var(--text3);">° from North</span>
-                </div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px;" id="north-sub">0° offset</div>
               </div>
             </div>
-            <!-- Live map rotation preview -->
-            <div id="compass-rotate-preview" style="display:none;background:var(--surface2);border:1px solid rgba(99,102,241,.25);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--primary);display:flex;align-items:center;gap:7px;">
-              <span style="font-size:15px;">🔄</span>
-              <span id="compass-rotate-text">Compass rotated 0° — top of map faces North</span>
-            </div>
+            <button onclick="openNorthOverlay()"
+              style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--primary);background:var(--primary-dim);
+                     color:var(--primary);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;
+                     display:flex;align-items:center;justify-content:center;gap:8px;">
+              🧭 Set North on Map
+            </button>
           </div>
 
           <!-- Facility Dimensions — critical for step accuracy -->
@@ -1134,146 +1118,160 @@ function copyId(id) {
 
 
 // ── MAP NORTH ORIENTATION ──────────────────────────────────────
-const NORTH_LABELS = {
-  0:   { label: 'Top = North',  sub: 'Map already aligned to compass' },
-  90:  { label: 'Top = East',   sub: 'Map rotated 90° CW from North' },
-  180: { label: 'Top = South',  sub: 'Map flipped — South at top' },
-  270: { label: 'Top = West',   sub: 'Map rotated 90° CCW from North' },
-};
-
 function setMapNorth(deg){
   deg = ((Math.round(deg) % 360) + 360) % 360;
   state.mapNorth = deg;
-
+  // Update small preview rose
+  drawNorthPreview(deg);
+  // Update label
+  const info = {
+    0:{label:'Top = North',sub:'0° offset'},
+    90:{label:'Top = East',sub:'90° offset'},
+    180:{label:'Top = South',sub:'180° offset'},
+    270:{label:'Top = West',sub:'270° offset'},
+  }[deg] || {label:`Top = ${deg}° from North`, sub:`${deg}° offset`};
+  const lbl=document.getElementById('north-label');
+  const sub=document.getElementById('north-sub');
+  if(lbl)lbl.textContent=info.label;
+  if(sub)sub.textContent=info.sub;
   // Sync cardinal buttons
   document.querySelectorAll('.north-btn').forEach(b=>{
     b.classList.toggle('active', parseInt(b.dataset.deg)===deg);
   });
-
-  // Sync custom number input
-  const ci = document.getElementById('north-custom');
-  if(ci && parseInt(ci.value||0) !== deg) ci.value = deg;
-
-  // Label
-  const closest = [0,90,180,270].reduce((a,b)=>Math.abs(b-deg)<Math.abs(a-deg)?b:a);
-  const info = deg % 90 === 0 ? (NORTH_LABELS[deg] || NORTH_LABELS[0])
-    : { label: `Top = ${deg}° from North`, sub: `Custom compass rotation` };
-  const lbl = document.getElementById('north-label');
-  const sub = document.getElementById('north-sub');
-  if(lbl) lbl.textContent = info.label;
-  if(sub) sub.textContent = info.sub;
-
-  // Live rotation preview banner
-  const banner = document.getElementById('compass-rotate-preview');
-  const bannerTxt = document.getElementById('compass-rotate-text');
-  if(banner && bannerTxt){
-    banner.style.display = 'flex';
-    bannerTxt.textContent = deg === 0
-      ? 'Compass aligned — top of map faces North'
-      : `Compass offset ${deg}° — top of map faces ${deg}° from North`;
-  }
-
-  drawNorthPreview(deg);
 }
 
 function drawNorthPreview(deg){
-  const cv = document.getElementById('north-prev');
-  if(!cv) return;
-  const ctx = cv.getContext('2d'), W=110, H=110, cx=55, cy=55, R=46;
+  const cv=document.getElementById('north-prev');
+  if(!cv)return;
+  const ctx=cv.getContext('2d'),W=52,H=52,cx=26,cy=26,R=22;
   ctx.clearRect(0,0,W,H);
-
-  // Background
-  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2);
-  ctx.fillStyle='rgba(99,102,241,0.07)'; ctx.fill();
-  ctx.strokeStyle='rgba(99,102,241,0.2)'; ctx.lineWidth=1.5; ctx.stroke();
-
-  // Degree ring ticks
-  for(let a=0;a<360;a+=5){
-    const major=(a%90===0), mid=(a%45===0), minor=(a%15===0);
-    const len = major?11:mid?7:minor?5:2;
-    const r = a*Math.PI/180;
-    ctx.beginPath();
-    ctx.moveTo(cx+Math.cos(r)*(R-1), cy+Math.sin(r)*(R-1));
-    ctx.lineTo(cx+Math.cos(r)*(R-1-len), cy+Math.sin(r)*(R-1-len));
-    ctx.strokeStyle = major?'rgba(129,140,248,.8)':mid?'rgba(129,140,248,.4)':'rgba(100,116,139,.25)';
-    ctx.lineWidth = major?1.5:1; ctx.stroke();
-  }
-
-  // Cardinal letters (fixed, not rotating)
-  const cards=[{l:'N',a:-90},{l:'E',a:0},{l:'S',a:90},{l:'W',a:180}];
-  ctx.font='bold 9px Inter,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  cards.forEach(({l,a})=>{
-    const r=a*Math.PI/180, lr=R-20;
-    ctx.fillStyle=l==='N'?'rgba(239,68,68,.9)':'rgba(100,116,139,.6)';
-    ctx.fillText(l, cx+Math.cos(r)*lr, cy+Math.sin(r)*lr);
-  });
-
-  // Compass needle — white half points where top-of-map faces, red half = real North
-  const northOnCanvas = (270 - deg + 360) % 360; // where real North is on canvas
-  const aRad = northOnCanvas * Math.PI / 180;
-  const ar = R - 16;
-
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(aRad);
-  // North (red) pointer
-  ctx.beginPath();
-  ctx.moveTo(0, -ar); ctx.lineTo(5, -ar*0.1); ctx.lineTo(0, -ar*0.25); ctx.lineTo(-5, -ar*0.1);
-  ctx.closePath(); ctx.fillStyle='#EF4444';
-  ctx.shadowColor='rgba(239,68,68,.6)'; ctx.shadowBlur=6; ctx.fill(); ctx.shadowBlur=0;
-  // South (white) pointer
-  ctx.beginPath();
-  ctx.moveTo(0, ar); ctx.lineTo(4, ar*0.1); ctx.lineTo(0, ar*0.25); ctx.lineTo(-4, ar*0.1);
-  ctx.closePath(); ctx.fillStyle='rgba(238,242,255,.7)'; ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.fillStyle='rgba(99,102,241,.07)';ctx.fill();
+  ctx.strokeStyle='rgba(99,102,241,.3)';ctx.lineWidth=1;ctx.stroke();
+  // North pointer
+  const northRad=((270-deg)*Math.PI/180);
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(northRad);
+  ctx.beginPath();ctx.moveTo(0,-(R-4));ctx.lineTo(4,0);ctx.lineTo(0,-(R-4)*0.25);ctx.lineTo(-4,0);
+  ctx.closePath();ctx.fillStyle='#EF4444';ctx.fill();
+  ctx.beginPath();ctx.moveTo(0,R-4);ctx.lineTo(3,0);ctx.lineTo(0,(R-4)*0.25);ctx.lineTo(-3,0);
+  ctx.closePath();ctx.fillStyle='rgba(148,163,184,.4)';ctx.fill();
   ctx.restore();
-
-  // Center pin
-  ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2);
-  ctx.fillStyle='rgba(255,255,255,.9)'; ctx.fill();
-
-  // Degree label
-  ctx.fillStyle='rgba(148,163,184,.8)'; ctx.font='bold 10px monospace';
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(deg+'°', cx, cy+R-9);
+  ctx.beginPath();ctx.arc(cx,cy,3,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,.8)';ctx.fill();
 }
 
-// ── Draggable compass rose ────────────────────────────────────────────
-(function initCompassDrag(){
-  let dragging=false, startAngle=0, startDeg=0;
-  function getAngle(cv,e){
-    const rect=cv.getBoundingClientRect();
-    const px=(e.touches?e.touches[0].clientX:e.clientX)-rect.left-rect.width/2;
-    const py=(e.touches?e.touches[0].clientY:e.clientY)-rect.top-rect.height/2;
+// ── NORTH OVERLAY ────────────────────────────────────────────
+let _novAngle = 0; // current angle in the overlay
+
+function openNorthOverlay(){
+  _novAngle = state.mapNorth || 0;
+  document.getElementById('north-overlay').style.display='flex';
+  // Draw map image into overlay canvas
+  const wrap = document.getElementById('nov-wrap');
+  const cv   = document.getElementById('nov-canvas');
+  cv.width  = wrap.clientWidth;
+  cv.height = wrap.clientHeight;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // Draw current floor map image centred
+  const img = state.mapEl;
+  if(img){
+    const sc = Math.min((cv.width-40)/img.naturalWidth, (cv.height-40)/img.naturalHeight, 1);
+    const dw = img.naturalWidth*sc, dh = img.naturalHeight*sc;
+    const dx = (cv.width-dw)/2, dy = (cv.height-dh)/2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+    ctx.strokeStyle='rgba(99,102,241,.3)';ctx.lineWidth=1;
+    ctx.strokeRect(dx,dy,dw,dh);
+  } else {
+    ctx.fillStyle='#0D1018';ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='rgba(99,102,241,.2)';ctx.font='14px Inter';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('Load a floor map first',cv.width/2,cv.height/2);
+  }
+  // Position arrow at center
+  _novUpdateArrow(_novAngle);
+  _novAngleDisplay(_novAngle);
+  _initNovDrag();
+}
+
+function closeNorthOverlay(){
+  document.getElementById('north-overlay').style.display='none';
+}
+
+function confirmNorthOverlay(){
+  setMapNorth(_novAngle);
+  closeNorthOverlay();
+  toast('🧭', `North set to ${_novAngle}°`, 'ok');
+}
+
+function setNorthOverlayAngle(deg){
+  _novAngle = ((deg%360)+360)%360;
+  _novUpdateArrow(_novAngle);
+  _novAngleDisplay(_novAngle);
+  const inp=document.getElementById('nov-angle-input');
+  if(inp)inp.value=_novAngle;
+}
+
+function _novAngleDisplay(deg){
+  const el=document.getElementById('nov-angle-display');
+  if(el)el.textContent=deg+'°';
+}
+
+function _novUpdateArrow(deg){
+  const el=document.getElementById('nov-arrow-svg');
+  if(!el)return;
+  // The arrow SVG points up (North) at 0°. Rotate so "North" on the arrow
+  // points to where North actually is on the map.
+  el.style.transform=`rotate(${deg}deg)`;
+  el.style.transition='transform .15s ease';
+}
+
+let _novDragging=false, _novStartAngle=0, _novStartDeg=0;
+
+function _initNovDrag(){
+  const wrap=document.getElementById('nov-arrow-wrap');
+  if(!wrap||wrap._novDragInit)return;
+  wrap._novDragInit=true;
+
+  function getAngle(e){
+    const r=wrap.getBoundingClientRect();
+    const cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const px=(e.touches?e.touches[0].clientX:e.clientX)-cx;
+    const py=(e.touches?e.touches[0].clientY:e.clientY)-cy;
     return (Math.atan2(py,px)*180/Math.PI+450)%360;
   }
+
   function onStart(e){
-    const cv=document.getElementById('north-prev');
-    if(!cv)return; e.preventDefault();
-    dragging=true; startAngle=getAngle(cv,e); startDeg=state.mapNorth||0;
-    cv.style.cursor='grabbing';
+    e.preventDefault();
+    _novDragging=true;
+    _novStartAngle=getAngle(e);
+    _novStartDeg=_novAngle;
+    wrap.style.cursor='grabbing';
   }
   function onMove(e){
-    if(!dragging)return; e.preventDefault();
-    const cv=document.getElementById('north-prev'); if(!cv)return;
-    const a=getAngle(cv,e);
-    let diff=a-startAngle; if(diff>180)diff-=360; if(diff<-180)diff+=360;
-    const newDeg=((startDeg+diff)%360+360)%360;
-    setMapNorth(Math.round(newDeg));
+    if(!_novDragging)return;
+    e.preventDefault();
+    let diff=getAngle(e)-_novStartAngle;
+    if(diff>180)diff-=360; if(diff<-180)diff+=360;
+    _novAngle=((Math.round(_novStartDeg+diff))%360+360)%360;
+    _novUpdateArrow(_novAngle);
+    _novAngleDisplay(_novAngle);
+    const inp=document.getElementById('nov-angle-input');
+    if(inp)inp.value=_novAngle;
   }
   function onEnd(){
-    dragging=false;
-    const cv=document.getElementById('north-prev');
-    if(cv)cv.style.cursor='grab';
+    _novDragging=false;
+    wrap.style.cursor='grab';
   }
-  document.addEventListener('DOMContentLoaded',()=>{
-    const cv=document.getElementById('north-prev');
-    if(!cv)return;
-    cv.addEventListener('mousedown',onStart,{passive:false});
-    cv.addEventListener('touchstart',onStart,{passive:false});
-    document.addEventListener('mousemove',onMove,{passive:false});
-    document.addEventListener('touchmove',onMove,{passive:false});
-    document.addEventListener('mouseup',onEnd);
-    document.addEventListener('touchend',onEnd);
-  });
-})();
+  wrap.addEventListener('mousedown',onStart,{passive:false});
+  wrap.addEventListener('touchstart',onStart,{passive:false});
+  document.addEventListener('mousemove',onMove,{passive:false});
+  document.addEventListener('touchmove',onMove,{passive:false});
+  document.addEventListener('mouseup',onEnd);
+  document.addEventListener('touchend',onEnd);
+}
+
+
 
 // ── FACILITY DIMENSIONS + AREA CALCULATOR ──────────────────────────
 function onDimChange(){
@@ -2158,5 +2156,80 @@ document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>{
 </div>
 
 </div><!-- /admin-shell -->
+
+<!-- ═══════════ NORTH ORIENTATION OVERLAY ═══════════ -->
+<div id="north-overlay" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(7,9,15,.92);backdrop-filter:blur(4px);flex-direction:column;">
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--surface);border-bottom:1px solid var(--border);">
+    <div>
+      <div style="font-size:15px;font-weight:800;">🧭 Set North Direction</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px;">Drag the arrow so it points North on your map. Use the map image as reference.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div style="font-family:var(--mono);font-size:13px;color:var(--primary);font-weight:700;" id="nov-angle-display">0°</div>
+      <button onclick="confirmNorthOverlay()"
+        style="padding:8px 18px;border-radius:9px;border:none;background:var(--primary);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">
+        ✓ Confirm
+      </button>
+      <button onclick="closeNorthOverlay()"
+        style="padding:8px 14px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:var(--font);font-size:13px;cursor:pointer;">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <!-- Canvas area -->
+  <div style="flex:1;position:relative;overflow:hidden;" id="nov-wrap">
+    <!-- Map canvas clone (view only) -->
+    <canvas id="nov-canvas" style="display:block;width:100%;height:100%;"></canvas>
+
+    <!-- Draggable North arrow overlay -->
+    <div id="nov-arrow-wrap" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:120px;height:120px;cursor:grab;touch-action:none;user-select:none;">
+      <svg id="nov-arrow-svg" viewBox="0 0 120 120" width="120" height="120" style="display:block;filter:drop-shadow(0 0 12px rgba(239,68,68,.7));">
+        <!-- Circle ring -->
+        <circle cx="60" cy="60" r="56" fill="rgba(99,102,241,.08)" stroke="rgba(99,102,241,.5)" stroke-width="1.5"/>
+        <!-- N label at top -->
+        <text x="60" y="18" text-anchor="middle" dominant-baseline="middle" fill="#EF4444" font-family="Inter,sans-serif" font-size="13" font-weight="800">N</text>
+        <!-- S label at bottom -->
+        <text x="60" y="104" text-anchor="middle" dominant-baseline="middle" fill="rgba(148,163,184,.5)" font-family="Inter,sans-serif" font-size="11" font-weight="700">S</text>
+        <!-- E label -->
+        <text x="104" y="61" text-anchor="middle" dominant-baseline="middle" fill="rgba(148,163,184,.4)" font-family="Inter,sans-serif" font-size="10">E</text>
+        <!-- W label -->
+        <text x="16" y="61" text-anchor="middle" dominant-baseline="middle" fill="rgba(148,163,184,.4)" font-family="Inter,sans-serif" font-size="10">W</text>
+        <!-- North pointer (red) -->
+        <polygon points="60,22 66,60 60,54 54,60" fill="#EF4444"/>
+        <!-- South pointer (grey) -->
+        <polygon points="60,98 65,60 60,66 55,60" fill="rgba(148,163,184,.45)"/>
+        <!-- Center dot -->
+        <circle cx="60" cy="60" r="5" fill="rgba(255,255,255,.9)"/>
+        <!-- Tick marks -->
+        <line x1="60" y1="5" x2="60" y2="13" stroke="rgba(129,140,248,.6)" stroke-width="2"/>
+        <line x1="115" y1="60" x2="107" y2="60" stroke="rgba(129,140,248,.3)" stroke-width="1.5"/>
+        <line x1="60" y1="115" x2="60" y2="107" stroke="rgba(129,140,248,.3)" stroke-width="1.5"/>
+        <line x1="5" y1="60" x2="13" y2="60" stroke="rgba(129,140,248,.3)" stroke-width="1.5"/>
+      </svg>
+    </div>
+
+    <!-- Instruction hint -->
+    <div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
+      background:rgba(7,9,15,.85);border:1px solid var(--border);border-radius:10px;
+      padding:8px 16px;font-size:12px;color:var(--text3);white-space:nowrap;pointer-events:none;">
+      🖱 Drag the compass rose to point North on your map
+    </div>
+  </div>
+
+  <!-- Quick preset buttons -->
+  <div style="display:flex;gap:8px;padding:12px 20px;background:var(--surface);border-top:1px solid var(--border);justify-content:center;">
+    <button onclick="setNorthOverlayAngle(0)"   style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);">↑ North</button>
+    <button onclick="setNorthOverlayAngle(90)"  style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);">→ East</button>
+    <button onclick="setNorthOverlayAngle(180)" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);">↓ South</button>
+    <button onclick="setNorthOverlayAngle(270)" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);">← West</button>
+    <div style="width:1px;background:var(--border);margin:0 4px;"></div>
+    <input id="nov-angle-input" type="number" min="0" max="359" placeholder="0°"
+      style="width:64px;padding:7px 8px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;text-align:center;outline:none;"
+      oninput="setNorthOverlayAngle((parseInt(this.value)||0+360)%360)"/>
+  </div>
+</div>
+
 </body>
 </html>
