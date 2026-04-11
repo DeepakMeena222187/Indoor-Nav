@@ -1101,6 +1101,7 @@ function draw(){
     // Only render if it's a named landmark, from/to, or next waypoint
     if(!hasLabel&&!isLandmark&&!isDest&&!isFrom&&!isNext)return;
 
+    ctx.beginPath(); // Reset path at start of each node — prevents accumulation
     const col=nc(n.type);
     if(isDest||isFrom||isNext){
       // Subtle glow ring only (no filled dot except from/to which have pins)
@@ -1119,6 +1120,7 @@ function draw(){
       const tw=ctx.measureText(lbl).width+10;
       // Small pill label
       const lx=n.x-tw/2,ly=n.y-8;
+      ctx.beginPath();
       ctx.fillStyle='rgba(7,9,15,.82)';
       if(ctx.roundRect)ctx.roundRect(lx,ly,tw,14,4);
       else ctx.rect(lx,ly,tw,14);
@@ -1135,9 +1137,11 @@ function draw(){
     const{x,y}=sp;
     ctx.beginPath();ctx.arc(x,y,22,0,Math.PI*2);ctx.fillStyle='rgba(91,95,237,.08)';ctx.fill();
     ctx.beginPath();ctx.arc(x,y,14,0,Math.PI*2);ctx.fillStyle='rgba(91,95,237,.12)';ctx.fill();
-    ctx.beginPath();ctx.arc(x,y,9,0,Math.PI*2);ctx.fillStyle='#5B5FED';ctx.fill();
-    ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.stroke();
+    ctx.beginPath();ctx.arc(x,y,9,0,Math.PI*2);ctx.fillStyle='#5B5FED';
     ctx.shadowColor='rgba(91,95,237,.9)';ctx.shadowBlur=16;ctx.fill();ctx.shadowBlur=0;
+    ctx.shadowColor='transparent';
+    ctx.beginPath();ctx.arc(x,y,9,0,Math.PI*2);
+    ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.stroke();
     if(Nav.hdgReady){
       const hRad=Nav.hdg*Math.PI/180;
       ctx.save();ctx.translate(x,y);ctx.rotate(hRad);
@@ -1147,6 +1151,14 @@ function draw(){
   }
 
   ctx.restore();
+
+  // Hard reset all leakable ctx state after every draw
+  const _ctx=Nav.ctx;
+  if(_ctx){
+    _ctx.shadowBlur=0; _ctx.shadowColor='transparent';
+    _ctx.lineWidth=1;  _ctx.globalAlpha=1;
+    _ctx.setLineDash([]); _ctx.strokeStyle='#000';
+  }
 
   // During navigation: keep user dot centered on canvas
   if(Nav.isNav && Nav.smoothPos){
@@ -1196,6 +1208,7 @@ function drawCardinals(ctx,iw,ih){
   });
   labels.forEach(({l,x,y,c})=>{
     // Background badge
+    ctx.beginPath();
     ctx.fillStyle='rgba(7,9,15,.75)';
     if(ctx.roundRect)ctx.roundRect(x-10,y-8,20,16,4);else ctx.rect(x-10,y-8,20,16);
     ctx.fill();
