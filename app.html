@@ -1087,46 +1087,67 @@ function draw(){
   }
 
   // ── NODES: hidden by default — only show labeled landmarks ──────────
-  // Nodes are pathfinding data only. Users see labels of key places.
-  const LANDMARK_TYPES=['entrance','exit','stairs','elevator','escalator',
+  // ── NODE RENDERING RULES ─────────────────────────────────
+  // NEVER show labels for: corridor, junction, door (pathfinding only)
+  // ALWAYS show labels for: rooms, facilities, stairs, etc. — but ONLY if
+  //   the label is a real name (not just the type word like "Corridor")
+  // ALWAYS show a small dot for: from, to, next waypoint on route
+  const SILENT_TYPES=new Set(['corridor','junction','door']);
+  const LABEL_TYPES=new Set(['entrance','exit','stairs','elevator','escalator',
     'toilet','pharmacy','cafeteria','emergency','fire_exit','room','ward',
-    'icu','office','waiting','ramp'];
+    'icu','office','waiting','ramp','kitchen','reception']);
+
   nodes.forEach(n=>{
     const isDest=Nav.toNode?.id===n.id;
     const isFrom=Nav.fromNode?.id===n.id;
     const isNext=Nav.isNav&&Nav.route[Nav.step+1]===n.id;
-    const hasLabel=n.label&&n.label.trim()!==''&&n.label!==n.type;
-    const isLandmark=LANDMARK_TYPES.includes(n.type);
 
-    // Only render if it's a named landmark, from/to, or next waypoint
-    if(!hasLabel&&!isLandmark&&!isDest&&!isFrom&&!isNext)return;
+    // Silent nodes (corridors/junctions): only show if they are from/to/next
+    if(SILENT_TYPES.has(n.type)&&!isDest&&!isFrom&&!isNext) return;
 
-    ctx.beginPath(); // Reset path at start of each node — prevents accumulation
-    const col=nc(n.type);
-    if(isDest||isFrom||isNext){
-      // Subtle glow ring only (no filled dot except from/to which have pins)
-      if(isNext&&!isDest){
-        ctx.beginPath();ctx.arc(n.x,n.y,8,0,Math.PI*2);
-        ctx.strokeStyle='rgba(245,158,11,.5)';ctx.lineWidth=2;ctx.stroke();
-      }
+    // Has a REAL label = something different from the type name and not blank
+    const rawLabel=(n.label||'').trim();
+    const isGenericLabel=!rawLabel||rawLabel.toLowerCase()===n.type.toLowerCase()||
+      rawLabel.toLowerCase()==='corridor'||rawLabel.toLowerCase()==='junction'||
+      rawLabel.toLowerCase()==='door'||rawLabel.toLowerCase()==='node';
+    const hasRealLabel=!isGenericLabel;
+
+    // Skip non-landmark nodes with no real label (unless from/to/next)
+    if(!LABEL_TYPES.has(n.type)&&!hasRealLabel&&!isDest&&!isFrom&&!isNext) return;
+
+    ctx.beginPath(); // Always reset path before each node
+
+    // ── Next waypoint ring ──────────────────────────────────
+    if(isNext&&!isDest){
+      ctx.beginPath();ctx.arc(n.x,n.y,10,0,Math.PI*2);
+      ctx.strokeStyle='rgba(245,158,11,.7)';ctx.lineWidth=2;ctx.stroke();
     }
 
-    // Label for named landmarks and key nodes
-    if(hasLabel||(isLandmark&&n.type!=='corridor'&&n.type!=='junction')){
-      const lbl=n.label||(n.type.charAt(0).toUpperCase()+n.type.slice(1));
-      const fs=isDest||isFrom?11:9;
+    // ── Small dot for from/to (pins drawn separately) ───────
+    if(isFrom&&!Nav.isNav){
+      ctx.beginPath();ctx.arc(n.x,n.y,5,0,Math.PI*2);
+      ctx.fillStyle='#10B981';ctx.fill();
+    }
+
+    // ── Label pill — only for real named places ─────────────
+    // Show label if: has a real custom name OR is a key facility type
+    const showLabel = hasRealLabel || (LABEL_TYPES.has(n.type) && !SILENT_TYPES.has(n.type));
+    if(showLabel){
+      const lbl = hasRealLabel ? rawLabel : (n.type.charAt(0).toUpperCase()+n.type.slice(1));
+      const fs = isDest||isFrom ? 11 : 9;
       ctx.font=`600 ${fs}px Sora,sans-serif`;
-      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
       const tw=ctx.measureText(lbl).width+10;
-      // Small pill label
-      const lx=n.x-tw/2,ly=n.y-8;
+      const lx=n.x-tw/2, ly=n.y-isDest?10:8;
+      // Pill background
       ctx.beginPath();
-      ctx.fillStyle='rgba(7,9,15,.82)';
-      if(ctx.roundRect)ctx.roundRect(lx,ly,tw,14,4);
+      ctx.fillStyle = isDest?'rgba(239,68,68,.15)':isFrom?'rgba(16,185,129,.15)':'rgba(7,9,15,.82)';
+      if(ctx.roundRect) ctx.roundRect(lx,ly,tw,14,4);
       else ctx.rect(lx,ly,tw,14);
       ctx.fill();
-      ctx.fillStyle=isDest?'#EF4444':isFrom?'#10B981':'rgba(238,242,255,.75)';
-      ctx.fillText(lbl,n.x,ly+7);
+      // Text
+      ctx.fillStyle = isDest?'#EF4444':isFrom?'#10B981':'rgba(238,242,255,.85)';
+      ctx.fillText(lbl, n.x, ly+7);
     }
   });
 
