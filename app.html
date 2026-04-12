@@ -1712,7 +1712,7 @@ function startOri(){
         if(!_absOrSensor.quaternion)return;
         const [qx,qy,qz,qw]=_absOrSensor.quaternion;
         const yaw=Math.atan2(2*(qw*qz+qx*qy),1-2*(qy*qy+qz*qz));
-        const deg=((yaw*180/Math.PI)+360)%360;
+        const deg=(90-(yaw*180/Math.PI)+360)%360;  // ENU: yaw=0→East(90°), yaw=90°→North(0°)
         const aligned=(deg-(Nav.mapNorth||0)+360)%360;
         _blendHeading(aligned,0.25);
         setSd('sd-h','on'); setSt('st-h',aligned.toFixed(0)+'° ABS');
@@ -1762,7 +1762,7 @@ function _startGyroHW(){
     if(typeof Gyroscope!=='undefined'){
       _gyroHW=new Gyroscope({frequency:50});
       _gyroHW.addEventListener('reading',()=>{
-        const yr=(_gyroHW.z||0)*180/Math.PI;
+        const yr=-(_gyroHW.z||0)*180/Math.PI;  // negate: browser gyro.z positive=CCW, heading increases CW
         Nav.gyroYawRate=yr; Nav.gyroActive=true; Nav.gyroLastT=Date.now();
         setSd('sd-g','on'); setSt('st-g',yr.toFixed(0)+'°/s');
       });
@@ -1931,8 +1931,9 @@ function _startGyroSources(){
   const gh=e=>{
     if(!e.rotationRate)return;
     const yr=e.rotationRate.alpha||0;
-    if(Math.abs(yr)<720&&!_gyroHW){
-      Nav.gyroYawRate=yr; Nav.gyroActive=true; Nav.gyroLastT=Date.now();
+    const yrN=-(yr);  // negate: rotationRate.alpha positive=CCW, heading increases CW
+    if(Math.abs(yrN)<720&&!_gyroHW){
+      Nav.gyroYawRate=yrN; Nav.gyroActive=true; Nav.gyroLastT=Date.now();
       setSd('sd-g','on'); setSt('st-g',yr.toFixed(0)+'°/s');
     }
   };
@@ -1955,7 +1956,7 @@ function _onHWStep(){
 function _onDevMotion(e){
   // Gyro from DeviceMotion
   if(e.rotationRate&&!_gyroHW){
-    const yr=e.rotationRate.alpha||0;
+    const yr=-(e.rotationRate.alpha||0);  // negate: positive=CCW, heading increases CW
     if(Math.abs(yr)<720){
       Nav.gyroYawRate=yr; Nav.gyroActive=true; Nav.gyroLastT=Date.now();
       setSd('sd-g','on'); setSt('st-g',yr.toFixed(0)+'°/s');
